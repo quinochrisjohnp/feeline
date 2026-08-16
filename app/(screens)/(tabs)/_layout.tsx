@@ -1,0 +1,13 @@
+import {Tabs} from "expo-router";
+
+const TabLayout = () => (
+    <Tabs screenOptions={{ headerShown: false }}>
+        <Tabs.Screen name="camera" options={{ title: "Camera" }} />
+        <Tabs.Screen name="album" options={{ title: "Album" }} />
+        <Tabs.Screen name="calendar" options={{ title: "Calendar" }} />
+        <Tabs.Screen name="status" options={{ title: "Status" }} />
+        <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+    </Tabs>
+)
+
+export default TabLayout;
