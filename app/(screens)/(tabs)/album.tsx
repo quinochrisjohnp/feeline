@@ -4,7 +4,7 @@ import React from 'react'
 const album = () => {
   return (
     <View>
-      <Text>album</Text>
+      <Text>album TEST</Text>
     </View>
   )
 }
