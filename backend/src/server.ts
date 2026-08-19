@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import pool from "./database";
 
 dotenv.config();
 
@@ -23,6 +24,25 @@ app.get("/health", (_req, res) => {
     success: true,
     status: "healthy",
   });
+});
+
+app.get("/health/database", async (_req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+
+    res.json({
+      success: true,
+      status: "Database connection successful",
+      database_time: result.rows[0].now,
+    });
+  } catch (error) {
+    console.error("Database connection error:", error);
+
+    res.status(500).json({
+      success: false,
+      status: "Database connection failed",
+    });
+  }
 });
 
 app.listen(PORT, "0.0.0.0", () => {
