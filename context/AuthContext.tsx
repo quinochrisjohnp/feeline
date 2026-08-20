@@ -37,6 +37,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     scopes: ["openid", "profile", "email"],
   });
 
+  useEffect(() => {
+    if (request) {
+      console.log("FEELINE_DEBUG redirectUri:", request.redirectUri);
+    }
+  }, [request]);
+
   const restoreSession = useCallback(async () => {
     setIsLoading(true);
     try {
