@@ -1,15 +1,10 @@
-import { View, Text, StyleSheet } from "react-native";
-import { Link } from "expo-router";
-import React from 'react'
+import { View, ActivityIndicator, StyleSheet } from "react-native";
+import React from "react";
 
 const Index = () => {
   return (
     <View style={styles.container}>
-      <Text>index</Text>
-
-    <Link href="/(tabs)/camera">
-      Click this
-    </Link>
+      <ActivityIndicator size="large" />
     </View>
   );
 };
@@ -21,11 +16,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  link: {
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: "blue",
-    color: "white",
   },
 });

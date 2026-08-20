@@ -1,9 +1,36 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
+import { useEffect } from "react";
+import { AuthProvider, useAuth } from "../context/AuthContext";
+
+function RootNavigation() {
+  const { profile, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments.includes("(auth)");
+    const inTabsGroup = segments.includes("(tabs)");
+
+    if (!profile && !inAuthGroup) {
+      router.replace("/(screens)/(auth)/login");
+    } else if (profile && !inTabsGroup) {
+      router.replace("/(screens)/(tabs)/camera");
+    }
+  }, [profile, isLoading, segments, router]);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(screens)" />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   return (
-  <Stack  screenOptions={{ headerShown: false}}>
-    <Stack.Screen name="(tabs)" />
-  </Stack>
+    <AuthProvider>
+      <RootNavigation />
+    </AuthProvider>
   );
 }
