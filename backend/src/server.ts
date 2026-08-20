@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import pool from "./database";
+import authRoutes from "./auth/auth.routes";
 
 dotenv.config();
 
@@ -44,6 +45,8 @@ app.get("/health/database", async (_req, res) => {
     });
   }
 });
+
+app.use("/auth", authRoutes);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`FeELINE Backend running on port ${PORT}`);
