@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
+import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 
 function RootNavigation() {
@@ -10,8 +11,9 @@ function RootNavigation() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments.includes("(auth)");
-    const inTabsGroup = segments.includes("(tabs)");
+    const path = segments.join("/");
+    const inAuthGroup = path.includes("(auth)");
+    const inTabsGroup = path.includes("(tabs)");
 
     if (!profile && !inAuthGroup) {
       router.replace("/(screens)/(auth)/login");
@@ -21,9 +23,12 @@ function RootNavigation() {
   }, [profile, isLoading, segments, router]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(screens)" />
-    </Stack>
+    <>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(screens)" />
+      </Stack>
+    </>
   );
 }
 
