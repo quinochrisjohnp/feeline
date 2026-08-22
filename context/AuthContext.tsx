@@ -5,13 +5,22 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import * as AuthSession from "expo-auth-session";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
-import { apiFetch, clearToken, getToken, saveToken } from "../services/api";
-import type { AuthResponse, FeelineProfile } from "../types/auth";
+import { clearToken, getToken, saveToken } from "../services/api";
+import type { FeelineProfile } from "../types/auth";
 
-WebBrowser.maybeCompleteAuthSession();
+// --- Phase 1 (frontend-only) mock account -------------------------------
+// TODO(auth): Replace with real Google sign-in (expo-auth-session +
+// WebBrowser) once the backend + Google OAuth credentials are wired up.
+// TODO(backend): Replace restoreSession's local check with a real
+// GET /auth/me call once the API is connected.
+const MOCK_TOKEN = "mock-session-token";
+const MOCK_PROFILE: FeelineProfile = {
+  profileId: "mock-profile",
+  email: "demo.user@feeline.app",
+  firstName: "Demo",
+  lastName: "User",
+  profileImageUrl: null,
+};
 
 interface AuthContextValue {
   profile: FeelineProfile | null;
@@ -30,39 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [request, , promptAsync] = Google.useAuthRequest({
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB,
-    scopes: ["openid", "profile", "email"],
-  });
-
-  useEffect(() => {
-    if (request) {
-      console.log("FEELINE_DEBUG redirectUri:", request.redirectUri);
-    }
-  }, [request]);
-
   const restoreSession = useCallback(async () => {
     setIsLoading(true);
     try {
       const token = await getToken();
-
-      if (!token) {
-        setProfile(null);
-        return;
-      }
-
-      const response = await apiFetch("/auth/me");
-
-      if (!response.ok) {
-        await clearToken();
-        setProfile(null);
-        return;
-      }
-
-      const data = await response.json();
-      setProfile(data.profile);
+      setProfile(token === MOCK_TOKEN ? MOCK_PROFILE : null);
     } catch (err) {
       console.error("Failed to restore session:", err);
       setProfile(null);
@@ -76,61 +57,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [restoreSession]);
 
   const signIn = useCallback(async () => {
-    if (!request) {
-      setError("Google sign-in is not ready yet. Try again in a moment.");
-      return;
-    }
-
     setError(null);
     setIsSigningIn(true);
 
     try {
-      const result = await promptAsync();
-
-      if (result.type === "cancel" || result.type === "dismiss") {
-        return;
-      }
-
-      if (result.type !== "success" || !result.params.code) {
-        throw new Error("Google sign-in did not complete successfully.");
-      }
-
-      const tokenResult = await AuthSession.exchangeCodeAsync(
-        {
-          clientId: request.clientId,
-          code: result.params.code,
-          redirectUri: request.redirectUri,
-          extraParams: request.codeVerifier
-            ? { code_verifier: request.codeVerifier }
-            : undefined,
-        },
-        { tokenEndpoint: "https://oauth2.googleapis.com/token" }
-      );
-
-      if (!tokenResult.idToken) {
-        throw new Error("Google did not return an ID token.");
-      }
-
-      const response = await apiFetch("/auth/google", {
-        method: "POST",
-        body: JSON.stringify({ idToken: tokenResult.idToken }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Backend rejected the Google sign-in.");
-      }
-
-      const data: AuthResponse = await response.json();
-
-      await saveToken(data.token);
-      setProfile(data.profile);
+      // Simulated network delay so the loading state is visible in the UI.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await saveToken(MOCK_TOKEN);
+      setProfile(MOCK_PROFILE);
     } catch (err) {
-      console.error("Sign-in failed:", err);
-      setError("Could not sign in with Google. Please try again.");
+      console.error("Mock sign-in failed:", err);
+      setError("Could not sign in. Please try again.");
     } finally {
       setIsSigningIn(false);
     }
-  }, [request, promptAsync]);
+  }, []);
 
   const signOut = useCallback(async () => {
     await clearToken();
