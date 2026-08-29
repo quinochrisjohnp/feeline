@@ -1,102 +1,77 @@
 import React, { useState } from "react";
-import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PlaceholderBox from "@/components/common/PlaceholderBox";
-import Button from "@/components/common/Button";
 import CaptureButton from "@/components/camera/CaptureButton";
-import EmotionResultCard from "@/components/camera/EmotionResultCard";
+import WhatToAvoidModal from "@/components/camera/WhatToAvoidModal";
+import type { EmotionKey } from "@/types/models";
 import { colors, radii, shadows, spacing } from "@/constants/theme";
 
-type CaptureState = "idle" | "captured";
+const EMOTION_KEYS: EmotionKey[] = ["happy", "neutral", "fear", "angry"];
 
-// TODO(camera): Replace this whole screen's viewfinder with expo-camera once
-// the AI pipeline is ready. TODO(ai): Wire real emotion detection into
-// EmotionResultCard instead of the static placeholder.
+// TODO(camera): Replace this viewfinder with expo-camera and wire capture
+// to a real image once the AI pipeline is ready. Outcome selection below
+// (normal/low-confidence/error) is a mock weighted random pick purely so
+// all three result states in camera-result.tsx are reachable for testing.
 export default function Camera() {
-  const [captureState, setCaptureState] = useState<CaptureState>("idle");
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [avoidVisible, setAvoidVisible] = useState(false);
 
-  const handleCapture = () => setCaptureState("captured");
-  const handleRetake = () => setCaptureState("idle");
+  const handleCapture = () => {
+    const roll = Math.random();
+    const emotion = EMOTION_KEYS[Math.floor(Math.random() * EMOTION_KEYS.length)];
 
-  const handleSave = () => {
-    // TODO(backend): upload the captured image once storage/API is ready.
-    Alert.alert("Saved", "Image saved to Unknown Cats. (Placeholder action)");
-    setCaptureState("idle");
-  };
+    if (roll < 0.15) {
+      router.push({ pathname: "/camera-result", params: { outcome: "error" } });
+      return;
+    }
 
-  const handleHelp = () => {
-    Alert.alert(
-      "What to avoid",
-      "Blurry images, dark images, images without cats, cropped images, or images with physical deformities may reduce detection accuracy."
-    );
+    if (roll < 0.35) {
+      const confidence = String(15 + Math.floor(Math.random() * 30));
+      router.push({ pathname: "/camera-result", params: { outcome: "low", emotion, confidence } });
+      return;
+    }
+
+    const confidence = String(70 + Math.floor(Math.random() * 29));
+    router.push({ pathname: "/camera-result", params: { outcome: "normal", emotion, confidence } });
   };
 
   return (
     <View style={styles.container}>
       <PlaceholderBox
         style={styles.fill}
-        icon={captureState === "captured" ? "image-outline" : "camera-outline"}
-        label={
-          captureState === "captured"
-            ? "Captured Photo (Placeholder)"
-            : "Camera Preview (Placeholder)"
-        }
+        icon="camera-outline"
+        label="Camera Preview (Placeholder)"
         backgroundColor={colors.black}
         labelColor="rgba(255,255,255,0.7)"
         borderRadius={0}
       />
 
       <View style={[styles.topRow, { top: insets.top + spacing.sm }]}>
-        {captureState === "captured" ? (
-          <TouchableOpacity
-            style={styles.roundIconButton}
-            onPress={handleRetake}
-            accessibilityLabel="Retake photo"
-          >
-            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
-        ) : (
-          <View />
-        )}
-
-        {captureState === "captured" ? (
-          <Button label="Save" variant="outline" size="sm" onPress={handleSave} />
-        ) : (
-          <TouchableOpacity
-            style={styles.roundIconButton}
-            onPress={handleHelp}
-            accessibilityLabel="Camera tips"
-          >
-            <Ionicons name="help-circle-outline" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
-        )}
+        <View />
+        <TouchableOpacity
+          style={styles.roundIconButton}
+          onPress={() => setAvoidVisible(true)}
+          accessibilityLabel="Camera tips"
+        >
+          <Ionicons name="help-circle-outline" size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
       </View>
 
-      {captureState === "idle" && (
-        <View style={[styles.bottomControls, { bottom: insets.bottom + 120 }]}>
-          <TouchableOpacity
-            style={styles.thumbnail}
-            onPress={() => router.push("/album")}
-            accessibilityLabel="Open album"
-          >
-            <Ionicons name="paw" size={22} color={colors.white} />
-          </TouchableOpacity>
+      <View style={[styles.bottomControls, { bottom: insets.bottom + 120 }]}>
+        <TouchableOpacity style={styles.thumbnail} onPress={() => router.push("/album")} accessibilityLabel="Open album">
+          <Ionicons name="paw" size={22} color={colors.white} />
+        </TouchableOpacity>
 
-          <CaptureButton onPress={handleCapture} />
+        <CaptureButton onPress={handleCapture} />
 
-          <View style={styles.thumbnailSpacer} />
-        </View>
-      )}
+        <View style={styles.thumbnailSpacer} />
+      </View>
 
-      {captureState === "captured" && (
-        <View style={styles.resultWrapper}>
-          <EmotionResultCard />
-        </View>
-      )}
+      <WhatToAvoidModal visible={avoidVisible} onClose={() => setAvoidVisible(false)} />
     </View>
   );
 }
@@ -140,5 +115,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   thumbnailSpacer: { width: 48, height: 48 },
-  resultWrapper: { position: "absolute", left: 0, right: 0, bottom: 0 },
 });

@@ -8,31 +8,30 @@ import CatProfileHeader from "@/components/cats/CatProfileHeader";
 import EmotionBadge from "@/components/common/EmotionBadge";
 import EmptyState from "@/components/common/EmptyState";
 import AddCatForm from "@/components/cats/AddCatForm";
-import { mockCats } from "@/data/mockCats";
-import { mockDetectionRecords } from "@/data/mockDetectionRecords";
+import { useCatData } from "@/context/CatDataContext";
 import { EMOTIONS } from "@/types/models";
 import type { Cat } from "@/types/models";
 import { getAgeYears, formatShortDate } from "@/utils/date";
 import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
 
-// TODO: cat profile edit/delete flows and backend sync come in a later phase.
+// TODO: cat profile edit/delete flows come in a later phase.
 export default function Status() {
   const insets = useSafeAreaInsets();
-  const [cats, setCats] = useState<Cat[]>(mockCats);
+  const { cats, addCat, detectionRecords } = useCatData();
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [addingCat, setAddingCat] = useState(false);
 
   const selectedCat = cats.find((cat) => cat.id === selectedCatId) ?? null;
 
   const latestRecordFor = (catId: string) => {
-    const records = mockDetectionRecords
+    const records = detectionRecords
       .filter((record) => record.catId === catId)
       .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
     return records[0] ?? null;
   };
 
   const handleSaveCat = (cat: Cat) => {
-    setCats((current) => [cat, ...current]);
+    addCat(cat);
     setAddingCat(false);
   };
 

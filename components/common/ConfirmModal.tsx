@@ -10,6 +10,9 @@ interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** Hides the Cancel button for single-action "info" dialogs like
+   * "Image Saved! / Continue" or "Cat Profile Saved! / Continue". */
+  hideCancel?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -21,6 +24,7 @@ export default function ConfirmModal({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   destructive = false,
+  hideCancel = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -31,7 +35,9 @@ export default function ConfirmModal({
           <Text style={styles.title}>{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <View style={styles.actions}>
-            <Button label={cancelLabel} variant="outline" onPress={onCancel} style={styles.actionButton} />
+            {!hideCancel && (
+              <Button label={cancelLabel} variant="outline" onPress={onCancel} style={styles.actionButton} />
+            )}
             <Button
               label={confirmLabel}
               variant={destructive ? "danger" : "primary"}
@@ -60,18 +66,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     ...shadows.floating,
   },
-  title: {
-    ...typography.subheading,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-    textAlign: "center",
-  },
-  message: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
+  title: { ...typography.subheading, color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
+  message: { ...typography.body, color: colors.textSecondary, textAlign: "center", marginBottom: spacing.lg },
   actions: { flexDirection: "row", gap: spacing.sm },
   actionButton: { flex: 1 },
 });

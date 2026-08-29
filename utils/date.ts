@@ -65,3 +65,10 @@ export function getMonthMatrix(monthDate: Date): CalendarCell[] {
 export function monthLabel(monthDate: Date): string {
   return monthDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
+
+/** The Sunday-first week (7 consecutive dates) containing the given date.
+ * Used by the Calendar's collapsed compact-week header. */
+export function getWeekDates(date: Date): Date[] {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
+  return Array.from({ length: 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+}

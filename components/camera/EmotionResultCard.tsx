@@ -6,10 +6,13 @@ import { RECOMMENDED_ACTIONS } from "@/data/recommendations";
 import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
 
 interface EmotionResultCardProps {
-  /** When omitted, the card renders in Phase-1 placeholder mode (used by
-   * the live Camera screen, which has no real detection yet). */
+  /** Omitted → Phase-1 placeholder mode (used by screens with no real
+   * detection wired up yet, if any remain). */
   emotionKey?: EmotionKey;
   confidence?: number;
+  /** "lowConfidence" replaces the recommended-actions list with the
+   * low-confidence warning copy from the prototype. */
+  variant?: "normal" | "lowConfidence";
 }
 
 // TODO(ai): Feed real detection output into this card once the emotion
@@ -20,8 +23,9 @@ const PLACEHOLDER_ACTIONS = [
   "Recommended actions for your cat will be shown in this section.",
 ];
 
-export default function EmotionResultCard({ emotionKey, confidence }: EmotionResultCardProps) {
+export default function EmotionResultCard({ emotionKey, confidence, variant = "normal" }: EmotionResultCardProps) {
   const isPlaceholder = !emotionKey;
+  const isLowConfidence = variant === "lowConfidence" && !!emotionKey;
   const meta = emotionKey ? EMOTIONS[emotionKey] : null;
   const actions = emotionKey ? RECOMMENDED_ACTIONS[emotionKey] : PLACEHOLDER_ACTIONS;
 
@@ -47,13 +51,25 @@ export default function EmotionResultCard({ emotionKey, confidence }: EmotionRes
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Recommended Actions:</Text>
-      {actions.map((action) => (
-        <View key={action} style={styles.actionRow}>
-          <View style={styles.bullet} />
-          <Text style={styles.actionText}>{action}</Text>
+      {isLowConfidence ? (
+        <View>
+          <Text style={styles.lowConfidenceText}>
+            Detected emotion has a <Text style={styles.bold}>low confidence level</Text>, which may affect the
+            accuracy of the results.
+          </Text>
+          <Text style={[styles.lowConfidenceText, styles.bold, styles.spaced]}>Please try again.</Text>
         </View>
-      ))}
+      ) : (
+        <>
+          <Text style={styles.sectionTitle}>Recommended Actions:</Text>
+          {actions.map((action) => (
+            <View key={action} style={styles.actionRow}>
+              <View style={styles.bullet} />
+              <Text style={styles.actionText}>{action}</Text>
+            </View>
+          ))}
+        </>
+      )}
     </View>
   );
 }
@@ -66,14 +82,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     ...shadows.floating,
   },
-  handle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: radii.pill,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
-  },
+  handle: { alignSelf: "center", width: 40, height: 4, borderRadius: radii.pill, backgroundColor: colors.border, marginBottom: spacing.md },
   headerRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.md },
   emotionBadge: {
     width: 44,
@@ -95,4 +104,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", marginBottom: spacing.xs },
   bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginTop: 8, marginRight: spacing.xs },
   actionText: { ...typography.body, color: colors.textSecondary, flex: 1 },
+  lowConfidenceText: { ...typography.body, color: colors.textPrimary, lineHeight: 22 },
+  bold: { fontWeight: "700" },
+  spaced: { marginTop: spacing.md },
 });
