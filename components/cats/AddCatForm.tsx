@@ -3,6 +3,7 @@ import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { Ionicons } from "@expo/vector-icons";
 import Button from "@/components/common/Button";
 import type { Cat, CatGender } from "@/types/models";
+import { birthdateFromInput, getAgeYears, toDateOnly } from "@/utils/date";
 import { generateId } from "@/utils/id";
 import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
 
@@ -12,18 +13,27 @@ interface AddCatFormProps {
   onSave: (cat: Cat) => void;
 }
 
-// TODO(backend): send the new cat + photo to the API instead of local
-// state once storage/DB are connected.
 export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProps) {
   const [name, setName] = useState("");
   const [gender, setGender] = useState<CatGender>("Male");
-  const [age, setAge] = useState(0);
   const [birthdate, setBirthdate] = useState("");
+
+  const birthdateIso = birthdate.trim() ? birthdateFromInput(birthdate) : toDateOnly(new Date());
+  const age = birthdateIso ? getAgeYears(birthdateIso) : 0;
+
+  // Keep the existing age stepper, but it edits birthdate; age is always derived.
+  const changeAge = (delta: number) => {
+    const date = new Date((birthdateIso ?? toDateOnly(new Date())) + "T00:00:00");
+    const day = date.getDate();
+    date.setFullYear(date.getFullYear() - delta);
+    if (date.getDate() !== day) date.setDate(0);
+    const iso = toDateOnly(date);
+    setBirthdate(iso.slice(5, 7) + "/" + iso.slice(8, 10) + "/" + iso.slice(0, 4));
+  };
 
   const reset = () => {
     setName("");
     setGender("Male");
-    setAge(0);
     setBirthdate("");
   };
 
@@ -33,12 +43,12 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
   };
 
   const handleSave = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !birthdateIso) return;
     const newCat: Cat = {
       id: generateId("cat"),
       name: name.trim(),
       gender,
-      birthdate: birthdate.trim() || new Date().toISOString().slice(0, 10),
+      birthdate: birthdateIso,
       photoUri: null,
       coverUri: null,
     };
@@ -102,14 +112,16 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
               <View style={styles.stepperRow}>
                 <TouchableOpacity
                   style={styles.stepperButton}
-                  onPress={() => setAge((current) => Math.max(0, current - 1))}
+                  onPress={() => changeAge(-1)}
+                  disabled={age <= 0}
                 >
                   <Ionicons name="remove" size={16} color={colors.textPrimary} />
                 </TouchableOpacity>
                 <Text style={styles.stepperValue}>{age}</Text>
                 <TouchableOpacity
                   style={styles.stepperButton}
-                  onPress={() => setAge((current) => Math.min(30, current + 1))}
+                  onPress={() => changeAge(1)}
+                  disabled={age >= 30}
                 >
                   <Ionicons name="add" size={16} color={colors.textPrimary} />
                 </TouchableOpacity>
@@ -126,6 +138,7 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
                 style={styles.input}
                 keyboardType="numbers-and-punctuation"
               />
+              {!birthdateIso && <Text style={{ ...typography.caption, color: colors.danger }}>Enter a valid date as MM/DD/YYYY.</Text>}
             </View>
 
             <View style={styles.actions}>
@@ -134,7 +147,7 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
                 label="Save"
                 variant="primary"
                 onPress={handleSave}
-                disabled={!name.trim()}
+                disabled={!name.trim() || !birthdateIso}
                 style={styles.actionButton}
               />
             </View>

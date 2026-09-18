@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -6,49 +6,46 @@ import CatCoverCard from "@/components/cats/CatCoverCard";
 import AlbumActionSheet from "@/components/cats/AlbumActionSheet";
 import RenameCatModal from "@/components/cats/RenameCatModal";
 import ConfirmModal from "@/components/common/ConfirmModal";
-import { useCatData, UNKNOWN_CAT_ID } from "@/context/CatDataContext";
-import type { Cat } from "@/types/models";
+import { useCatData } from "@/context/CatDataContext";
+import type { Album as AlbumModel } from "@/types/models";
+import { selectAlbumById, selectAlbumName, selectAlbumCoverImage } from "@/context/catDataSelectors";
 import { colors, spacing, typography } from "@/constants/theme";
 
 // Folder contents and photo detail now live in app/(screens)/album-folder.tsx
 // and album-photo.tsx (siblings of (tabs), so the tab bar hides on them).
 export default function Album() {
   const router = useRouter();
-  const { cats, renameCat, deleteCat } = useCatData();
+  const { state, renameAlbum, deleteCat } = useCatData();
 
-  const [actionSheetCatId, setActionSheetCatId] = useState<string | null>(null);
-  const [renamingCat, setRenamingCat] = useState<Cat | null>(null);
-  const [deletingCat, setDeletingCat] = useState<Cat | null>(null);
+  const [actionSheetAlbumId, setActionSheetAlbumId] = useState<string | null>(null);
+  const [renamingAlbum, setRenamingAlbum] = useState<AlbumModel | null>(null);
+  const [deletingAlbum, setDeletingAlbum] = useState<AlbumModel | null>(null);
 
-  const albumFolders: Cat[] = useMemo(
-    () => [...cats, { id: UNKNOWN_CAT_ID, name: "Unknown Cats", gender: "Male", birthdate: "" }],
-    [cats]
-  );
+  const albumFolders = state.albums;
+  const actionSheetAlbum = selectAlbumById(state, actionSheetAlbumId ?? "");
 
-  const actionSheetCat = albumFolders.find((cat) => cat.id === actionSheetCatId) ?? null;
-
-  const openFolder = (catId: string) => {
-    router.push({ pathname: "/album-folder", params: { catId } });
+  const openFolder = (albumId: string) => {
+    router.push({ pathname: "/album-folder", params: { albumId } });
   };
 
   const handleRenamePress = () => {
-    if (actionSheetCat) setRenamingCat(actionSheetCat);
-    setActionSheetCatId(null);
+    if (actionSheetAlbum) setRenamingAlbum(actionSheetAlbum);
+    setActionSheetAlbumId(null);
   };
 
   const handleDeletePress = () => {
-    if (actionSheetCat) setDeletingCat(actionSheetCat);
-    setActionSheetCatId(null);
+    if (actionSheetAlbum) setDeletingAlbum(actionSheetAlbum);
+    setActionSheetAlbumId(null);
   };
 
   const handleRenameSave = (newName: string) => {
-    if (renamingCat) renameCat(renamingCat.id, newName);
-    setRenamingCat(null);
+    if (renamingAlbum) renameAlbum(renamingAlbum.id, newName);
+    setRenamingAlbum(null);
   };
 
   const handleDeleteConfirm = () => {
-    if (deletingCat) deleteCat(deletingCat.id);
-    setDeletingCat(null);
+    if (deletingAlbum?.kind === "cat" && deletingAlbum.catId) deleteCat(deletingAlbum.catId);
+    setDeletingAlbum(null);
   };
 
   return (
@@ -57,41 +54,42 @@ export default function Album() {
       <Text style={styles.hint}>Long-press an album to rename or delete it.</Text>
 
       <View style={styles.grid}>
-        {albumFolders.map((cat) => (
+        {albumFolders.map((album) => (
           <CatCoverCard
-            key={cat.id}
-            cat={cat}
+            key={album.id}
+            name={selectAlbumName(state, album.id)}
+            coverUri={selectAlbumCoverImage(state, album.id)?.imageUri ?? null}
             variant="tile"
-            onPress={() => openFolder(cat.id)}
-            onLongPress={cat.id === UNKNOWN_CAT_ID ? undefined : () => setActionSheetCatId(cat.id)}
+            onPress={() => openFolder(album.id)}
+            onLongPress={album.kind === "unknown" ? undefined : () => setActionSheetAlbumId(album.id)}
             style={styles.tile}
           />
         ))}
       </View>
 
       <AlbumActionSheet
-        visible={!!actionSheetCat}
-        albumName={actionSheetCat?.name ?? ""}
+        visible={!!actionSheetAlbum}
+        albumName={selectAlbumName(state, actionSheetAlbum?.id ?? "")}
         onRename={handleRenamePress}
         onDelete={handleDeletePress}
-        onClose={() => setActionSheetCatId(null)}
+        onClose={() => setActionSheetAlbumId(null)}
       />
 
       <RenameCatModal
-        visible={!!renamingCat}
-        initialName={renamingCat?.name ?? ""}
-        onCancel={() => setRenamingCat(null)}
+        visible={!!renamingAlbum}
+        initialName={selectAlbumName(state, renamingAlbum?.id ?? "")}
+        onCancel={() => setRenamingAlbum(null)}
         onSave={handleRenameSave}
       />
 
       <ConfirmModal
-        visible={!!deletingCat}
+        visible={!!deletingAlbum}
         title="Delete this album?"
         message="This also deletes the connected Cat Profile and its saved photos."
         confirmLabel="Delete"
         destructive
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeletingCat(null)}
+        onCancel={() => setDeletingAlbum(null)}
       />
     </ScreenContainer>
   );

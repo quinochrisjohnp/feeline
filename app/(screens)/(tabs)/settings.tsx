@@ -8,7 +8,7 @@ import PlaceholderBox from "@/components/common/PlaceholderBox";
 import { useAuth } from "@/context/AuthContext";
 import { colors, radii, spacing, typography } from "@/constants/theme";
 
-const settings = () => {
+const Settings = () => {
   const { profile, signOut } = useAuth();
   const router = useRouter();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
@@ -71,7 +71,7 @@ const settings = () => {
   );
 };
 
-export default settings;
+export default Settings;
 
 const styles = StyleSheet.create({
   profileRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl },

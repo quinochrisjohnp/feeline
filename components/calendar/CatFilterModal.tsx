@@ -1,21 +1,20 @@
 import React from "react";
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { Cat } from "@/types/models";
 import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
 
 interface CatFilterModalProps {
   visible: boolean;
-  cats: Cat[];
+  options: { id: string; name: string }[];
   selectedCatId: string | null;
   onSelect: (catId: string | null) => void;
   onClose: () => void;
 }
 
-export default function CatFilterModal({ visible, cats, selectedCatId, onSelect, onClose }: CatFilterModalProps) {
+export default function CatFilterModal({ visible, options: destinations, selectedCatId, onSelect, onClose }: CatFilterModalProps) {
   const options = [
     { id: null as string | null, name: "All Cats" },
-    ...cats.map((cat) => ({ id: cat.id, name: cat.name })),
+    ...destinations,
   ];
 
   return (

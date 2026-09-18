@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,21 +7,19 @@ import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import EmptyState from "@/components/common/EmptyState";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import EmotionBadge from "@/components/common/EmotionBadge";
-import { useCatData, UNKNOWN_CAT_ID } from "@/context/CatDataContext";
+import { useCatData } from "@/context/CatDataContext";
+import { selectAlbumName, selectImagesForAlbum, selectDetectionForImage } from "@/context/catDataSelectors";
+import MockPhoto from "@/components/common/MockPhoto";
 import { colors, radii, spacing, typography } from "@/constants/theme";
 
 export default function AlbumFolder() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ catId?: string }>();
-  const catId = params.catId ?? "";
-  const { cats, detectionRecords, deleteDetectionRecords } = useCatData();
+  const params = useLocalSearchParams<{ albumId?: string }>();
+  const albumId = params.albumId ?? "";
+  const { state, deleteImages } = useCatData();
 
-  const catName = catId === UNKNOWN_CAT_ID ? "Unknown Cats" : cats.find((cat) => cat.id === catId)?.name ?? "Album";
-
-  const folderRecords = useMemo(
-    () => detectionRecords.filter((record) => record.catId === catId),
-    [detectionRecords, catId]
-  );
+  const catName = selectAlbumName(state, albumId);
+  const folderImages = selectImagesForAlbum(state, albumId);
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -33,28 +31,28 @@ export default function AlbumFolder() {
     setSelectedIds([]);
   };
 
-  const handleTilePress = (recordId: string) => {
+  const handleTilePress = (imageId: string) => {
     if (selectionMode) {
       setSelectedIds((current) =>
-        current.includes(recordId) ? current.filter((id) => id !== recordId) : [...current, recordId]
+        current.includes(imageId) ? current.filter((id) => id !== imageId) : [...current, imageId]
       );
       return;
     }
-    router.push({ pathname: "/album-photo", params: { recordId } });
+    router.push({ pathname: "/album-photo", params: { imageId } });
   };
 
-  const handleTileLongPress = (recordId: string) => {
+  const handleTileLongPress = (imageId: string) => {
     if (!selectionMode) {
       setSelectionMode(true);
-      setSelectedIds([recordId]);
+      setSelectedIds([imageId]);
     }
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === folderRecords.length) {
+    if (selectedIds.length === folderImages.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(folderRecords.map((record) => record.id));
+      setSelectedIds(folderImages.map((image) => image.id));
     }
   };
 
@@ -63,7 +61,7 @@ export default function AlbumFolder() {
   };
 
   const handleDeleteSelected = () => {
-    deleteDetectionRecords(selectedIds);
+    deleteImages(selectedIds);
     setConfirmingDelete(false);
     setDeletedNotice(true);
   };
@@ -80,23 +78,24 @@ export default function AlbumFolder() {
         onBack={selectionMode ? exitSelectionMode : undefined}
       />
 
-      {folderRecords.length === 0 ? (
+      {folderImages.length === 0 ? (
         <EmptyState icon="camera-outline" title="No photos yet" message={`Photos you save for ${catName} will appear here.`} />
       ) : (
         <View style={styles.photoGrid}>
-          {folderRecords.map((record) => {
-            const isSelected = selectedIds.includes(record.id);
+          {folderImages.map((image) => {
+            const record = selectDetectionForImage(state, image.id);
+            const isSelected = selectedIds.includes(image.id);
             return (
               <TouchableOpacity
-                key={record.id}
+                key={image.id}
                 style={[styles.photoTile, isSelected && styles.photoTileSelected]}
-                onPress={() => handleTilePress(record.id)}
-                onLongPress={() => handleTileLongPress(record.id)}
+                onPress={() => handleTilePress(image.id)}
+                onLongPress={() => handleTileLongPress(image.id)}
                 activeOpacity={0.85}
               >
-                <Ionicons name="image-outline" size={26} color={colors.textMuted} />
+                <MockPhoto imageUri={image.imageUri} size={26} />
                 <View style={styles.photoEmotionDot}>
-                  <EmotionBadge emotion={record.emotion} size={22} />
+                  {record && <EmotionBadge emotion={record.emotion} size={22} />}
                 </View>
                 {selectionMode && (
                   <View style={styles.selectionCheck}>

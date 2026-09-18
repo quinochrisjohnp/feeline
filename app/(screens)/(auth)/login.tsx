@@ -20,7 +20,7 @@ const Login = () => {
         <EmotionLogoGrid />
 
         <Text style={styles.title}>FeELINE</Text>
-        <Text style={styles.subtitle}>“Understand your cat's emotion using AI”</Text>
+        <Text style={styles.subtitle}>“Understand your cat&apos;s emotion using AI”</Text>
 
         <PlaceholderBox
           icon="happy-outline"

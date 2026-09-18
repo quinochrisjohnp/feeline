@@ -15,7 +15,7 @@ type Outcome = "normal" | "low" | "error";
 export default function CameraResult() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ outcome?: string; emotion?: string; confidence?: string }>();
+  const params = useLocalSearchParams<{ outcome?: string; emotion?: string; confidence?: string; imageUri?: string; capturedAt?: string }>();
 
   const outcome = (params.outcome as Outcome) ?? "normal";
   const emotion = (params.emotion as EmotionKey | undefined) || undefined;
@@ -29,7 +29,7 @@ export default function CameraResult() {
   const handleSave = () => {
     router.push({
       pathname: "/camera-save",
-      params: { emotion: emotion ?? "", confidence: String(confidence ?? "") },
+      params: { emotion: emotion ?? "", confidence: String(confidence ?? ""), imageUri: params.imageUri, capturedAt: params.capturedAt },
     });
   };
 
