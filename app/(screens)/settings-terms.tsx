@@ -1,8 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import ScreenContainer from "@/components/common/ScreenContainer";
-import DetailScreenHeader from "@/components/common/DetailScreenHeader";
-import { colors, spacing, typography } from "@/constants/theme";
+import LegalScreen from "@/components/common/LegalScreen";
+import PolicySection from "@/components/common/PolicySection";
 
 const TERMS = [
   {
@@ -41,24 +39,14 @@ const TERMS = [
 
 export default function TermsAndConditions() {
   return (
-    <ScreenContainer scroll edges={["left", "right", "bottom"]} padded={false} contentContainerStyle={styles.content}>
-      <DetailScreenHeader title="Terms and Conditions" />
-      <View style={styles.body}>
-        {TERMS.map((term) => (
-          <View key={term.title} style={styles.section}>
-            <Text style={styles.sectionTitle}>{term.title}</Text>
-            <Text style={styles.sectionBody}>{term.body}</Text>
-          </View>
-        ))}
-      </View>
-    </ScreenContainer>
+    <LegalScreen title="Terms and Conditions">
+      <PolicySection title="About this prototype">
+        This frontend uses mock results, not AI analysis. Image upload is not available.
+        The established terms below describe the intended app.
+      </PolicySection>
+      {TERMS.map((term) => (
+        <PolicySection key={term.title} title={term.title}>{term.body}</PolicySection>
+      ))}
+    </LegalScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  content: { paddingBottom: spacing.xxl },
-  body: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  section: { marginBottom: spacing.lg },
-  sectionTitle: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: spacing.xs },
-  sectionBody: { ...typography.body, color: colors.textSecondary, lineHeight: 22 },
-});

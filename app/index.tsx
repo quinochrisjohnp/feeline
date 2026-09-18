@@ -1,22 +1,11 @@
-import { View, ActivityIndicator, StyleSheet } from "react-native";
-import React from "react";
-import { colors } from "@/constants/theme";
+import { Redirect } from "expo-router";
+import BrandedSplash from "@/components/common/BrandedSplash";
+import { useAuth } from "@/context/AuthContext";
 
 const Index = () => {
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.primary} />
-    </View>
-  );
+  const { profile, isLoading } = useAuth();
+  if (isLoading) return <BrandedSplash />;
+  return <Redirect href={profile ? "/(screens)/(tabs)/camera" : "/(screens)/(auth)/login"} />;
 };
 
 export default Index;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
-});

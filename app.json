@@ -32,12 +32,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/bluecircle.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#FFF7E9",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#FFF7E9"
           }
         }
       ],
@@ -46,6 +43,7 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "backgroundColor": "#FFF7E9"
   }
 }
