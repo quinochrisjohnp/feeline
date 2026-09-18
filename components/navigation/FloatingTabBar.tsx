@@ -18,6 +18,9 @@ const TAB_ICONS: Record<string, React.ComponentProps<typeof Ionicons>["name"]> =
 /** Floating pill-shaped bottom nav matching the FeELINE Figma prototype. */
 export default function FloatingTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const activeOptions = descriptors[state.routes[state.index].key].options;
+  const activeStyle = StyleSheet.flatten(activeOptions.tabBarStyle);
+  if (activeStyle && "display" in activeStyle && activeStyle.display === "none") return null;
 
   return (
     <View style={[styles.wrapper, { bottom: insets.bottom + navigationTokens.bottomOffset }]} pointerEvents="box-none">
@@ -46,7 +49,7 @@ export default function FloatingTabBar({ state, navigation, descriptors }: Botto
               accessibilityLabel={descriptors[route.key].options.tabBarAccessibilityLabel ?? TAB_LABELS[route.name] ?? route.name}
               style={styles.tabButton}
               accessibilityRole="tab"
-              accessibilityState={isFocused ? { selected: true } : {}}
+              accessibilityState={{ selected: isFocused }}
             >
               <View style={[styles.iconCircle, isFocused && styles.iconCircleActive]}>
                 <Ionicons

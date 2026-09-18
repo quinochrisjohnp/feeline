@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -24,6 +25,21 @@ export default function Status() {
   const [addingCat, setAddingCat] = useState(false);
 
   const selectedCat = selectCatById(state, selectedCatId ?? "");
+  const navigation = useNavigation();
+  const showingProfile = !!selectedCat;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ tabBarStyle: showingProfile ? { display: "none" } : undefined });
+  }, [navigation, showingProfile]);
+
+  useFocusEffect(useCallback(() => {
+    if (!showingProfile) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      setSelectedCatId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [showingProfile]));
 
   const latestRecordFor = (catId: string) => selectLatestDetectionForCat(state, catId);
 
