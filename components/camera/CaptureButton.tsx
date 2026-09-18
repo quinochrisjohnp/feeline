@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radii, shadows } from "@/constants/theme";
+import { colors, dimensions, interaction, radii, shadows } from "@/constants/theme";
 
 interface CaptureButtonProps {
   onPress: () => void;
@@ -14,8 +14,9 @@ export default function CaptureButton({ onPress, disabled }: CaptureButtonProps)
       style={[styles.ring, disabled && styles.disabled]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.85}
+      activeOpacity={interaction.pressedOpacity}
       accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
       accessibilityLabel="Capture photo"
     >
       <View style={styles.inner}>
@@ -27,21 +28,21 @@ export default function CaptureButton({ onPress, disabled }: CaptureButtonProps)
 
 const styles = StyleSheet.create({
   ring: {
-    width: 78,
-    height: 78,
+    width: dimensions.capture,
+    height: dimensions.capture,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(255,255,255,0.35)",
+    backgroundColor: colors.cameraRing,
     alignItems: "center",
     justifyContent: "center",
     ...shadows.floating,
   },
   inner: {
-    width: 62,
-    height: 62,
+    width: dimensions.captureInner,
+    height: dimensions.captureInner,
     borderRadius: radii.pill,
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
   },
-  disabled: { opacity: 0.5 },
+  disabled: { opacity: interaction.disabledOpacity },
 });

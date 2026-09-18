@@ -7,7 +7,7 @@ import PlaceholderBox from "@/components/common/PlaceholderBox";
 import CaptureButton from "@/components/camera/CaptureButton";
 import WhatToAvoidModal from "@/components/camera/WhatToAvoidModal";
 import type { EmotionKey } from "@/types/models";
-import { colors, radii, shadows, spacing } from "@/constants/theme";
+import { colors, getTabBarClearance, radii, shadows, spacing } from "@/constants/theme";
 
 const EMOTION_KEYS: EmotionKey[] = ["happy", "neutral", "fear", "angry"];
 
@@ -62,7 +62,7 @@ export default function Camera() {
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.bottomControls, { bottom: insets.bottom + 120 }]}>
+      <View style={[styles.bottomControls, { bottom: getTabBarClearance(insets.bottom) + spacing.sm }]}>
         <TouchableOpacity style={styles.thumbnail} onPress={() => router.push("/album")} accessibilityLabel="Open album">
           <Ionicons name="paw" size={22} color={colors.white} />
         </TouchableOpacity>

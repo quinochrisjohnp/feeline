@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radii, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, interaction, radii, spacing, typography } from "@/constants/theme";
 
 interface SettingRowProps {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -18,28 +18,28 @@ export default function SettingRow({
   destructive = false,
   showChevron = true,
 }: SettingRowProps) {
-  const tint = destructive ? colors.danger : colors.textPrimary;
+  const tint = destructive ? colors.dangerStrong : colors.textPrimary;
 
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={interaction.pressedOpacity} accessibilityRole="button" accessibilityLabel={label}>
       <View style={[styles.iconWrap, destructive && styles.iconWrapDanger]}>
-        <Ionicons name={icon} size={18} color={tint} />
+        <Ionicons name={icon} size={dimensions.iconSmall} color={tint} />
       </View>
       <Text style={[styles.label, { color: tint }]}>{label}</Text>
       {showChevron && !destructive ? (
-        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        <Ionicons name="chevron-forward" size={dimensions.iconSmall} color={colors.textMuted} />
       ) : null}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.md },
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.md, minHeight: dimensions.settingRow, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
   iconWrap: {
-    width: 36,
-    height: 36,
+    width: dimensions.settingIcon,
+    height: dimensions.settingIcon,
     borderRadius: radii.pill,
-    backgroundColor: colors.background,
+    backgroundColor: colors.placeholder,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.sm,

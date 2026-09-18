@@ -20,5 +20,5 @@ export default function PolicySection({ title, children }: PolicySectionProps) {
 const styles = StyleSheet.create({
   wrapper: { marginBottom: spacing.lg },
   title: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: spacing.xs },
-  body: { ...typography.body, color: colors.textSecondary, lineHeight: 22 },
+  body: { ...typography.body, color: colors.textSecondary },
 });

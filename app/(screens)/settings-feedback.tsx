@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
+import FormField from "@/components/common/FormField";
 import Button from "@/components/common/Button";
 import { colors, radii, spacing, typography } from "@/constants/theme";
 
@@ -49,41 +50,15 @@ export default function GiveFeedback() {
   }
 
   return (
-    <ScreenContainer scroll edges={["left", "right", "bottom"]} padded={false} contentContainerStyle={styles.content}>
+    <ScreenContainer scroll keyboardAware edges={["left", "right", "bottom"]} padded={false} contentContainerStyle={styles.content}>
       <DetailScreenHeader title="Give us Feedback" />
       <View style={styles.body}>
-        <View style={styles.field}>
-          <Text style={styles.label}>Title</Text>
-          <TextInput value={title} onChangeText={setTitle} placeholder="Title" placeholderTextColor={colors.textMuted} style={styles.input} />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Subject</Text>
-          <TextInput value={subject} onChangeText={setSubject} placeholder="Subject" placeholderTextColor={colors.textMuted} style={styles.input} />
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>Message</Text>
-          <TextInput
-            value={message}
-            onChangeText={setMessage}
-            placeholder="Tell us what's on your mind..."
-            placeholderTextColor={colors.textMuted}
-            style={[styles.input, styles.messageInput]}
-            multiline
-            textAlignVertical="top"
-          />
-        </View>
+        <FormField label="Title" value={title} onChangeText={setTitle} placeholder="Title" />
+        <FormField label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com"
+          keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+        <FormField label="Subject" value={subject} onChangeText={setSubject} placeholder="Subject" />
+        <FormField label="Message" value={message} onChangeText={setMessage}
+          placeholder="Tell us what's on your mind..." multiline />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -96,18 +71,6 @@ export default function GiveFeedback() {
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxl },
   body: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  field: { marginBottom: spacing.md },
-  label: { ...typography.label, color: colors.textPrimary, marginBottom: spacing.xs },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.textPrimary,
-    ...typography.body,
-  },
-  messageInput: { minHeight: 120, borderRadius: radii.lg, paddingTop: spacing.sm },
   error: { ...typography.caption, color: colors.danger, marginBottom: spacing.sm },
   submitButton: { marginTop: spacing.sm },
   successBody: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl },

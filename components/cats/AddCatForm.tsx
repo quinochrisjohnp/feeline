@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FormField from "@/components/common/FormField";
 import Button from "@/components/common/Button";
 import type { Cat, CatGender } from "@/types/models";
 import { birthdateFromInput, getAgeYears, toDateOnly } from "@/utils/date";
@@ -14,6 +16,7 @@ interface AddCatFormProps {
 }
 
 export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProps) {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const [gender, setGender] = useState<CatGender>("Male");
   const [birthdate, setBirthdate] = useState("");
@@ -58,9 +61,9 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <ScrollView showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             <View style={styles.photoRow}>
               <View style={styles.coverPlaceholder}>
                 <Ionicons name="image-outline" size={36} color={colors.textMuted} />
@@ -78,16 +81,7 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
 
             <Text style={styles.title}>New Cat Profile</Text>
 
-            <View style={styles.field}>
-              <Text style={styles.label}>Name</Text>
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Name"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-              />
-            </View>
+            <FormField label="Name" value={name} onChangeText={setName} placeholder="Name" />
 
             <View style={styles.field}>
               <Text style={styles.label}>Gender</Text>
@@ -128,18 +122,9 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
               </View>
             </View>
 
-            <View style={styles.field}>
-              <Text style={styles.label}>Birthdate</Text>
-              <TextInput
-                value={birthdate}
-                onChangeText={setBirthdate}
-                placeholder="MM/DD/YYYY"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-                keyboardType="numbers-and-punctuation"
-              />
-              {!birthdateIso && <Text style={{ ...typography.caption, color: colors.danger }}>Enter a valid date as MM/DD/YYYY.</Text>}
-            </View>
+            <FormField label="Birthdate" value={birthdate} onChangeText={setBirthdate}
+              placeholder="MM/DD/YYYY" keyboardType="numbers-and-punctuation"
+              error={!birthdateIso ? "Enter a valid date as MM/DD/YYYY." : undefined} />
 
             <View style={styles.actions}>
               <Button label="Cancel" variant="outline" onPress={handleCancel} style={styles.actionButton} />
@@ -153,7 +138,7 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -217,15 +202,6 @@ const styles = StyleSheet.create({
   title: { ...typography.subheading, color: colors.textPrimary, textAlign: "center", marginBottom: spacing.lg },
   field: { marginBottom: spacing.md },
   label: { ...typography.label, color: colors.textPrimary, marginBottom: spacing.xs },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.textPrimary,
-    ...typography.body,
-  },
   genderRow: { flexDirection: "row", gap: spacing.sm },
   genderPill: {
     flex: 1,

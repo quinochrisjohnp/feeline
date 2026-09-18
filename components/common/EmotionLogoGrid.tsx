@@ -1,21 +1,18 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { colors, radii } from "@/constants/theme";
+import { colors, dimensions, radii, typography } from "@/constants/theme";
 
-const CELLS = [
-  { key: "happy", emoji: "😻", color: colors.emotion.happy },
-  { key: "fear", emoji: "😰", color: colors.emotion.fear },
-  { key: "neutral", emoji: "😑", color: colors.emotion.neutral },
-  { key: "angry", emoji: "😾", color: colors.emotion.angry },
-];
+import { EMOTIONS, EmotionKey } from "@/types/models";
+
+const CELLS: EmotionKey[] = ["happy", "fear", "neutral", "angry"];
 
 /** The 2x2 emotion-color logo mark used on the splash/welcome screens. */
 export default function EmotionLogoGrid() {
   return (
-    <View style={styles.grid}>
+    <View style={styles.grid} accessible accessibilityRole="image" accessibilityLabel="FeELINE: Happy, Fearful, Neutral and Angry">
       {CELLS.map((cell) => (
-        <View key={cell.key} style={[styles.cell, { backgroundColor: cell.color }]}>
-          <Text style={styles.emoji}>{cell.emoji}</Text>
+        <View key={cell} style={[styles.cell, { backgroundColor: colors.emotion[cell] }]}>
+          <Text style={styles.emoji}>{EMOTIONS[cell].emoji}</Text>
         </View>
       ))}
     </View>
@@ -24,13 +21,13 @@ export default function EmotionLogoGrid() {
 
 const styles = StyleSheet.create({
   grid: {
-    width: 110,
-    height: 110,
+    width: dimensions.logo,
+    height: dimensions.logo,
     flexDirection: "row",
     flexWrap: "wrap",
     borderRadius: radii.md,
     overflow: "hidden",
   },
-  cell: { width: 55, height: 55, alignItems: "center", justifyContent: "center" },
-  emoji: { fontSize: 26 },
+  cell: { width: dimensions.logo / 2, height: dimensions.logo / 2, alignItems: "center", justifyContent: "center" },
+  emoji: typography.logoEmoji,
 });

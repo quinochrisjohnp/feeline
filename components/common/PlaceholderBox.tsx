@@ -1,7 +1,8 @@
 import React from "react";
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, radii, spacing, typography } from "@/constants/theme";
+import type { Ionicons } from "@expo/vector-icons";
+import MockPhoto from "./MockPhoto";
+import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
 
 interface PlaceholderBoxProps {
   icon?: React.ComponentProps<typeof Ionicons>["name"];
@@ -21,8 +22,8 @@ interface PlaceholderBoxProps {
 export default function PlaceholderBox({
   icon = "image-outline",
   label,
-  backgroundColor = colors.border,
-  labelColor = colors.textMuted,
+  backgroundColor = colors.placeholder,
+  labelColor = colors.textSecondary,
   borderRadius = radii.lg,
   aspectRatio,
   style,
@@ -36,7 +37,7 @@ export default function PlaceholderBox({
         style,
       ]}
     >
-      <Ionicons name={icon} size={32} color={labelColor} />
+      <MockPhoto icon={icon} size={dimensions.iconLarge} color={labelColor} label={label ?? "Image (Placeholder)"} />
       {label ? <Text style={[styles.label, { color: labelColor }]}>{label}</Text> : null}
     </View>
   );

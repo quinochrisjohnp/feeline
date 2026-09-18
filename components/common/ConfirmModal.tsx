@@ -1,7 +1,8 @@
 import React from "react";
-import { Modal, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Button from "./Button";
-import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
+import ModalSurface from "./ModalSurface";
+import { colors, dimensions, spacing, typography } from "@/constants/theme";
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -28,46 +29,31 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < dimensions.compactWidth || fontScale > 1.3;
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
+    <ModalSurface visible={visible} onClose={onCancel}>
+          <Text style={styles.title} accessibilityRole="header">{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
-          <View style={styles.actions}>
-            {!hideCancel && (
-              <Button label={cancelLabel} variant="outline" onPress={onCancel} style={styles.actionButton} />
+          <View style={[styles.actions, stacked && styles.stacked]}>
+            {(!hideCancel || destructive) && (
+              <Button label={cancelLabel} variant="outline" onPress={onCancel} style={!stacked && styles.actionButton} />
             )}
             <Button
               label={confirmLabel}
               variant={destructive ? "danger" : "primary"}
               onPress={onConfirm}
-              style={styles.actionButton}
+              style={!stacked && styles.actionButton}
             />
           </View>
-        </View>
-      </View>
-    </Modal>
+    </ModalSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.lg,
-  },
-  card: {
-    width: "100%",
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    ...shadows.floating,
-  },
-  title: { ...typography.subheading, color: colors.textPrimary, marginBottom: spacing.xs, textAlign: "center" },
-  message: { ...typography.body, color: colors.textSecondary, textAlign: "center", marginBottom: spacing.lg },
-  actions: { flexDirection: "row", gap: spacing.sm },
+  title: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
+  message: { ...typography.body, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xs },
+  actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg },
+  stacked: { flexDirection: "column" },
   actionButton: { flex: 1 },
 });
