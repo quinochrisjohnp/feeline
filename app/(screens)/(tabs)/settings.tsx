@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Alert, Image, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import SettingRow from "@/components/settings/SettingRow";
 import ConfirmModal from "@/components/common/ConfirmModal";
@@ -9,6 +10,7 @@ import { colors, radii, spacing, typography } from "@/constants/theme";
 
 const settings = () => {
   const { profile, signOut } = useAuth();
+  const router = useRouter();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const displayName = profile
@@ -16,21 +18,13 @@ const settings = () => {
     : "Guest User";
   const displayEmail = profile?.email ?? "guest@example.com";
 
-  const showComingSoon = (feature: string) =>
-    Alert.alert(feature, "This section is coming soon.");
-
   return (
     <ScreenContainer scroll contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}>
       <View style={styles.profileRow}>
         {profile?.profileImageUrl ? (
           <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} />
         ) : (
-          <PlaceholderBox
-            icon="person"
-            borderRadius={radii.pill}
-            backgroundColor={colors.border}
-            style={styles.avatar}
-          />
+          <PlaceholderBox icon="person" borderRadius={radii.pill} backgroundColor={colors.border} style={styles.avatar} />
         )}
         <View style={styles.profileText}>
           <Text style={styles.name}>{displayName}</Text>
@@ -39,31 +33,26 @@ const settings = () => {
       </View>
 
       <View style={styles.section}>
-        <SettingRow icon="information-circle-outline" label="About" onPress={() => showComingSoon("About")} />
+        <SettingRow icon="information-circle-outline" label="About" onPress={() => router.push("/settings-about")} />
         <SettingRow
           icon="chatbubble-ellipses-outline"
           label="Give us Feedback"
-          onPress={() => showComingSoon("Feedback")}
+          onPress={() => router.push("/settings-feedback")}
         />
         <SettingRow
           icon="shield-checkmark-outline"
           label="Privacy Policy"
-          onPress={() => showComingSoon("Privacy Policy")}
+          onPress={() => router.push("/settings-privacy")}
         />
         <SettingRow
           icon="document-text-outline"
           label="Terms and Conditions"
-          onPress={() => showComingSoon("Terms and Conditions")}
+          onPress={() => router.push("/settings-terms")}
         />
       </View>
 
       <View style={styles.section}>
-        <SettingRow
-          icon="log-out-outline"
-          label="Log out"
-          destructive
-          onPress={() => setConfirmingLogout(true)}
-        />
+        <SettingRow icon="log-out-outline" label="Log out" destructive onPress={() => setConfirmingLogout(true)} />
       </View>
 
       <ConfirmModal
@@ -85,12 +74,7 @@ const settings = () => {
 export default settings;
 
 const styles = StyleSheet.create({
-  profileRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-  },
+  profileRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl },
   avatar: { width: 72, height: 72 },
   profileText: { marginLeft: spacing.md, flex: 1 },
   name: { ...typography.subheading, color: colors.textPrimary },

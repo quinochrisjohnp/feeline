@@ -8,18 +8,22 @@ interface CatCoverCardProps {
   cat: Cat;
   variant?: "tile" | "bar";
   onPress?: () => void;
+  /** Triggers album management (rename/delete). Omit to disable long-press
+   * for this card, e.g. the system "Unknown Cats" album. */
+  onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }
 
 /** Photo-background card with a name overlay. Used for both the Cat Album
  * grid ("tile") and the My Cats list ("bar"). */
-export default function CatCoverCard({ cat, variant = "tile", onPress, style }: CatCoverCardProps) {
+export default function CatCoverCard({ cat, variant = "tile", onPress, onLongPress, style }: CatCoverCardProps) {
   const isBar = variant === "bar";
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={[styles.card, isBar ? styles.bar : styles.tile, style]}
     >
       <View style={styles.photoPlaceholder}>
