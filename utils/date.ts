@@ -1,5 +1,28 @@
+/** Parse date-only values in local time, avoiding UTC birthday shifts. */
+function localDate(iso: string): Date {
+  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso);
+}
+
+export function isValidBirthdate(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const date = localDate(iso);
+  return Number.isFinite(date.getTime()) && toDateOnly(date) === iso;
+}
+
+export function toDateOnly(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Form boundary: accept MM/DD/YYYY while storing only YYYY-MM-DD. */
+export function birthdateFromInput(value: string): string | null {
+  const trimmed = value.trim();
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  const iso = match ? `${match[3]}-${match[1]}-${match[2]}` : trimmed;
+  return isValidBirthdate(iso) ? iso : null;
+}
+
 export function getAgeYears(birthdateIso: string): number {
-  const birth = new Date(birthdateIso);
+  const birth = localDate(birthdateIso);
   if (Number.isNaN(birth.getTime())) return 0;
 
   const now = new Date();
@@ -13,7 +36,7 @@ export function getAgeYears(birthdateIso: string): number {
 }
 
 export function formatShortDate(iso: string): string {
-  const date = new Date(iso);
+  const date = localDate(iso);
   if (Number.isNaN(date.getTime())) return "--";
   return date.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
 }

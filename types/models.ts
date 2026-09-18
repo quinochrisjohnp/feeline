@@ -21,21 +21,57 @@ export interface Cat {
   id: string;
   name: string;
   gender: CatGender;
-  /** ISO date string, e.g. "2021-04-12". */
+  /** YYYY-MM-DD */
   birthdate: string;
-  /** Profile photo. `null`/`undefined` renders a placeholder. */
-  photoUri?: string | null;
-  /** Cover/banner photo shown on the cat profile screen. */
-  coverUri?: string | null;
+  /** Mock/local reference; null renders the placeholder. */
+  photoUri: string | null;
+  /** Mock/local reference; null renders the placeholder. */
+  coverUri: string | null;
+}
+
+export type AlbumKind = "cat" | "unknown";
+
+export const UNKNOWN_ALBUM_ID = "unknown-cats";
+
+export interface Album {
+  id: string;
+  kind: AlbumKind;
+  /** Null only for the Unknown Cats system album. */
+  catId: string | null;
+}
+
+export interface SavedImage {
+  id: string;
+  albumId: string;
+  /** Key or URI for a bundled/mock image. */
+  imageUri: string;
+  /** ISO datetime when the mock capture occurred. */
+  capturedAt: string;
 }
 
 export interface DetectionRecord {
   id: string;
-  catId: string;
+  imageId: string;
   emotion: EmotionKey;
-  /** 0-100 */
+  /** Integer from 0 through 100. */
   confidence: number;
   /** ISO datetime string. */
   recordedAt: string;
-  imageUri?: string | null;
+}
+
+export interface CatDataState {
+  cats: Cat[];
+  albums: Album[];
+  images: SavedImage[];
+  detectionRecords: DetectionRecord[];
+}
+
+export type CatChanges = Partial<Pick<Cat, "name" | "gender" | "birthdate" | "photoUri" | "coverUri">>;
+
+export interface SaveCaptureInput {
+  albumId: string;
+  imageUri: string;
+  capturedAt: string;
+  emotion: EmotionKey;
+  confidence: number;
 }

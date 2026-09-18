@@ -6,7 +6,9 @@ import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import AddCatForm from "@/components/cats/AddCatForm";
-import { useCatData, UNKNOWN_CAT_ID } from "@/context/CatDataContext";
+import { useCatData } from "@/context/CatDataContext";
+import { EMOTIONS } from "@/types/models";
+import { selectAlbumById, selectAlbumName } from "@/context/catDataSelectors";
 import type { Cat, EmotionKey } from "@/types/models";
 import { colors, radii, spacing, typography } from "@/constants/theme";
 
@@ -14,37 +16,40 @@ type SaveStep = "select" | "confirmSave" | "saved";
 
 export default function CameraSave() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ emotion?: string; confidence?: string }>();
-  const { cats, addCat, addDetectionRecord } = useCatData();
+  const params = useLocalSearchParams<{ emotion?: string; confidence?: string; imageUri?: string; capturedAt?: string }>();
+  const { state, addCat, saveCapture } = useCatData();
 
   const emotion = (params.emotion as EmotionKey | undefined) || undefined;
   const confidence = params.confidence ? Number(params.confidence) : undefined;
 
+  const [capturedAt] = useState(() => params.capturedAt && Number.isFinite(Date.parse(params.capturedAt))
+    ? params.capturedAt : new Date().toISOString());
+  const imageUri = params.imageUri?.startsWith("mock:") ? params.imageUri : "mock:camera-capture";
+
   const [step, setStep] = useState<SaveStep>("select");
-  const [pendingCatId, setPendingCatId] = useState<string | null>(null);
+  const [pendingAlbumId, setPendingAlbumId] = useState<string | null>(null);
   const [pendingCatName, setPendingCatName] = useState<string>("");
   const [addingCat, setAddingCat] = useState(false);
   const [catSavedNotice, setCatSavedNotice] = useState(false);
 
-  const options: { id: string; name: string }[] = [
-    ...cats.map((cat) => ({ id: cat.id, name: cat.name })),
-    { id: UNKNOWN_CAT_ID, name: "Unknown Cats" },
-  ];
+  const options = state.albums.map((album) => ({ id: album.id, name: selectAlbumName(state, album.id) }));
 
-  const handleSelect = (catId: string, catName: string) => {
-    setPendingCatId(catId);
+  const handleSelect = (albumId: string, catName: string) => {
+    setPendingAlbumId(albumId);
     setPendingCatName(catName);
     setStep("confirmSave");
   };
 
   const handleConfirmSave = () => {
-    if (!pendingCatId || !emotion) return;
-    addDetectionRecord({
-      catId: pendingCatId,
+    if (!pendingAlbumId || !selectAlbumById(state, pendingAlbumId) || !emotion ||
+        !Object.hasOwn(EMOTIONS, emotion) || !Number.isInteger(confidence) ||
+        confidence === undefined || confidence < 0 || confidence > 100) return;
+    saveCapture({
+      albumId: pendingAlbumId,
       emotion,
-      confidence: confidence ?? 0,
-      recordedAt: new Date().toISOString(),
-      imageUri: null,
+      confidence,
+      capturedAt,
+      imageUri,
     });
     setStep("saved");
   };

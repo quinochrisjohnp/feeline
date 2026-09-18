@@ -22,7 +22,10 @@ import CatFilterModal from "@/components/calendar/CatFilterModal";
 import EmotionResultCard from "@/components/camera/EmotionResultCard";
 import EmptyState from "@/components/common/EmptyState";
 import { useCatData } from "@/context/CatDataContext";
-import type { DetectionRecord, EmotionKey } from "@/types/models";
+import { UNKNOWN_ALBUM_ID } from "@/types/models";
+import { selectCalendarRecordsForDate, selectCalendarFilterOptions, selectCatById, selectCatForDetection, selectImageById } from "@/context/catDataSelectors";
+import MockPhoto from "@/components/common/MockPhoto";
+import type { EmotionKey } from "@/types/models";
 import { formatFullDate, formatTime, getMonthMatrix, getWeekDates, isSameDay, monthLabel } from "@/utils/date";
 import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
 
@@ -34,7 +37,8 @@ const WEEKDAYS = ["Sun", "Mon", "Tues", "Wed", "Thur", "Fri", "Sat"];
 const COLLAPSE_THRESHOLD = 60;
 
 export default function Calendar() {
-  const { cats, detectionRecords } = useCatData();
+  const { state } = useCatData();
+  const filterOptions = selectCalendarFilterOptions(state);
 
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -48,39 +52,26 @@ export default function Calendar() {
   const cells = useMemo(() => getMonthMatrix(monthDate), [monthDate]);
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
 
-  const recordsByDay = useMemo(() => {
-    const map = new Map<string, DetectionRecord[]>();
-    detectionRecords.forEach((record) => {
-      const key = new Date(record.recordedAt).toDateString();
-      const existing = map.get(key) ?? [];
-      existing.push(record);
-      map.set(key, existing);
-    });
-    return map;
-  }, [detectionRecords]);
-
   const dominantEmotionFor = (date: Date): EmotionKey | undefined => {
-    const records = recordsByDay.get(date.toDateString());
-    if (!records || records.length === 0) return undefined;
-    return records[records.length - 1].emotion;
+    const records = selectCalendarRecordsForDate(state, date);
+    return records[records.length - 1]?.emotion;
   };
 
-  const recordsForSelectedDate = useMemo(() => {
-    const records = recordsByDay.get(selectedDate.toDateString()) ?? [];
-    const filtered = selectedCatId ? records.filter((r) => r.catId === selectedCatId) : records;
-    return filtered.slice().sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime());
-  }, [recordsByDay, selectedDate, selectedCatId]);
+  const recordsForSelectedDate = useMemo(
+    () => selectCalendarRecordsForDate(state, selectedDate, selectedCatId),
+    [state, selectedDate, selectedCatId]
+  );
 
   const goToPrevMonth = () => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
   const goToNextMonth = () => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
 
-  const catNameFor = (catId: string) => cats.find((cat) => cat.id === catId)?.name ?? "Unknown Cat";
+  const catNameFor = (catId: string) => catId === UNKNOWN_ALBUM_ID ? "Unknown Cats" : selectCatById(state, catId)?.name ?? "Cat";
   const selectedCatName = selectedCatId ? catNameFor(selectedCatId) : "All Cats";
   const dateHeading = isSameDay(selectedDate, new Date())
     ? "TODAY"
     : formatFullDate(selectedDate.toISOString()).toUpperCase();
 
-  const activeRecord = detectionRecords.find((record) => record.id === activeRecordId) ?? null;
+  const activeRecord = state.detectionRecords.find((record) => record.id === activeRecordId) ?? null;
 
   const setCollapsedAnimated = (value: boolean) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -151,7 +142,7 @@ export default function Calendar() {
               recordsForSelectedDate.map((record) => (
                 <DetectionListRow
                   key={record.id}
-                  catName={catNameFor(record.catId)}
+                  catName={selectCatForDetection(state, record)?.name ?? "Unknown Cats"}
                   emotion={record.emotion}
                   time={formatTime(record.recordedAt)}
                   onPress={() => setActiveRecordId(record.id)}
@@ -177,7 +168,7 @@ export default function Calendar() {
 
       <CatFilterModal
         visible={filterVisible}
-        cats={cats}
+        options={filterOptions}
         selectedCatId={selectedCatId}
         onSelect={setSelectedCatId}
         onClose={() => setFilterVisible(false)}
@@ -187,7 +178,7 @@ export default function Calendar() {
         <TouchableOpacity style={styles.detailOverlay} activeOpacity={1} onPress={() => setActiveRecordId(null)}>
           <View style={styles.detailCard}>
             <View style={styles.detailPhoto}>
-              <Ionicons name="image-outline" size={40} color={colors.textMuted} />
+              <MockPhoto imageUri={activeRecord ? selectImageById(state, activeRecord.imageId)?.imageUri : null} size={40} />
             </View>
             {activeRecord ? <EmotionResultCard emotionKey={activeRecord.emotion} confidence={activeRecord.confidence} /> : null}
           </View>

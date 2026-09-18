@@ -9,6 +9,7 @@ import EmotionBadge from "@/components/common/EmotionBadge";
 import EmptyState from "@/components/common/EmptyState";
 import AddCatForm from "@/components/cats/AddCatForm";
 import { useCatData } from "@/context/CatDataContext";
+import { selectCatById, selectLatestDetectionForCat } from "@/context/catDataSelectors";
 import { EMOTIONS } from "@/types/models";
 import type { Cat } from "@/types/models";
 import { getAgeYears, formatShortDate } from "@/utils/date";
@@ -17,18 +18,14 @@ import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
 // TODO: cat profile edit/delete flows come in a later phase.
 export default function Status() {
   const insets = useSafeAreaInsets();
-  const { cats, addCat, detectionRecords } = useCatData();
+  const { state, addCat } = useCatData();
+  const { cats } = state;
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [addingCat, setAddingCat] = useState(false);
 
-  const selectedCat = cats.find((cat) => cat.id === selectedCatId) ?? null;
+  const selectedCat = selectCatById(state, selectedCatId ?? "");
 
-  const latestRecordFor = (catId: string) => {
-    const records = detectionRecords
-      .filter((record) => record.catId === catId)
-      .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime());
-    return records[0] ?? null;
-  };
+  const latestRecordFor = (catId: string) => selectLatestDetectionForCat(state, catId);
 
   const handleSaveCat = (cat: Cat) => {
     addCat(cat);
@@ -120,7 +117,7 @@ export default function Status() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
           {cats.map((cat) => (
-            <CatCoverCard key={cat.id} cat={cat} variant="bar" onPress={() => setSelectedCatId(cat.id)} />
+            <CatCoverCard key={cat.id} name={cat.name} coverUri={cat.coverUri} variant="bar" onPress={() => setSelectedCatId(cat.id)} />
           ))}
         </ScrollView>
       )}

@@ -21,11 +21,12 @@ export default function Camera() {
   const [avoidVisible, setAvoidVisible] = useState(false);
 
   const handleCapture = () => {
+    const capture = { imageUri: "mock:camera-capture", capturedAt: new Date().toISOString() };
     const roll = Math.random();
     const emotion = EMOTION_KEYS[Math.floor(Math.random() * EMOTION_KEYS.length)];
 
     if (roll < 0.15) {
-      router.push({ pathname: "/camera-result", params: { outcome: "error" } });
+      router.push({ pathname: "/camera-result", params: { ...capture, outcome: "error" } });
       return;
     }
 

@@ -8,21 +8,34 @@ import ConfirmModal from "@/components/common/ConfirmModal";
 import EmotionResultCard from "@/components/camera/EmotionResultCard";
 import { useCatData } from "@/context/CatDataContext";
 import { formatFullDate, formatTime } from "@/utils/date";
+import { selectImageById, selectDetectionForImage } from "@/context/catDataSelectors";
+import MockPhoto from "@/components/common/MockPhoto";
 import { colors, radii, spacing, typography } from "@/constants/theme";
 
 export default function AlbumPhoto() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ recordId?: string }>();
-  const recordId = params.recordId ?? "";
-  const { detectionRecords, deleteDetectionRecord } = useCatData();
+  const params = useLocalSearchParams<{ imageId?: string }>();
+  const imageId = params.imageId ?? "";
+  const { state, deleteImage } = useCatData();
 
-  const record = detectionRecords.find((r) => r.id === recordId) ?? null;
+  const image = selectImageById(state, imageId);
+  const record = image ? selectDetectionForImage(state, image.id) : null;
 
   const [showEmotion, setShowEmotion] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false);
 
-  if (!record) {
+  if (deletedNotice) {
+    return (
+      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+        <DetailScreenHeader title="Photo" />
+        <ConfirmModal visible title="Image Deleted" confirmLabel="Continue" hideCancel
+          onConfirm={() => router.back()} onCancel={() => router.back()} />
+      </ScreenContainer>
+    );
+  }
+
+  if (!image) {
     return (
       <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
         <DetailScreenHeader title="Photo" />
@@ -38,16 +51,10 @@ export default function AlbumPhoto() {
   };
 
   const handleDeleteConfirm = () => {
-    deleteDetectionRecord(record.id);
+    deleteImage(image.id);
     setConfirmingDelete(false);
     setDeletedNotice(true);
   };
-
-  const handleContinueAfterDelete = () => {
-    setDeletedNotice(false);
-    router.back();
-  };
-
   return (
     <ScreenContainer
       scroll
@@ -55,10 +62,10 @@ export default function AlbumPhoto() {
       padded={false}
       contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}
     >
-      <DetailScreenHeader title={formatFullDate(record.recordedAt)} subtitle={formatTime(record.recordedAt)} />
+      <DetailScreenHeader title={formatFullDate(image.capturedAt)} subtitle={formatTime(image.capturedAt)} />
 
       <View style={styles.photo}>
-        <Ionicons name="image-outline" size={48} color={colors.textMuted} />
+        <MockPhoto imageUri={image.imageUri} size={48} />
       </View>
 
       <View style={styles.actions}>
@@ -76,7 +83,7 @@ export default function AlbumPhoto() {
         </TouchableOpacity>
       </View>
 
-      {showEmotion && (
+      {showEmotion && record && (
         <View style={styles.emotionWrapper}>
           <EmotionResultCard emotionKey={record.emotion} confidence={record.confidence} />
         </View>
@@ -89,15 +96,6 @@ export default function AlbumPhoto() {
         destructive
         onConfirm={handleDeleteConfirm}
         onCancel={() => setConfirmingDelete(false)}
-      />
-
-      <ConfirmModal
-        visible={deletedNotice}
-        title="Image Deleted"
-        confirmLabel="Continue"
-        hideCancel
-        onConfirm={handleContinueAfterDelete}
-        onCancel={handleContinueAfterDelete}
       />
     </ScreenContainer>
   );

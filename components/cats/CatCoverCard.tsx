@@ -1,11 +1,11 @@
 import React from "react";
 import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import type { Cat } from "@/types/models";
+import MockPhoto from "@/components/common/MockPhoto";
 import { colors, radii, spacing, typography } from "@/constants/theme";
 
 interface CatCoverCardProps {
-  cat: Cat;
+  name: string;
+  coverUri?: string | null;
   variant?: "tile" | "bar";
   onPress?: () => void;
   /** Triggers album management (rename/delete). Omit to disable long-press
@@ -16,7 +16,7 @@ interface CatCoverCardProps {
 
 /** Photo-background card with a name overlay. Used for both the Cat Album
  * grid ("tile") and the My Cats list ("bar"). */
-export default function CatCoverCard({ cat, variant = "tile", onPress, onLongPress, style }: CatCoverCardProps) {
+export default function CatCoverCard({ name, coverUri, variant = "tile", onPress, onLongPress, style }: CatCoverCardProps) {
   const isBar = variant === "bar";
 
   return (
@@ -27,11 +27,11 @@ export default function CatCoverCard({ cat, variant = "tile", onPress, onLongPre
       style={[styles.card, isBar ? styles.bar : styles.tile, style]}
     >
       <View style={styles.photoPlaceholder}>
-        <Ionicons name="paw" size={isBar ? 30 : 24} color={colors.textMuted} />
+        <MockPhoto imageUri={coverUri} icon="paw" size={isBar ? 30 : 24} />
       </View>
       <View style={styles.overlay} />
       <Text style={[styles.name, isBar && styles.nameBar]} numberOfLines={1}>
-        {cat.name}
+        {name}
       </Text>
     </TouchableOpacity>
   );
