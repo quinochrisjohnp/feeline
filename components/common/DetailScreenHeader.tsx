@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, interaction, spacing, typography } from "@/constants/theme";
 
 interface DetailScreenHeaderProps {
   title: string;
@@ -45,11 +45,11 @@ export default function DetailScreenHeader({
         transparent ? styles.transparent : styles.opaque,
       ]}
     >
-      <TouchableOpacity onPress={handleBack} accessibilityLabel="Go back" style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color={tintColor} />
+      <TouchableOpacity onPress={handleBack} accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={interaction.pressedOpacity} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={dimensions.icon} color={tintColor} />
       </TouchableOpacity>
       <View style={styles.titleWrap}>
-        <Text style={[styles.title, { color: tintColor }]} numberOfLines={1}>
+        <Text style={[styles.title, { color: tintColor }]} accessibilityRole="header">
           {title}
         </Text>
         {subtitle ? <Text style={[styles.subtitle, { color: tintColor }]}>{subtitle}</Text> : null}
@@ -63,9 +63,9 @@ const styles = StyleSheet.create({
   wrapper: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   opaque: { backgroundColor: colors.background },
   transparent: { backgroundColor: "transparent" },
-  backButton: { width: 32 },
+  backButton: { width: dimensions.touchTarget, minHeight: dimensions.touchTarget, justifyContent: "center" },
   titleWrap: { flex: 1 },
   title: { ...typography.subheading },
   subtitle: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
-  right: { width: 32, alignItems: "flex-end" },
+  right: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "flex-end", justifyContent: "center" },
 });

@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { EMOTIONS, EmotionKey } from "@/types/models";
-import { colors, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, spacing, typography } from "@/constants/theme";
 
 interface EmotionBadgeProps {
   emotion: EmotionKey;
@@ -9,11 +9,11 @@ interface EmotionBadgeProps {
   showLabel?: boolean;
 }
 
-export default function EmotionBadge({ emotion, size = 40, showLabel = false }: EmotionBadgeProps) {
+export default function EmotionBadge({ emotion, size = dimensions.emotionBadge, showLabel = false }: EmotionBadgeProps) {
   const meta = EMOTIONS[emotion];
 
   return (
-    <View style={styles.row}>
+    <View style={styles.row} accessible accessibilityRole="image" accessibilityLabel={meta.label}>
       <View
         style={[
           styles.circle,

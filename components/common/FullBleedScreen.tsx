@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
+import { colors } from "@/constants/theme";
 import { StatusBar } from "expo-status-bar";
 
 interface FullBleedScreenProps {
@@ -20,7 +21,7 @@ interface FullBleedScreenProps {
  */
 export default function FullBleedScreen({
   children,
-  backgroundColor = "#000000",
+  backgroundColor = colors.cameraBackground,
   statusBarStyle = "light",
   style,
 }: FullBleedScreenProps) {

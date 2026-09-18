@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Modal, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import FormField from "@/components/common/FormField";
+import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
-import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, spacing, typography } from "@/constants/theme";
 
 interface RenameCatModalProps {
   visible: boolean;
@@ -25,42 +27,25 @@ export default function RenameCatModal({ visible, initialName, onCancel, onSave 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
+    <ModalSurface visible={visible} onClose={onCancel}>
           <Text style={styles.title}>Rename Album</Text>
-          <TextInput
+          <FormField
+            label="Album name"
             value={name}
             onChangeText={setName}
             placeholder="Album name"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
             autoFocus
           />
           <View style={styles.actions}>
             <Button label="Cancel" variant="outline" onPress={onCancel} style={styles.actionButton} />
             <Button label="Save" onPress={handleSave} disabled={!name.trim()} style={styles.actionButton} />
           </View>
-        </View>
-      </View>
-    </Modal>
+    </ModalSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: colors.overlay, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.lg },
-  card: { width: "100%", backgroundColor: colors.white, borderRadius: radii.lg, padding: spacing.lg, ...shadows.floating },
   title: { ...typography.subheading, color: colors.textPrimary, textAlign: "center", marginBottom: spacing.md },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.textPrimary,
-    ...typography.body,
-    marginBottom: spacing.md,
-  },
-  actions: { flexDirection: "row", gap: spacing.sm },
-  actionButton: { flex: 1 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  actionButton: { flexGrow: 1, flexBasis: dimensions.actionMinWidth },
 });

@@ -19,7 +19,7 @@ const Settings = () => {
   const displayEmail = profile?.email ?? "guest@example.com";
 
   return (
-    <ScreenContainer scroll contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}>
+    <ScreenContainer scroll tabBar>
       <View style={styles.profileRow}>
         {profile?.profileImageUrl ? (
           <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} />

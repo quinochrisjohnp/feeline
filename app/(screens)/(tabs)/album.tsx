@@ -49,7 +49,7 @@ export default function Album() {
   };
 
   return (
-    <ScreenContainer contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}>
+    <ScreenContainer tabBar>
       <Text style={styles.title}>Cat Album</Text>
       <Text style={styles.hint}>Long-press an album to rename or delete it.</Text>
 

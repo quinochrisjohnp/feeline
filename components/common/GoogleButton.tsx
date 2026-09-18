@@ -1,5 +1,6 @@
 import React from "react";
 import { AntDesign } from "@expo/vector-icons";
+import { colors, dimensions } from "@/constants/theme";
 import Button from "./Button";
 
 interface GoogleButtonProps {
@@ -20,10 +21,11 @@ export default function GoogleButton({
       label={label}
       variant="google"
       fullWidth
+      style={{ width: "100%", maxWidth: dimensions.googleMaxWidth, alignSelf: "center" }}
       onPress={onPress}
       loading={loading}
       disabled={disabled}
-      leftIcon={<AntDesign name="google" size={18} color="#EA4335" />}
+      leftIcon={<AntDesign name="google" size={dimensions.iconSmall} color={colors.googleMark} />}
     />
   );
 }
