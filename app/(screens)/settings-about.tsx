@@ -1,31 +1,34 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import { colors, spacing, typography } from "@/constants/theme";
 
 const FEATURES = [
   "Create and manage cat profiles",
-  "Detect Cat Emotions",
-  "Store scanned images",
-  "Track cats emotion over time in dates",
+  "Explore mock image-based emotion interpretations",
+  "Keep mock scanned images during the current session",
+  "View emotion detection history by date",
 ];
 
 export default function AboutFeeline() {
+  const router = useRouter();
   return (
-    <ScreenContainer scroll edges={["left", "right", "bottom"]} padded={false} contentContainerStyle={styles.content}>
-      <DetailScreenHeader title="About FeELINE" />
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title="About FeELINE" onBack={() => router.dismissTo("/settings")} />
+      <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.body}>
         <Text style={styles.paragraph}>
-          FeELINE is an AI-powered cat emotion detection application designed to help cat owners better understand
-          their pets&apos; emotional states.
+          FeELINE is an academic and research-oriented mobile prototype for an AI-powered cat emotion detection
+          application. It is designed to help users interpret observable emotional cues in cat images.
         </Text>
         <Text style={styles.paragraph}>
-          Using image-based analysis, the app identifies common feline emotions such as Happy, Neutral, Fearful, and
-          Angry.
+          This frontend demonstrates image-based interpretations using mock results in four categories: Happy,
+          Neutral, Fearful, and Angry. It does not perform real AI analysis.
         </Text>
 
-        <Text style={styles.subheading}>The app allows users to:</Text>
+        <Text style={styles.subheading} accessibilityRole="header">The app allows users to:</Text>
         {FEATURES.map((feature) => (
           <View key={feature} style={styles.bulletRow}>
             <View style={styles.bullet} />
@@ -39,9 +42,10 @@ export default function AboutFeeline() {
         </Text>
         <Text style={styles.paragraph}>
           This application is developed as part of an academic project and is intended for educational and research
-          purposes.
+          purposes. It is not veterinary diagnosis or professional veterinary advice.
         </Text>
       </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }
@@ -49,7 +53,7 @@ export default function AboutFeeline() {
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxl },
   body: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  paragraph: { ...typography.body, color: colors.textSecondary, lineHeight: 22, marginBottom: spacing.md },
+  paragraph: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.md },
   spaced: { marginTop: spacing.xs },
   subheading: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: spacing.sm },
   bulletRow: { flexDirection: "row", marginBottom: spacing.xs, paddingLeft: spacing.xs },

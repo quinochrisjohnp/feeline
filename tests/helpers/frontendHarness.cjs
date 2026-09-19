@@ -13,7 +13,7 @@ require.extensions[".ts"] = (module, filename) => {
 
 // A small hook harness exercises the actual route callbacks and provider/reducer.
 // It does not simulate native layout, gestures, or React scheduling.
-function mount(file, { params = {}, context, router = {}, globals = {}, props = {}, navigation = {} } = {}) {
+function mount(file, { params = {}, context, router = {}, globals = {}, props = {}, navigation = {}, dependencies = {} } = {}) {
   const slots = [];
   let cursor = 0;
   const focus = [];
@@ -43,14 +43,16 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
       useFocusEffect: (fn) => { focus.push(fn); } },
     "react-native": { StyleSheet: { create: (styles) => styles },
       BackHandler: { addEventListener: (_event, fn) => { hardwareBack.push(fn); return { remove() {} }; } },
-      Alert: { alert() {} }, Platform: { OS: "android" }, Modal: "Modal", KeyboardAvoidingView: "KeyboardAvoidingView",
+      Alert: { alert() {} }, Keyboard: { dismiss() {} }, useWindowDimensions: () => ({ width: 320, fontScale: 1 }),
+      Platform: { OS: "android" }, Modal: "Modal", KeyboardAvoidingView: "KeyboardAvoidingView",
       View: "View", Text: "Text", TouchableOpacity: "TouchableOpacity",
       ScrollView: "ScrollView", FlatList: "FlatList", ActivityIndicator: "ActivityIndicator" },
     "@expo/vector-icons": { Ionicons: "Icon" },
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
-    "@/constants/theme": { colors: {}, spacing: {}, dimensions: {}, radii: {}, shadows: {}, typography: {},
+    "@/constants/theme": { colors: {}, spacing: {}, dimensions: {}, radii: {}, shadows: {}, typography: {}, interaction: {},
       getTabBarClearance: () => 100 },
     "@/context/CatDataContext": { useCatData: () => context() },
+    ...dependencies,
   };
   const exports = {};
   const source = ts.transpileModule(fs.readFileSync(path.join(root, file), "utf8"), {
@@ -59,12 +61,12 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
   vm.runInNewContext(source, { exports, setTimeout, clearTimeout, ...globals, require: (id) => {
     if (id in mocks) return mocks[id];
     if (id === "react/jsx-runtime") return require(id);
-    if (id.includes("components/")) return { __esModule: true, default: id };
+    if (id.includes("components/") || (file.startsWith("components/") && id.startsWith("./"))) return { __esModule: true, default: id };
     if (id.startsWith("@/")) return require(path.join(root, id.slice(2)) + ".ts");
     if (id.startsWith("./")) return require(path.join(path.dirname(path.join(root, file)), id) + ".ts");
     throw new Error("Unexpected dependency: " + id);
   } }, { filename: file });
-  return { render: () => { cursor = 0; focus.length = 0; const tree = (exports.default ?? exports.CatDataProvider)({ children: null, ...props }); effects.splice(0).forEach((fn) => fn()); return tree; }, focus, hardwareBack };
+  return { render: () => { cursor = 0; focus.length = 0; const tree = (exports.default ?? exports.CatDataProvider ?? exports.AuthProvider)({ children: null, ...props }); effects.splice(0).forEach((fn) => fn()); return tree; }, focus, hardwareBack };
 }
 
 function nodes(node) {
