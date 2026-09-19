@@ -11,7 +11,7 @@ interface PolicySectionProps {
 export default function PolicySection({ title, children }: PolicySectionProps) {
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title} accessibilityRole="header">{title}</Text>
       <Text style={styles.body}>{children}</Text>
     </View>
   );

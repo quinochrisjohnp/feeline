@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -12,11 +12,31 @@ const Settings = () => {
   const { profile, signOut } = useAuth();
   const router = useRouter();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const logoutPending = useRef(false);
+
+  const handleLogout = async () => {
+    if (logoutPending.current) return;
+    logoutPending.current = true;
+    setLoggingOut(true);
+    setLogoutError(null);
+    try {
+      await signOut();
+      // The existing protected stack redirects to Login and removes authenticated history.
+      setConfirmingLogout(false);
+    } catch {
+      setLogoutError("Could not log out. Please try again.");
+    } finally {
+      logoutPending.current = false;
+      setLoggingOut(false);
+    }
+  };
 
   const displayName = profile
     ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() || "FeELINE User"
-    : "Guest User";
-  const displayEmail = profile?.email ?? "guest@example.com";
+    : "Account unavailable";
+  const displayEmail = profile?.email ?? "No email available";
 
   return (
     <ScreenContainer scroll tabBar>
@@ -52,20 +72,18 @@ const Settings = () => {
       </View>
 
       <View style={styles.section}>
-        <SettingRow icon="log-out-outline" label="Log out" destructive onPress={() => setConfirmingLogout(true)} />
+        <SettingRow icon="log-out-outline" label="Log out" destructive onPress={() => { setLogoutError(null); setConfirmingLogout(true); }} />
       </View>
 
       <ConfirmModal
         visible={confirmingLogout}
         title="Log out?"
-        message="Are you sure you want to log out of FeELINE?"
+        message={logoutError ?? "Are you sure you want to log out of FeELINE?"}
         confirmLabel="Log out"
         destructive
-        onConfirm={() => {
-          setConfirmingLogout(false);
-          signOut();
-        }}
-        onCancel={() => setConfirmingLogout(false)}
+        busy={loggingOut}
+        onConfirm={handleLogout}
+        onCancel={() => { if (!logoutPending.current) setConfirmingLogout(false); }}
       />
     </ScreenContainer>
   );
@@ -76,8 +94,8 @@ export default Settings;
 const styles = StyleSheet.create({
   profileRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl },
   avatar: { width: 72, height: 72 },
-  profileText: { marginLeft: spacing.md, flex: 1 },
+  profileText: { marginLeft: spacing.md, flex: 1, minWidth: 0 },
   name: { ...typography.subheading, color: colors.textPrimary },
-  email: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  email: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xxs },
   section: { marginBottom: spacing.lg },
 });
