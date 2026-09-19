@@ -1,8 +1,9 @@
 import React from "react";
-import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
-import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
+import { colors, radii, spacing, typography } from "@/constants/theme";
 
 interface WhatToAvoidModalProps {
   visible: boolean;
@@ -19,41 +20,35 @@ const CATEGORIES = [
 
 export default function WhatToAvoidModal({ visible, onClose }: WhatToAvoidModalProps) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.titleRow}>
-              <Ionicons name="warning-outline" size={22} color={colors.textPrimary} />
-              <Text style={styles.title}>What to Avoid</Text>
-              <Ionicons name="warning-outline" size={22} color={colors.textPrimary} />
-            </View>
-            <Text style={styles.subtitle}>These images may lead to less accurate emotion detection results.</Text>
-
-            <View style={styles.grid}>
-              {CATEGORIES.map((category) => (
-                <View key={category.key} style={styles.card}>
-                  <View style={styles.cardImage}>
-                    <Ionicons name={category.icon} size={30} color={colors.textMuted} />
-                  </View>
-                  <Text style={styles.cardLabel}>{category.label}</Text>
-                </View>
-              ))}
-            </View>
-
-            <Button label="Continue" onPress={onClose} fullWidth style={styles.continueButton} />
-          </ScrollView>
-        </View>
+    <ModalSurface visible={visible} onClose={onClose}>
+      <View style={styles.titleRow}>
+        <Ionicons name="warning-outline" size={22} color={colors.textPrimary} />
+        <Text style={styles.title}>What to Avoid</Text>
+        <Ionicons name="warning-outline" size={22} color={colors.textPrimary} />
       </View>
-    </Modal>
+      <Text style={styles.subtitle}>These images may lead to less accurate emotion detection results.</Text>
+
+      <View style={styles.grid}>
+        {CATEGORIES.map((category) => (
+          <View key={category.key} style={styles.card}>
+            <View style={styles.cardImage}>
+              <Ionicons name={category.icon} size={30} color={colors.textMuted} />
+            </View>
+            <Text style={styles.cardLabel}>{category.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={styles.note}>Examples are placeholders. Physical differences do not make a cat invalid;
+        this prototype may have difficulty interpreting some images.</Text>
+      <Button label="Continue" onPress={onClose} fullWidth style={styles.continueButton} />
+    </ModalSurface>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: "center", paddingHorizontal: spacing.lg },
-  sheet: { backgroundColor: colors.white, borderRadius: radii.xl, padding: spacing.lg, maxHeight: "85%", ...shadows.floating },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, marginBottom: spacing.xs },
-  title: { ...typography.heading, color: colors.textPrimary },
+  title: { ...typography.subheading, color: colors.textPrimary, flexShrink: 1, textAlign: "center" },
   subtitle: { ...typography.body, color: colors.textMuted, textAlign: "center", marginBottom: spacing.lg },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   card: { width: "48%", marginBottom: spacing.md, alignItems: "center" },
@@ -67,5 +62,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   cardLabel: { ...typography.label, color: colors.textPrimary, textAlign: "center" },
+  note: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.sm },
   continueButton: { marginTop: spacing.sm },
 });

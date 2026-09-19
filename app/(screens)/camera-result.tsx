@@ -1,125 +1,70 @@
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useRef } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScreenContainer from "@/components/common/ScreenContainer";
 import FullBleedScreen from "@/components/common/FullBleedScreen";
-import PlaceholderBox from "@/components/common/PlaceholderBox";
+import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import Button from "@/components/common/Button";
+import MockCapturePhoto from "@/components/camera/MockCapturePhoto";
 import EmotionResultCard from "@/components/camera/EmotionResultCard";
-import type { EmotionKey } from "@/types/models";
-import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
-
-type Outcome = "normal" | "low" | "error";
+import { detectMockCapture, parseMockCapture } from "@/services/mockDetection";
+import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
 
 export default function CameraResult() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ outcome?: string; emotion?: string; confidence?: string; imageUri?: string; capturedAt?: string }>();
-
-  const outcome = (params.outcome as Outcome) ?? "normal";
-  const emotion = (params.emotion as EmotionKey | undefined) || undefined;
-  const confidence = params.confidence ? Number(params.confidence) : undefined;
-
-  const handleRetake = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/camera");
-  };
-
+  const params = useLocalSearchParams();
+  const capture = parseMockCapture(params);
+  const result = capture ? detectMockCapture(capture) : null;
+  const leaving = useRef(false);
+  const handleRetake = () => router.dismissTo("/camera");
   const handleSave = () => {
-    router.push({
-      pathname: "/camera-save",
-      params: { emotion: emotion ?? "", confidence: String(confidence ?? ""), imageUri: params.imageUri, capturedAt: params.capturedAt },
-    });
+    if (leaving.current || !capture || result?.outcome !== "normal") return;
+    leaving.current = true;
+    // Only one pending deep screen: completed saves cannot reveal an old result on Back.
+    router.replace({ pathname: "/camera-save", params: { ...capture } });
   };
 
-  if (outcome === "error") {
+  if (!result || result.outcome === "error") {
     return (
-      <FullBleedScreen>
-        <PlaceholderBox
-          style={styles.fill}
-          icon="camera-outline"
-          label="Captured Photo (Placeholder)"
-          backgroundColor={colors.black}
-          labelColor="rgba(255,255,255,0.6)"
-          borderRadius={0}
-        />
-        <TouchableOpacity
-          style={[styles.roundIconButton, { top: insets.top + spacing.sm, left: spacing.md }]}
-          onPress={handleRetake}
-          accessibilityLabel="Retake photo"
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-
-        <View style={styles.centerOverlay}>
-          <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>Emotion Detection Error.</Text>
-            <Text style={styles.errorMessage}>Please try again.</Text>
-            <Button label="Continue" onPress={handleRetake} style={styles.errorButton} />
-          </View>
-        </View>
+      <FullBleedScreen statusBarStyle="dark">
+        <ScreenContainer edges={["left", "right", "bottom"]} padded={false} backgroundColor={colors.black}>
+          <DetailScreenHeader title="Mock capture" onBack={handleRetake} />
+          <ScrollView contentContainerStyle={styles.errorContent}>
+            {capture ? <MockCapturePhoto imageUri={capture.imageUri} /> : null}
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle} accessibilityRole="header">Emotion Detection Error.</Text>
+              <Text style={styles.message}>{result?.outcome === "error" ? result.message : "This mock capture is unavailable. Please try again."}</Text>
+              <Text style={styles.mockNote}>Mock result · No image analysis was performed.</Text>
+              <Button label="Try Again" onPress={handleRetake} fullWidth />
+            </View>
+          </ScrollView>
+        </ScreenContainer>
       </FullBleedScreen>
     );
   }
 
-  const isLow = outcome === "low";
-
   return (
-    <FullBleedScreen>
-      <PlaceholderBox
-        style={styles.fill}
-        icon="image-outline"
-        label="Captured Photo (Placeholder)"
-        backgroundColor={colors.black}
-        labelColor="rgba(255,255,255,0.6)"
-        borderRadius={0}
-      />
-
-      <View style={[styles.topRow, { top: insets.top + spacing.sm }]}>
-        <TouchableOpacity style={styles.roundIconButton} onPress={handleRetake} accessibilityLabel="Retake photo">
-          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        {!isLow && <Button label="Save" variant="outline" size="sm" onPress={handleSave} />}
-      </View>
-
-      <View style={styles.resultWrapper}>
-        <EmotionResultCard emotionKey={emotion} confidence={confidence} variant={isLow ? "lowConfidence" : "normal"} />
-      </View>
-    </FullBleedScreen>
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title="Emotion Result" onBack={handleRetake}
+        rightElement={result.outcome === "normal" ? <Button label="Save" size="sm" variant="outline" onPress={handleSave} /> : undefined} />
+      <ScrollView contentContainerStyle={styles.resultContent}>
+        <View style={styles.photo}>
+          <MockCapturePhoto imageUri={capture!.imageUri} />
+        </View>
+        <EmotionResultCard emotionKey={result.emotion} confidence={result.confidence}
+          variant={result.outcome === "low" ? "lowConfidence" : "normal"} onRetry={handleRetake} />
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: StyleSheet.absoluteFillObject,
-  topRow: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  roundIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.pill,
-    backgroundColor: "rgba(255,255,255,0.85)",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.card,
-  },
-  resultWrapper: { position: "absolute", left: 0, right: 0, bottom: 0 },
-  centerOverlay: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.lg },
-  errorCard: {
-    width: "100%",
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    alignItems: "center",
-    ...shadows.floating,
-  },
+  resultContent: { flexGrow: 1, paddingBottom: spacing.md },
+  photo: { flexGrow: 1, minHeight: 240, margin: spacing.lg },
+  errorContent: { flexGrow: 1, justifyContent: "center", padding: spacing.lg, gap: spacing.lg },
+  errorCard: { width: "100%", maxWidth: dimensions.dialogMaxWidth, alignSelf: "center",
+    backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing.lg, ...shadows.floating },
   errorTitle: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
-  errorMessage: { ...typography.body, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg, textAlign: "center" },
-  errorButton: { minWidth: 160 },
+  message: { ...typography.body, color: colors.textSecondary, marginVertical: spacing.sm, textAlign: "center" },
+  mockNote: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: "center" },
 });
