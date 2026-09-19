@@ -15,14 +15,15 @@ import { colors, dimensions, radii, spacing, typography } from "@/constants/them
 
 export default function AlbumPhoto() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ imageId?: string }>();
+  const params = useLocalSearchParams<{ imageId?: string; from?: string }>();
+  const fromCalendar = params.from === "calendar";
   const imageId = typeof params.imageId === "string" ? params.imageId : "";
   const { state, deleteImage } = useCatData();
 
   const image = selectImageById(state, imageId);
   const record = image ? selectDetectionForImage(state, image.id) : null;
 
-  const [showEmotion, setShowEmotion] = useState(false);
+  const [showEmotion, setShowEmotion] = useState(fromCalendar);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false);
 
@@ -30,9 +31,10 @@ export default function AlbumPhoto() {
   const availableAlbumId = image?.albumId ?? parentAlbumId;
   const parentExists = !!availableAlbumId && !!selectAlbumById(state, availableAlbumId);
   const backToAlbum = useCallback(() => {
-    if (parentExists && availableAlbumId) router.dismissTo({ pathname: "/album-folder", params: { albumId: availableAlbumId } });
+    if (fromCalendar) router.dismissTo("/calendar");
+    else if (parentExists && availableAlbumId) router.dismissTo({ pathname: "/album-folder", params: { albumId: availableAlbumId } });
     else router.dismissTo("/album");
-  }, [availableAlbumId, parentExists, router]);
+  }, [availableAlbumId, parentExists, fromCalendar, router]);
 
   useFocusEffect(useCallback(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -57,7 +59,7 @@ export default function AlbumPhoto() {
       <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
         <DetailScreenHeader title="Photo" onBack={backToAlbum} />
         <EmptyState icon="image-outline" title="Photo unavailable" message="This photo may have been deleted."
-          actionLabel={parentExists ? "Back to album" : "Back to Cat Album"} onAction={backToAlbum} />
+          actionLabel={fromCalendar ? "Back to Calendar" : parentExists ? "Back to album" : "Back to Cat Album"} onAction={backToAlbum} />
       </ScreenContainer>
     );
   }

@@ -180,7 +180,8 @@ test("cat deletion cascades all four collections without touching Unknown Cats",
 });
 
 test("selectors resolve newest cover, latest detection, date and Unknown filter", () => {
-  assert.ok(!selectors.selectCalendarFilterOptions(initial).some((option) => option.id === unknown));
+  // Phase 6 keeps the system album selectable even before its first capture.
+  assert.ok(selectors.selectCalendarFilterOptions(initial).some((option) => option.id === unknown));
   const older = capture(unknown, "older");
   const newer = capture(unknown, "newer");
   newer.image.capturedAt = newer.detection.recordedAt = "2026-09-18T03:30:00.000Z";

@@ -1,17 +1,6 @@
-import React, { useMemo, useRef, useState } from "react";
-import {
-  LayoutAnimation,
-  Modal,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  UIManager,
-  View,
-} from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
@@ -19,206 +8,144 @@ import CalendarDay from "@/components/calendar/CalendarDay";
 import CompactWeekStrip from "@/components/calendar/CompactWeekStrip";
 import DetectionListRow from "@/components/calendar/DetectionListRow";
 import CatFilterModal from "@/components/calendar/CatFilterModal";
-import EmotionResultCard from "@/components/camera/EmotionResultCard";
 import EmptyState from "@/components/common/EmptyState";
 import { useCatData } from "@/context/CatDataContext";
-import { UNKNOWN_ALBUM_ID } from "@/types/models";
-import { selectCalendarRecordsForDate, selectCalendarFilterOptions, selectCatById, selectCatForDetection, selectImageById } from "@/context/catDataSelectors";
-import MockPhoto from "@/components/common/MockPhoto";
-import type { EmotionKey } from "@/types/models";
+import { selectCalendarRecordsForDate, selectCalendarRecords, selectCalendarFilterOptions,
+  selectBirthdayCatsForDate, selectCatForDetection } from "@/context/catDataSelectors";
 import { formatFullDate, formatTime, getMonthMatrix, getWeekDates, isSameDay, monthLabel } from "@/utils/date";
-import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
+import { colors, getTabBarClearance, radii, shadows, spacing, typography } from "@/constants/theme";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const WEEKDAYS = ["Sun", "Mon", "Tues", "Wed", "Thur", "Fri", "Sat"];
-const COLLAPSE_THRESHOLD = 60;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function Calendar() {
+  const router = useRouter();
   const { state } = useCatData();
   const filterOptions = selectCalendarFilterOptions(state);
-
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [filterVisible, setFilterVisible] = useState(false);
-  const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-
+  const [calendarHeight, setCalendarHeight] = useState(500);
+  const [viewportHeight, setViewportHeight] = useState(600);
+  const [stripHeight, setStripHeight] = useState(170);
   const scrollRef = useRef<ScrollView>(null);
 
+  // Derive the fallback immediately, including the render before the effect runs.
+  const filterId = filterOptions.some((option) => option.id === selectedCatId) ? selectedCatId : null;
+  useEffect(() => { if (selectedCatId !== filterId) setSelectedCatId(filterId); }, [selectedCatId, filterId]);
+  const selectedCatName = filterOptions.find((option) => option.id === filterId)?.name ?? "All Cats";
   const cells = useMemo(() => getMonthMatrix(monthDate), [monthDate]);
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
-
-  const dominantEmotionFor = (date: Date): EmotionKey | undefined => {
-    const records = selectCalendarRecordsForDate(state, date);
-    return records[records.length - 1]?.emotion;
+  const records = selectCalendarRecordsForDate(state, selectedDate, filterId);
+  const birthdays = selectBirthdayCatsForDate(state, selectedDate, filterId);
+  const hasHistory = selectCalendarRecords(state, filterId).length > 0;
+  const activityForDate = (date: Date) => {
+    const daily = selectCalendarRecordsForDate(state, date, filterId);
+    return { emotion: daily[daily.length - 1]?.emotion, recordCount: daily.length,
+      birthdayCount: selectBirthdayCatsForDate(state, date, filterId).length };
   };
-
-  const recordsForSelectedDate = useMemo(
-    () => selectCalendarRecordsForDate(state, selectedDate, selectedCatId),
-    [state, selectedDate, selectedCatId]
-  );
-
-  const goToPrevMonth = () => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
-  const goToNextMonth = () => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
-
-  const catNameFor = (catId: string) => catId === UNKNOWN_ALBUM_ID ? "Unknown Cats" : selectCatById(state, catId)?.name ?? "Cat";
-  const selectedCatName = selectedCatId ? catNameFor(selectedCatId) : "All Cats";
-  const dateHeading = isSameDay(selectedDate, new Date())
-    ? "TODAY"
-    : formatFullDate(selectedDate.toISOString()).toUpperCase();
-
-  const activeRecord = state.detectionRecords.find((record) => record.id === activeRecordId) ?? null;
-
-  const setCollapsedAnimated = (value: boolean) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setCollapsed(value);
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = event.nativeEvent.contentOffset.y;
-    if (y > COLLAPSE_THRESHOLD && !collapsed) {
-      setCollapsedAnimated(true);
-    } else if (y <= COLLAPSE_THRESHOLD && collapsed) {
-      setCollapsedAnimated(false);
-    }
-  };
-
   const handleExpand = () => {
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    setCollapsed(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
+  const selectDate = (date: Date) => {
+    setSelectedDate(date);
+    setMonthDate(new Date(date.getFullYear(), date.getMonth(), 1));
+    if (collapsed) scrollRef.current?.scrollTo({ y: Math.max(0, calendarHeight - stripHeight), animated: false });
+  };
+  const moveMonth = (offset: number) => {
+    selectDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + offset, 1));
+    handleExpand();
+  };
+  const goToToday = () => { selectDate(new Date()); handleExpand(); };
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // Keep the full grid's height stable; the overlay takes over as the grid leaves view.
+    // A small hysteresis avoids flicker around the transition on native scroll bounce.
+    const threshold = Math.max(60, calendarHeight - stripHeight);
+    const y = event.nativeEvent.contentOffset.y;
+    if (!collapsed && y >= threshold) setCollapsed(true);
+    else if (collapsed && y < threshold - 24) setCollapsed(false);
+  };
+  const dateHeading = isSameDay(selectedDate, new Date()) ? "TODAY" : formatFullDate(selectedDate.toISOString()).toUpperCase();
 
   return (
     <ScreenContainer padded={false}>
-      <View style={styles.root}>
-        <ScrollView
-          ref={scrollRef}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}
-        >
-          <View style={styles.calendarSection}>
-            <CalendarHeader label={monthLabel(monthDate)} onPrev={goToPrevMonth} onNext={goToNextMonth} />
-
-            <View style={styles.weekdayRow}>
-              {WEEKDAYS.map((day) => (
-                <Text key={day} style={styles.weekdayLabel}>
-                  {day}
-                </Text>
-              ))}
+      <View style={styles.root} onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}>
+        <ScrollView ref={scrollRef} onScroll={handleScroll} scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: getTabBarClearance(0) }}>
+          <View style={styles.calendarSection} onLayout={(event) => setCalendarHeight(event.nativeEvent.layout.height)}
+            accessibilityElementsHidden={collapsed} importantForAccessibility={collapsed ? "no-hide-descendants" : "auto"}>
+            <View style={styles.headerPadding}>
+              <CalendarHeader label={monthLabel(monthDate)} onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} onToday={goToToday} />
             </View>
-
+            <View style={styles.weekdayRow}>
+              {WEEKDAYS.map((day) => <Text key={day} style={styles.weekdayLabel}>{day}</Text>)}
+            </View>
             <View style={styles.grid}>
               {cells.map(({ date, inCurrentMonth }) => (
-                <CalendarDay
-                  key={date.toISOString()}
-                  day={date.getDate()}
-                  inCurrentMonth={inCurrentMonth}
-                  isSelected={isSameDay(date, selectedDate)}
-                  isToday={isSameDay(date, new Date())}
-                  emotion={dominantEmotionFor(date)}
-                  onPress={() => setSelectedDate(date)}
-                />
+                <CalendarDay key={date.toISOString()} day={date.getDate()}
+                  dateLabel={date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                  inCurrentMonth={inCurrentMonth} isSelected={isSameDay(date, selectedDate)} isToday={isSameDay(date, new Date())}
+                  {...activityForDate(date)} onPress={() => selectDate(date)} />
               ))}
             </View>
           </View>
-
-          <View style={styles.recordsSheet}>
+          <View style={[styles.recordsSheet, { minHeight: Math.max(200, viewportHeight - stripHeight) }]}>
             <View style={styles.recordsHeader}>
               <Text style={styles.recordsHeading}>{dateHeading}</Text>
-              <TouchableOpacity style={styles.filterChip} onPress={() => setFilterVisible(true)}>
+              <TouchableOpacity style={styles.filterChip} onPress={() => setFilterVisible(true)} accessibilityRole="button"
+                accessibilityLabel={`Filter calendar: ${selectedCatName}`} accessibilityState={{ expanded: filterVisible }}>
                 <Text style={styles.filterChipLabel}>{selectedCatName}</Text>
-                <Ionicons name="chevron-down" size={14} color={colors.textPrimary} />
+                <Ionicons name="chevron-down" size={16} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
-
-            {recordsForSelectedDate.length === 0 ? (
-              <EmptyState icon="calendar-clear-outline" title="No detection records for this date" />
-            ) : (
-              recordsForSelectedDate.map((record) => (
-                <DetectionListRow
-                  key={record.id}
-                  catName={selectCatForDetection(state, record)?.name ?? "Unknown Cats"}
-                  emotion={record.emotion}
-                  time={formatTime(record.recordedAt)}
-                  onPress={() => setActiveRecordId(record.id)}
-                />
-              ))
-            )}
+            {birthdays.map((cat) => (
+              <View key={cat.id} style={styles.birthday} accessible accessibilityLabel={`${cat.name}, Birthday, All Day`}>
+                <Ionicons name="gift-outline" size={22} color={colors.textPrimary} />
+                <View style={styles.birthdayText}><Text style={styles.birthdayName}>{cat.name}</Text><Text style={styles.birthdayLabel}>Birthday</Text></View>
+                <Text style={styles.allDay}>All Day</Text>
+              </View>
+            ))}
+            {records.map((record) => (
+              <DetectionListRow key={record.id} catName={selectCatForDetection(state, record)?.name ?? "Unknown Cats"}
+                emotion={record.emotion} time={formatTime(record.recordedAt)}
+                onPress={() => router.push({ pathname: "/album-photo", params: { imageId: record.imageId, from: "calendar" } })} />
+            ))}
+            {records.length === 0 && birthdays.length === 0 ? <EmptyState icon="calendar-clear-outline"
+              title={hasHistory ? "No events for this date" : "No detections yet"}
+              message={hasHistory ? "Choose another date to view saved detections." : `Saved mock detections${filterId ? ` for ${selectedCatName}` : ""} will appear here.`} /> : null}
           </View>
         </ScrollView>
-
-        {collapsed && (
-          <View style={styles.stickyOverlay}>
-            <CompactWeekStrip
-              weekDates={weekDates}
-              selectedDate={selectedDate}
-              monthLabel={monthLabel(monthDate)}
-              emotionForDate={dominantEmotionFor}
-              onSelectDate={setSelectedDate}
-              onExpand={handleExpand}
-            />
-          </View>
-        )}
+        {collapsed && <View style={styles.stickyOverlay} onLayout={(event) => setStripHeight(event.nativeEvent.layout.height)}>
+          <CompactWeekStrip weekDates={weekDates} selectedDate={selectedDate} monthLabel={monthLabel(monthDate)}
+            activityForDate={activityForDate} onSelectDate={selectDate} onExpand={handleExpand} />
+        </View>}
       </View>
-
-      <CatFilterModal
-        visible={filterVisible}
-        options={filterOptions}
-        selectedCatId={selectedCatId}
-        onSelect={setSelectedCatId}
-        onClose={() => setFilterVisible(false)}
-      />
-
-      <Modal visible={!!activeRecord} transparent animationType="fade" onRequestClose={() => setActiveRecordId(null)}>
-        <TouchableOpacity style={styles.detailOverlay} activeOpacity={1} onPress={() => setActiveRecordId(null)}>
-          <View style={styles.detailCard}>
-            <View style={styles.detailPhoto}>
-              <MockPhoto imageUri={activeRecord ? selectImageById(state, activeRecord.imageId)?.imageUri : null} size={40} />
-            </View>
-            {activeRecord ? <EmotionResultCard emotionKey={activeRecord.emotion} confidence={activeRecord.confidence} /> : null}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <CatFilterModal visible={filterVisible} options={filterOptions} selectedCatId={filterId}
+        onSelect={setSelectedCatId} onClose={() => setFilterVisible(false)} />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  calendarSection: { paddingHorizontal: spacing.lg },
+  calendarSection: { paddingHorizontal: spacing.xxs },
+  headerPadding: { paddingHorizontal: spacing.md },
   weekdayRow: { flexDirection: "row" },
   weekdayLabel: { ...typography.caption, color: colors.textSecondary, width: `${100 / 7}%`, textAlign: "center" },
   grid: { flexDirection: "row", flexWrap: "wrap", marginTop: spacing.sm },
-  recordsSheet: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
-    marginTop: spacing.md,
-    minHeight: 200,
-    ...shadows.floating,
-  },
-  recordsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
-  recordsHeading: { ...typography.subheading, color: colors.textPrimary, letterSpacing: 1 },
-  filterChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.background,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  filterChipLabel: { ...typography.label, color: colors.textPrimary },
+  recordsSheet: { backgroundColor: colors.white, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
+    padding: spacing.lg, marginTop: spacing.md, ...shadows.floating },
+  recordsHeader: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
+  recordsHeading: { ...typography.label, color: colors.textPrimary, letterSpacing: 1, flexShrink: 1 },
+  filterChip: { flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "100%", minHeight: 44,
+    backgroundColor: colors.background, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  filterChipLabel: { ...typography.label, color: colors.textPrimary, flexShrink: 1 },
+  birthday: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.sm },
+  birthdayText: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+  birthdayName: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
+  birthdayLabel: { ...typography.bodyMedium, color: colors.textPrimary },
+  allDay: { ...typography.caption, color: colors.textSecondary },
   stickyOverlay: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
-  detailOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: "center", paddingHorizontal: spacing.lg },
-  detailCard: { backgroundColor: colors.white, borderRadius: radii.lg, overflow: "hidden", ...shadows.floating },
-  detailPhoto: { height: 220, backgroundColor: colors.border, alignItems: "center", justifyContent: "center" },
 });
