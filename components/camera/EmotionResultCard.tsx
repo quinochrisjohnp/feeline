@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { EMOTIONS, EmotionKey } from "@/types/models";
 import { RECOMMENDED_ACTIONS } from "@/data/recommendations";
+import Button from "@/components/common/Button";
 import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
 
 interface EmotionResultCardProps {
@@ -13,6 +14,7 @@ interface EmotionResultCardProps {
   /** "lowConfidence" replaces the recommended-actions list with the
    * low-confidence warning copy from the prototype. */
   variant?: "normal" | "lowConfidence";
+  onRetry?: () => void;
 }
 
 const PLACEHOLDER_ACTIONS = [
@@ -21,7 +23,7 @@ const PLACEHOLDER_ACTIONS = [
   "Suggestions are for observation and gentle interaction, not diagnosis.",
 ];
 
-export default function EmotionResultCard({ emotionKey, confidence, variant = "normal" }: EmotionResultCardProps) {
+export default function EmotionResultCard({ emotionKey, confidence, variant = "normal", onRetry }: EmotionResultCardProps) {
   const meta = emotionKey ? EMOTIONS[emotionKey] : null;
   const isPlaceholder = !meta;
   const isLowConfidence = variant === "lowConfidence" && !!emotionKey;
@@ -70,6 +72,7 @@ export default function EmotionResultCard({ emotionKey, confidence, variant = "n
           ))}
         </>
       )}
+      {onRetry ? <Button label="Try Again" onPress={onRetry} variant={isLowConfidence ? "primary" : "outline"} style={styles.spaced} /> : null}
     </View>
   );
 }
