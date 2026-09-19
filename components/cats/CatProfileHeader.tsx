@@ -1,19 +1,19 @@
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import MockPhoto from "@/components/common/MockPhoto";
 import { colors, radii, shadows } from "@/constants/theme";
 
 /** Cover photo + overlapping circular avatar used at the top of the Cat
  * Profile screen. */
-export default function CatProfileHeader() {
+export default function CatProfileHeader({ photoUri, coverUri, name }: { photoUri?: string | null; coverUri?: string | null; name?: string }) {
   return (
     <View style={styles.wrapper}>
       <View style={styles.cover}>
-        <Ionicons name="image-outline" size={40} color={colors.textMuted} />
+        <MockPhoto imageUri={coverUri} size={40} label={`${name ?? "Cat"} cover placeholder`} />
       </View>
       <View style={styles.avatarWrap}>
         <View style={styles.avatar}>
-          <Ionicons name="paw" size={34} color={colors.textMuted} />
+          <MockPhoto imageUri={photoUri} icon="paw" size={34} label={`${name ?? "Cat"} profile placeholder`} />
         </View>
       </View>
     </View>

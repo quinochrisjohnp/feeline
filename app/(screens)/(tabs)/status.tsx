@@ -1,6 +1,6 @@
 import React, { useCallback, useLayoutEffect, useState } from "react";
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useNavigation } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -8,17 +8,20 @@ import CatCoverCard from "@/components/cats/CatCoverCard";
 import CatProfileHeader from "@/components/cats/CatProfileHeader";
 import EmotionBadge from "@/components/common/EmotionBadge";
 import EmptyState from "@/components/common/EmptyState";
+import Button from "@/components/common/Button";
+import ConfirmModal from "@/components/common/ConfirmModal";
 import AddCatForm from "@/components/cats/AddCatForm";
 import { useCatData } from "@/context/CatDataContext";
-import { selectCatById, selectLatestDetectionForCat } from "@/context/catDataSelectors";
+import { selectAlbumForCat, selectCatById, selectLatestDetectionForCat } from "@/context/catDataSelectors";
 import { EMOTIONS } from "@/types/models";
 import type { Cat } from "@/types/models";
 import { getAgeYears, formatShortDate } from "@/utils/date";
-import { colors, radii, shadows, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
 
-// TODO: cat profile edit/delete flows come in a later phase.
 export default function Status() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [createdNotice, setCreatedNotice] = useState(false);
   const { state, addCat } = useCatData();
   const { cats } = state;
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
@@ -46,15 +49,17 @@ export default function Status() {
   const handleSaveCat = (cat: Cat) => {
     addCat(cat);
     setAddingCat(false);
+    setCreatedNotice(true);
   };
 
   if (selectedCat) {
     const latest = latestRecordFor(selectedCat.id);
+    const album = selectAlbumForCat(state, selectedCat.id);
 
     return (
-      <View style={styles.profileContainer}>
-        <ScrollView contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}>
-          <CatProfileHeader />
+      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: spacing.lg + insets.bottom }}>
+          <CatProfileHeader name={selectedCat.name} photoUri={selectedCat.photoUri} coverUri={selectedCat.coverUri} />
 
           <View style={styles.profileBody}>
             <Text style={styles.catName}>{selectedCat.name}</Text>
@@ -64,7 +69,8 @@ export default function Status() {
                 <>
                   <EmotionBadge emotion={latest.emotion} size={56} />
                   <Text style={styles.emotionLabel}>{EMOTIONS[latest.emotion].label.toUpperCase()}</Text>
-                  <Text style={styles.cardCaption}>Current Emotion</Text>
+                  <Text style={styles.cardCaption}>Latest Detected Emotion</Text>
+                  <Text style={styles.cardCaption}>Mock observable cues, not a diagnosis.</Text>
                   <View style={styles.statRow}>
                     <View style={styles.statCol}>
                       <Text style={styles.statValue}>{formatShortDate(latest.recordedAt)}</Text>
@@ -99,25 +105,28 @@ export default function Status() {
                 </View>
               </View>
             </View>
+            {album ? <Button label="Open Album" variant="outline"
+              onPress={() => router.push({ pathname: "/album-folder", params: { albumId: album.id } })} /> : null}
           </View>
         </ScrollView>
 
         <TouchableOpacity
           style={[styles.backButton, { top: insets.top + spacing.sm }]}
           onPress={() => setSelectedCatId(null)}
+          accessibilityRole="button"
           accessibilityLabel="Back to My Cats"
         >
           <Ionicons name="arrow-back" size={22} color={colors.white} />
         </TouchableOpacity>
-      </View>
+      </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}>
+    <ScreenContainer tabBar>
       <View style={styles.header}>
         <Text style={styles.title}>My Cats</Text>
-        <TouchableOpacity onPress={() => setAddingCat(true)} accessibilityLabel="Add cat">
+        <TouchableOpacity style={styles.addButton} accessibilityRole="button" onPress={() => setAddingCat(true)} accessibilityLabel="Add cat">
           <Ionicons name="add" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
@@ -126,19 +135,21 @@ export default function Status() {
         <EmptyState
           icon="paw-outline"
           title="No cats added yet"
-          message="Add your first cat to start tracking their emotions."
+          message="Add a cat profile to organize your mock photos and emotion-cue results."
           actionLabel="Add your first cat"
           onAction={() => setAddingCat(true)}
         />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
           {cats.map((cat) => (
-            <CatCoverCard key={cat.id} name={cat.name} coverUri={cat.coverUri} variant="bar" onPress={() => setSelectedCatId(cat.id)} />
+            <CatCoverCard key={cat.id} name={cat.name} coverUri={cat.coverUri ?? cat.photoUri} subtitle={`${cat.gender} / ${getAgeYears(cat.birthdate)} years old`} variant="bar" onPress={() => setSelectedCatId(cat.id)} />
           ))}
         </ScrollView>
       )}
 
       <AddCatForm visible={addingCat} onCancel={() => setAddingCat(false)} onSave={handleSaveCat} />
+      <ConfirmModal visible={createdNotice} title="Cat Profile Saved!" message="Your cat and its album are ready for this mock session."
+        hideCancel confirmLabel="Continue" onConfirm={() => setCreatedNotice(false)} onCancel={() => setCreatedNotice(false)} />
     </ScreenContainer>
   );
 }
@@ -146,19 +157,19 @@ export default function Status() {
 const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.md },
   title: { ...typography.heading, color: colors.textPrimary },
-  profileContainer: { flex: 1, backgroundColor: colors.background },
+  addButton: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center" },
   backButton: {
     position: "absolute",
     left: spacing.md,
-    width: 40,
-    height: 40,
+    width: dimensions.touchTarget,
+    height: dimensions.touchTarget,
     borderRadius: radii.pill,
     backgroundColor: "rgba(36,26,18,0.4)",
     alignItems: "center",
     justifyContent: "center",
   },
   profileBody: { paddingHorizontal: spacing.lg, marginTop: 52, alignItems: "center" },
-  catName: { ...typography.heading, color: colors.textPrimary, marginBottom: spacing.lg },
+  catName: { ...typography.heading, color: colors.textPrimary, marginBottom: spacing.lg, textAlign: "center" },
   card: {
     width: "100%",
     backgroundColor: colors.white,
@@ -170,10 +181,10 @@ const styles = StyleSheet.create({
   },
   emotionLabel: { ...typography.subheading, color: colors.textPrimary, marginTop: spacing.xs, letterSpacing: 1 },
   cardCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
-  statRow: { flexDirection: "row", width: "100%", justifyContent: "space-around", marginTop: spacing.md },
-  statCol: { alignItems: "center" },
-  statValue: { ...typography.subheading, color: colors.textPrimary },
-  statCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  statRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, width: "100%", justifyContent: "space-around", marginTop: spacing.md },
+  statCol: { flexGrow: 1, flexBasis: 110, alignItems: "center" },
+  statValue: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
+  statCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2, textAlign: "center" },
   noDataText: { ...typography.body, color: colors.textMuted, textAlign: "center" },
   sectionTitle: { ...typography.subheading, color: colors.textPrimary, alignSelf: "flex-start", marginBottom: spacing.sm },
   infoRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },

@@ -34,6 +34,7 @@ export default function RenameCatModal({ visible, initialName, onCancel, onSave 
             value={name}
             onChangeText={setName}
             placeholder="Album name"
+            error={!name.trim() ? "Enter an album name." : undefined}
             autoFocus
           />
           <View style={styles.actions}>

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useRef, useState } from "react";
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
@@ -8,181 +8,144 @@ import EmptyState from "@/components/common/EmptyState";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import EmotionBadge from "@/components/common/EmotionBadge";
 import { useCatData } from "@/context/CatDataContext";
-import { selectAlbumName, selectImagesForAlbum, selectDetectionForImage } from "@/context/catDataSelectors";
+import { selectAlbumById, selectAlbumName, selectImagesForAlbum, selectDetectionForImage } from "@/context/catDataSelectors";
 import MockPhoto from "@/components/common/MockPhoto";
-import { colors, radii, spacing, typography } from "@/constants/theme";
+import { formatFullDate, formatTime } from "@/utils/date";
+import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
 
 export default function AlbumFolder() {
   const router = useRouter();
   const params = useLocalSearchParams<{ albumId?: string }>();
-  const albumId = params.albumId ?? "";
+  const albumId = typeof params.albumId === "string" ? params.albumId : "";
   const { state, deleteImages } = useCatData();
-
-  const catName = selectAlbumName(state, albumId);
+  const album = selectAlbumById(state, albumId);
+  const albumName = selectAlbumName(state, albumId);
   const folderImages = selectImagesForAlbum(state, albumId);
-
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selection, setSelection] = useState<{ albumId: string; ids: string[] } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false);
+  const longPressed = useRef(false);
+  const selectionMode = selection?.albumId === albumId;
+  // Only IDs still present in this album can be acted on, even after another view changes state.
+  const selectedIds = selectionMode ? folderImages.filter((image) => selection.ids.includes(image.id)).map((image) => image.id) : [];
+  const allSelected = folderImages.length > 0 && selectedIds.length === folderImages.length;
+  const exitSelectionMode = useCallback(() => setSelection(null), []);
+  const backToAlbums = () => router.dismissTo("/album");
 
-  const exitSelectionMode = () => {
-    setSelectionMode(false);
-    setSelectedIds([]);
-  };
+  useFocusEffect(useCallback(() => {
+    if (!selectionMode) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      exitSelectionMode();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [exitSelectionMode, selectionMode]));
 
   const handleTilePress = (imageId: string) => {
+    if (longPressed.current) return;
     if (selectionMode) {
-      setSelectedIds((current) =>
-        current.includes(imageId) ? current.filter((id) => id !== imageId) : [...current, imageId]
-      );
-      return;
-    }
-    router.push({ pathname: "/album-photo", params: { imageId } });
+      setSelection({ albumId, ids: selectedIds.includes(imageId)
+        ? selectedIds.filter((id) => id !== imageId) : [...selectedIds, imageId] });
+    } else router.push({ pathname: "/album-photo", params: { imageId } });
   };
-
-  const handleTileLongPress = (imageId: string) => {
-    if (!selectionMode) {
-      setSelectionMode(true);
-      setSelectedIds([imageId]);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedIds.length === folderImages.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(folderImages.map((image) => image.id));
-    }
-  };
-
-  const handleDownloadSelected = () => {
-    Alert.alert("Download", `${selectedIds.length} photo(s) will be downloaded. (Placeholder action)`);
-  };
-
+  const handleSelectAll = () => setSelection({ albumId, ids: allSelected ? [] : folderImages.map((image) => image.id) });
   const handleDeleteSelected = () => {
+    if (!selectedIds.length) { setConfirmingDelete(false); return; }
     deleteImages(selectedIds);
     setConfirmingDelete(false);
+    setSelection(null);
     setDeletedNotice(true);
   };
+  const dismissNotice = () => { setDeletedNotice(false); exitSelectionMode(); };
 
   return (
-    <ScreenContainer
-      edges={["left", "right", "bottom"]}
-      padded={false}
-      contentContainerStyle={{ paddingBottom: spacing.tabBarClearance }}
-    >
-      <DetailScreenHeader
-        title={catName}
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title={album ? albumName : "Album unavailable"}
         subtitle={selectionMode ? `${selectedIds.length} selected` : undefined}
-        onBack={selectionMode ? exitSelectionMode : undefined}
-      />
-
-      {folderImages.length === 0 ? (
-        <EmptyState icon="camera-outline" title="No photos yet" message={`Photos you save for ${catName} will appear here.`} />
+        onBack={selectionMode ? exitSelectionMode : () => {
+          if (router.canGoBack()) router.back();
+          else backToAlbums();
+        }} />
+      {!album ? (
+        <EmptyState icon="images-outline" title="Album unavailable" message="This album may have been deleted."
+          actionLabel="Back to Cat Album" onAction={backToAlbums} />
+      ) : folderImages.length === 0 ? (
+        <EmptyState icon="camera-outline" title="No photos yet" message={`Photos you save for ${albumName} will appear here.`}
+          actionLabel="Open Camera" onAction={() => router.dismissTo("/camera")} />
       ) : (
-        <View style={styles.photoGrid}>
-          {folderImages.map((image) => {
-            const record = selectDetectionForImage(state, image.id);
-            const isSelected = selectedIds.includes(image.id);
-            return (
-              <TouchableOpacity
-                key={image.id}
-                style={[styles.photoTile, isSelected && styles.photoTileSelected]}
-                onPress={() => handleTilePress(image.id)}
-                onLongPress={() => handleTileLongPress(image.id)}
-                activeOpacity={0.85}
-              >
-                <MockPhoto imageUri={image.imageUri} size={26} />
-                <View style={styles.photoEmotionDot}>
-                  {record && <EmotionBadge emotion={record.emotion} size={22} />}
-                </View>
-                {selectionMode && (
-                  <View style={styles.selectionCheck}>
-                    <Ionicons
-                      name={isSelected ? "checkmark-circle" : "ellipse-outline"}
-                      size={22}
-                      color={isSelected ? colors.primary : colors.white}
-                    />
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <ScrollView contentContainerStyle={styles.gridContent}>
+          <Text style={styles.hint}>Tap a photo to open it. Hold to select photos.</Text>
+          <View style={styles.photoGrid}>
+            {folderImages.map((image) => {
+              const record = selectDetectionForImage(state, image.id);
+              const isSelected = selectedIds.includes(image.id);
+              return (
+                <TouchableOpacity key={image.id}
+                  style={[styles.photoTile, isSelected && styles.photoTileSelected]}
+                  accessibilityRole={selectionMode ? "checkbox" : "button"}
+                  accessibilityState={{ checked: selectionMode ? isSelected : undefined }}
+                  accessibilityLabel={`Mock photo, ${formatFullDate(image.capturedAt)}, ${formatTime(image.capturedAt)}`}
+                  accessibilityHint={selectionMode ? "Toggle selection" : "Open photo. Hold to select."}
+                  onPressIn={() => { longPressed.current = false; }}
+                  onPress={() => handleTilePress(image.id)}
+                  onLongPress={() => {
+                    longPressed.current = true;
+                    if (!selectionMode) setSelection({ albumId, ids: [image.id] });
+                  }} activeOpacity={0.85}>
+                  <MockPhoto imageUri={image.imageUri} size={26} />
+                  {record ? <View style={styles.emotionDot}><EmotionBadge emotion={record.emotion} size={22} /></View> : null}
+                  {selectionMode ? (
+                    <View style={styles.selectionCheck}>
+                      <Ionicons name={isSelected ? "checkmark-circle" : "ellipse-outline"} size={24} color={colors.textPrimary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
       )}
-
-      {selectionMode && (
+      {selectionMode && album ? (
         <View style={styles.selectionBar}>
-          <TouchableOpacity style={styles.selectionAction} onPress={handleSelectAll}>
-            <Ionicons name="checkmark-done-outline" size={20} color={colors.textPrimary} />
-            <Text style={styles.selectionActionLabel}>Select All</Text>
+          <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel={allSelected ? "Deselect All" : "Select All"} onPress={handleSelectAll} disabled={!folderImages.length}>
+            <Ionicons name="checkmark-done-outline" size={22} color={colors.textPrimary} />
+            <Text style={styles.actionLabel}>{allSelected ? "Deselect All" : "Select All"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.selectionAction} onPress={handleDownloadSelected}>
-            <Ionicons name="download-outline" size={20} color={colors.textPrimary} />
-            <Text style={styles.selectionActionLabel}>Download</Text>
+          <TouchableOpacity style={[styles.action, !selectedIds.length && styles.disabled]} accessibilityRole="button" accessibilityLabel="Download"
+            accessibilityState={{ disabled: !selectedIds.length }} disabled={!selectedIds.length}
+            onPress={() => Alert.alert("Mock download", `${selectedIds.length} photo(s) selected. No files were downloaded to your device.`)}>
+            <Ionicons name="download-outline" size={22} color={colors.textPrimary} />
+            <Text style={styles.actionLabel}>Download</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.selectionAction, selectedIds.length === 0 && styles.selectionActionDisabled]}
-            onPress={() => setConfirmingDelete(true)}
-            disabled={selectedIds.length === 0}
-          >
-            <Ionicons name="trash-outline" size={20} color={colors.danger} />
-            <Text style={[styles.selectionActionLabel, { color: colors.danger }]}>Delete</Text>
+          <TouchableOpacity style={[styles.action, !selectedIds.length && styles.disabled]} accessibilityRole="button" accessibilityLabel="Delete"
+            accessibilityState={{ disabled: !selectedIds.length }} disabled={!selectedIds.length}
+            onPress={() => setConfirmingDelete(true)}>
+            <Ionicons name="trash-outline" size={22} color={colors.dangerStrong} />
+            <Text style={[styles.actionLabel, { color: colors.dangerStrong }]}>Delete</Text>
           </TouchableOpacity>
         </View>
-      )}
-
-      <ConfirmModal
-        visible={confirmingDelete}
-        title="Delete these Photos?"
-        confirmLabel="Delete"
-        destructive
-        onConfirm={handleDeleteSelected}
-        onCancel={() => setConfirmingDelete(false)}
-      />
-
-      <ConfirmModal
-        visible={deletedNotice}
-        title="Images Deleted"
-        confirmLabel="Continue"
-        hideCancel
-        onConfirm={() => {
-          setDeletedNotice(false);
-          exitSelectionMode();
-        }}
-        onCancel={() => {
-          setDeletedNotice(false);
-          exitSelectionMode();
-        }}
-      />
+      ) : null}
+      <ConfirmModal visible={confirmingDelete} title="Delete these Photos?"
+        message={`Remove ${selectedIds.length} selected mock photo(s) and their detection records?`}
+        confirmLabel="Delete" destructive onConfirm={handleDeleteSelected} onCancel={() => setConfirmingDelete(false)} />
+      <ConfirmModal visible={deletedNotice} title="Images Deleted" confirmLabel="Continue" hideCancel
+        onConfirm={dismissNotice} onCancel={dismissNotice} />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  photoGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: spacing.lg, marginHorizontal: -spacing.xxs },
-  photoTile: {
-    width: "31.33%",
-    aspectRatio: 1,
-    margin: spacing.xxs,
-    borderRadius: radii.md,
-    backgroundColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoTileSelected: { borderWidth: 3, borderColor: colors.primary },
-  photoEmotionDot: { position: "absolute", bottom: 4, right: 4 },
-  selectionCheck: { position: "absolute", top: 4, right: 4 },
-  selectionBar: {
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.md,
-  },
-  selectionAction: { alignItems: "center", gap: 4 },
-  selectionActionDisabled: { opacity: 0.4 },
-  selectionActionLabel: { ...typography.caption, color: colors.textPrimary },
+  gridContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg },
+  hint: { ...typography.caption, color: colors.textSecondary, marginVertical: spacing.sm },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.xs },
+  photoTile: { width: "31.5%", aspectRatio: 1, minHeight: dimensions.touchTarget, borderWidth: 3,
+    borderColor: "transparent", borderRadius: radii.md, backgroundColor: colors.placeholder,
+    alignItems: "center", justifyContent: "center" },
+  photoTileSelected: { borderColor: colors.textPrimary },
+  emotionDot: { position: "absolute", bottom: 2, left: 2 },
+  selectionCheck: { position: "absolute", top: 2, right: 2, backgroundColor: colors.surface, borderRadius: radii.pill },
+  selectionBar: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.xs },
+  action: { flexGrow: 1, flexBasis: 80, minHeight: dimensions.touchTarget, alignItems: "center", gap: spacing.xxs, padding: spacing.xs },
+  disabled: { opacity: 0.5 },
+  actionLabel: { ...typography.caption, color: colors.textPrimary, textAlign: "center" },
 });

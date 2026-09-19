@@ -29,17 +29,17 @@ export default function Album() {
   };
 
   const handleRenamePress = () => {
-    if (actionSheetAlbum) setRenamingAlbum(actionSheetAlbum);
+    if (actionSheetAlbum?.kind === "cat") setRenamingAlbum(actionSheetAlbum);
     setActionSheetAlbumId(null);
   };
 
   const handleDeletePress = () => {
-    if (actionSheetAlbum) setDeletingAlbum(actionSheetAlbum);
+    if (actionSheetAlbum?.kind === "cat") setDeletingAlbum(actionSheetAlbum);
     setActionSheetAlbumId(null);
   };
 
   const handleRenameSave = (newName: string) => {
-    if (renamingAlbum) renameAlbum(renamingAlbum.id, newName);
+    if (renamingAlbum?.kind === "cat") renameAlbum(renamingAlbum.id, newName.trim());
     setRenamingAlbum(null);
   };
 
@@ -49,7 +49,7 @@ export default function Album() {
   };
 
   return (
-    <ScreenContainer tabBar>
+    <ScreenContainer scroll tabBar>
       <Text style={styles.title}>Cat Album</Text>
       <Text style={styles.hint}>Long-press an album to rename or delete it.</Text>
 
@@ -62,13 +62,13 @@ export default function Album() {
             variant="tile"
             onPress={() => openFolder(album.id)}
             onLongPress={album.kind === "unknown" ? undefined : () => setActionSheetAlbumId(album.id)}
-            style={styles.tile}
+            style={album.kind === "unknown" ? styles.systemTile : styles.tile}
           />
         ))}
       </View>
 
       <AlbumActionSheet
-        visible={!!actionSheetAlbum}
+        visible={actionSheetAlbum?.kind === "cat"}
         albumName={selectAlbumName(state, actionSheetAlbum?.id ?? "")}
         onRename={handleRenamePress}
         onDelete={handleDeletePress}
@@ -85,7 +85,7 @@ export default function Album() {
       <ConfirmModal
         visible={!!deletingAlbum}
         title="Delete this album?"
-        message="This also deletes the connected Cat Profile and its saved photos."
+        message="This also deletes the connected Cat Profile, its saved mock photos, and their detection records."
         confirmLabel="Delete"
         destructive
         onConfirm={handleDeleteConfirm}
@@ -100,4 +100,5 @@ const styles = StyleSheet.create({
   hint: { ...typography.caption, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   tile: { width: "48%", marginBottom: spacing.md },
+  systemTile: { width: "100%", aspectRatio: 2.2, marginBottom: spacing.md },
 });
