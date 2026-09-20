@@ -28,7 +28,7 @@ export default function RenameCatModal({ visible, initialName, onCancel, onSave 
 
   return (
     <ModalSurface visible={visible} onClose={onCancel}>
-          <Text style={styles.title}>Rename Album</Text>
+          <Text style={styles.title} accessibilityRole="header">Rename Album</Text>
           <FormField
             label="Album name"
             value={name}
@@ -36,6 +36,8 @@ export default function RenameCatModal({ visible, initialName, onCancel, onSave 
             placeholder="Album name"
             error={!name.trim() ? "Enter an album name." : undefined}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleSave}
           />
           <View style={styles.actions}>
             <Button label="Cancel" variant="outline" onPress={onCancel} style={styles.actionButton} />

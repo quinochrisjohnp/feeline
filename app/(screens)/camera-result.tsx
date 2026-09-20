@@ -34,7 +34,7 @@ export default function CameraResult() {
             <View style={styles.errorCard}>
               <Text style={styles.errorTitle} accessibilityRole="header">Emotion Detection Error.</Text>
               <Text style={styles.message}>{result?.outcome === "error" ? result.message : "This mock capture is unavailable. Please try again."}</Text>
-              <Text style={styles.mockNote}>Mock result · No image analysis was performed.</Text>
+              <Text style={styles.mockNote}>Mock result - No image analysis was performed.</Text>
               <Button label="Try Again" onPress={handleRetake} fullWidth />
             </View>
           </ScrollView>

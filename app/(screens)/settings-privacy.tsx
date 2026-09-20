@@ -26,6 +26,7 @@ export default function PrivacyPolicy() {
       </PolicySection>
       <PolicySection title="Security">
         The existing mock session token is kept using SecureStore on supported devices.
+        Web previews keep the mock session in memory and sign out on reload.
         This prototype does not implement a production authentication system.
       </PolicySection>
       <PolicySection title="Consent">

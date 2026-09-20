@@ -75,6 +75,7 @@ export default function Calendar() {
         <ScrollView ref={scrollRef} onScroll={handleScroll} scrollEventThrottle={16}
           showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: getTabBarClearance(0) }}>
           <View style={styles.calendarSection} onLayout={(event) => setCalendarHeight(event.nativeEvent.layout.height)}
+            aria-hidden={collapsed}
             accessibilityElementsHidden={collapsed} importantForAccessibility={collapsed ? "no-hide-descendants" : "auto"}>
             <View style={styles.headerPadding}>
               <CalendarHeader label={monthLabel(monthDate)} onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} onToday={goToToday} />
@@ -85,6 +86,7 @@ export default function Calendar() {
             <View style={styles.grid}>
               {cells.map(({ date, inCurrentMonth }) => (
                 <CalendarDay key={date.toISOString()} day={date.getDate()}
+                  disabled={collapsed}
                   dateLabel={date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
                   inCurrentMonth={inCurrentMonth} isSelected={isSameDay(date, selectedDate)} isToday={isSameDay(date, new Date())}
                   {...activityForDate(date)} onPress={() => selectDate(date)} />

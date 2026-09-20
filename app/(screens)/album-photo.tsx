@@ -95,8 +95,8 @@ export default function AlbumPhoto() {
           <Text style={styles.actionLabel}>Download</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel="Delete" onPress={() => setConfirmingDelete(true)}>
-          <Ionicons name="trash-outline" size={22} color={colors.danger} />
-          <Text style={[styles.actionLabel, { color: colors.danger }]}>Delete</Text>
+          <Ionicons name="trash-outline" size={22} color={colors.dangerStrong} />
+          <Text style={[styles.actionLabel, { color: colors.dangerStrong }]}>Delete</Text>
         </TouchableOpacity>
       </View>
 

@@ -8,6 +8,7 @@ interface CalendarDayProps {
   dateLabel: string;
   recordCount?: number;
   birthdayCount?: number;
+  disabled?: boolean;
   inCurrentMonth: boolean;
   isSelected: boolean;
   isToday: boolean;
@@ -20,6 +21,7 @@ export default function CalendarDay({
   dateLabel,
   recordCount = 0,
   birthdayCount = 0,
+  disabled = false,
   inCurrentMonth,
   isSelected,
   isToday,
@@ -27,9 +29,9 @@ export default function CalendarDay({
   onPress,
 }: CalendarDayProps) {
   return (
-    <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.7}
-      accessibilityRole="button" accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={`${dateLabel}${isToday ? ", today" : ""}, ${recordCount} detections${emotion ? `, latest ${EMOTIONS[emotion].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthdays` : ""}`}>
+    <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.7} disabled={disabled}
+      accessibilityRole="button" accessibilityState={{ selected: isSelected, disabled }}
+      accessibilityLabel={`${dateLabel}${isToday ? ", today" : ""}, ${recordCount} detection${recordCount === 1 ? "" : "s"}${emotion ? `, latest ${EMOTIONS[emotion].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthday${birthdayCount === 1 ? "" : "s"}` : ""}`}>
       <View
         style={[
           styles.circle,
@@ -48,7 +50,7 @@ export default function CalendarDay({
 
 const styles = StyleSheet.create({
   wrapper: { alignItems: "center", width: `${100 / 7}%`, minHeight: 60, marginBottom: spacing.xs },
-  count: { position: "absolute", top: 0, right: 0, borderRadius: radii.pill, paddingHorizontal: 3, backgroundColor: colors.textPrimary, color: colors.white, fontSize: 10 },
+  count: { ...typography.caption, position: "absolute", top: 0, right: 0, borderRadius: radii.pill, paddingHorizontal: 3, backgroundColor: colors.textPrimary, color: colors.white },
   circle: { width: 38, height: 38, borderRadius: radii.pill, alignItems: "center", justifyContent: "center" },
   circleEmpty: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   circleSelected: { borderWidth: 2, borderColor: colors.textPrimary },
