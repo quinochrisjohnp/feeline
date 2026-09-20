@@ -125,7 +125,7 @@ export default function Status() {
   return (
     <ScreenContainer tabBar>
       <View style={styles.header}>
-        <Text style={styles.title}>My Cats</Text>
+        <Text style={styles.title} accessibilityRole="header">My Cats</Text>
         <TouchableOpacity style={styles.addButton} accessibilityRole="button" onPress={() => setAddingCat(true)} accessibilityLabel="Add cat">
           <Ionicons name="add" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     width: dimensions.touchTarget,
     height: dimensions.touchTarget,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(36,26,18,0.4)",
+    backgroundColor: colors.photoControl,
     alignItems: "center",
     justifyContent: "center",
   },

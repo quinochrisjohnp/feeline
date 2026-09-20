@@ -60,7 +60,8 @@ export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProp
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
+        <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl),
+          paddingLeft: Math.max(insets.left, spacing.lg), paddingRight: Math.max(insets.right, spacing.lg) }]}>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             <View style={styles.photoRow}>
               <View style={styles.coverPlaceholder}>

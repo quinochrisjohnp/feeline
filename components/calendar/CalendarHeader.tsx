@@ -13,7 +13,7 @@ interface CalendarHeaderProps {
 export default function CalendarHeader({ label, onPrev, onNext, onToday }: CalendarHeaderProps) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label} accessibilityRole="header">{label}</Text>
       <View style={styles.controls}>
         <TouchableOpacity style={styles.today} onPress={onToday} accessibilityRole="button" accessibilityLabel="Go to today">
           <Text style={styles.todayLabel}>Today</Text>

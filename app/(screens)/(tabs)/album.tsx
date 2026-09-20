@@ -6,6 +6,7 @@ import CatCoverCard from "@/components/cats/CatCoverCard";
 import AlbumActionSheet from "@/components/cats/AlbumActionSheet";
 import RenameCatModal from "@/components/cats/RenameCatModal";
 import ConfirmModal from "@/components/common/ConfirmModal";
+import EmptyState from "@/components/common/EmptyState";
 import { useCatData } from "@/context/CatDataContext";
 import type { Album as AlbumModel } from "@/types/models";
 import { selectAlbumById, selectAlbumName, selectAlbumCoverImage } from "@/context/catDataSelectors";
@@ -50,7 +51,7 @@ export default function Album() {
 
   return (
     <ScreenContainer scroll tabBar>
-      <Text style={styles.title}>Cat Album</Text>
+      <Text style={styles.title} accessibilityRole="header">Cat Album</Text>
       <Text style={styles.hint}>Long-press an album to rename or delete it.</Text>
 
       <View style={styles.grid}>
@@ -66,6 +67,9 @@ export default function Album() {
           />
         ))}
       </View>
+      {albumFolders.length === 0 ? <EmptyState title="No albums available" icon="images-outline"
+        message="Add a cat profile to create an album for this mock session."
+        actionLabel="Open My Cats" onAction={() => router.navigate("/status")} /> : null}
 
       <AlbumActionSheet
         visible={actionSheetAlbum?.kind === "cat"}

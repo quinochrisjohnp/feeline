@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: "65%",
-    backgroundColor: "rgba(36,26,18,0.7)",
+    backgroundColor: colors.photoScrim,
   },
   name: { ...typography.bodyMedium, color: colors.white },
   nameBar: { ...typography.subheading, color: colors.white },

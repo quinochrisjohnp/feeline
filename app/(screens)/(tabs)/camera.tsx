@@ -50,7 +50,7 @@ export default function Camera() {
         <View style={styles.topRow}>
           <Text style={styles.title}>Mock camera</Text>
           <TouchableOpacity style={styles.roundButton} onPress={() => setAvoidVisible(true)}
-            disabled={reviewing} accessibilityRole="button" accessibilityLabel="What to Avoid">
+            disabled={reviewing} accessibilityState={{ disabled: reviewing }} accessibilityRole="button" accessibilityLabel="What to Avoid">
             <Ionicons name="help-circle-outline" size={dimensions.icon} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -62,6 +62,7 @@ export default function Camera() {
         </View>
         <View style={styles.controls}>
           <TouchableOpacity style={styles.roundButton} disabled={reviewing}
+            accessibilityState={{ disabled: reviewing }}
             onPress={() => setSamplesVisible(true)} accessibilityRole="button" accessibilityLabel="Choose mock photo or open album">
             <Ionicons name="images-outline" size={dimensions.icon} color={colors.textPrimary} />
           </TouchableOpacity>

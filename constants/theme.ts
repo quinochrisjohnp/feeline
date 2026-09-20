@@ -28,6 +28,8 @@ export const colors = {
   black: "#241A12",
   cameraBackground: "#000000",
   cameraRing: "rgba(255,255,255,0.35)",
+  photoScrim: "rgba(36,26,18,0.7)",
+  photoControl: "rgba(36,26,18,0.4)",
   googleMark: "#EA4335",
   placeholder: "#F1E4D2",
   focus: "#91613D",
