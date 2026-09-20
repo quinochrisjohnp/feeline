@@ -45,6 +45,8 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
       BackHandler: { addEventListener: (_event, fn) => { hardwareBack.push(fn); return { remove() {} }; } },
       Alert: { alert() {} }, Keyboard: { dismiss() {} }, useWindowDimensions: () => ({ width: 320, fontScale: 1 }),
       Platform: { OS: "android" }, Modal: "Modal", KeyboardAvoidingView: "KeyboardAvoidingView",
+      AppState: { currentState: "active", addEventListener: () => ({ remove() {} }) },
+      Linking: { openSettings: async () => {} },
       View: "View", Text: "Text", TouchableOpacity: "TouchableOpacity",
       ScrollView: "ScrollView", FlatList: "FlatList", ActivityIndicator: "ActivityIndicator" },
     "@expo/vector-icons": { Ionicons: "Icon" },

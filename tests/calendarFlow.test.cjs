@@ -137,7 +137,7 @@ test("Camera result -> Save -> Calendar -> canonical photo -> Delete updates bot
     const context = emptyContext();
     const album = context().state.albums.find((album) => album.kind === (unknown ? "unknown" : "cat"));
     const date = new Date(2026, 8, 19, 14, 35);
-    const params = createMockCapture("angry", date.toISOString());
+    const params = createMockCapture("angry", date.toISOString(), "file:///cache/calendar-cat.jpg", "camera");
     let saveRoute;
     const result = mount("app/(screens)/camera-result.tsx", { params, router: { replace: (route) => { saveRoute = route; } } });
     find(result.render(), "/DetailScreenHeader").props.rightElement.props.onPress();

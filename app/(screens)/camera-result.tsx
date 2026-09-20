@@ -28,13 +28,13 @@ export default function CameraResult() {
     return (
       <FullBleedScreen statusBarStyle="dark">
         <ScreenContainer edges={["left", "right", "bottom"]} padded={false} backgroundColor={colors.black}>
-          <DetailScreenHeader title="Mock capture" onBack={handleRetake} />
+          <DetailScreenHeader title="Emotion Result" onBack={handleRetake} />
           <ScrollView contentContainerStyle={styles.errorContent}>
             {capture ? <MockCapturePhoto imageUri={capture.imageUri} /> : null}
             <View style={styles.errorCard}>
               <Text style={styles.errorTitle} accessibilityRole="header">Emotion Detection Error.</Text>
-              <Text style={styles.message}>{result?.outcome === "error" ? result.message : "This mock capture is unavailable. Please try again."}</Text>
-              <Text style={styles.mockNote}>Mock result - No image analysis was performed.</Text>
+              <Text style={styles.message}>{result?.outcome === "error" ? result.message : "This image is unavailable. Please try again."}</Text>
+              <Text style={styles.mockNote}>Simulated prototype result - no AI image analysis was performed.</Text>
               <Button label="Try Again" onPress={handleRetake} fullWidth />
             </View>
           </ScrollView>
@@ -51,6 +51,7 @@ export default function CameraResult() {
         <View style={styles.photo}>
           <MockCapturePhoto imageUri={capture!.imageUri} />
         </View>
+        <Text style={styles.mockNote}>Simulated prototype result - no AI image analysis was performed.</Text>
         <EmotionResultCard emotionKey={result.emotion} confidence={result.confidence}
           variant={result.outcome === "low" ? "lowConfidence" : "normal"} onRetry={handleRetake} />
       </ScrollView>

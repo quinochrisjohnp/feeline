@@ -5,14 +5,14 @@ import Button from "@/components/common/Button";
 import { MOCK_SAMPLES, type MockSampleId } from "@/services/mockDetection";
 import { colors, dimensions, spacing, typography } from "@/constants/theme";
 
-export default function MockSampleModal({ visible, selected, onSelect, onClose, onOpenAlbum }: {
+export default function MockSampleModal({ visible, selected, onSelect, onClose }: {
   visible: boolean; selected: MockSampleId; onSelect: (id: MockSampleId) => void;
-  onClose: () => void; onOpenAlbum: () => void;
+  onClose: () => void;
 }) {
   return (
     <ModalSurface visible={visible} onClose={onClose}>
-      <Text style={styles.title} accessibilityRole="header">Mock photos</Text>
-      <Text style={styles.caption}>Choose a placeholder sample, then tap Capture. Each sample has a fixed mock result.</Text>
+      <Text style={styles.title} accessibilityRole="header">Mock result</Text>
+      <Text style={styles.caption}>Choose the simulated result for the next camera or gallery image. The image comes from your device. No real AI analysis is performed.</Text>
       <View accessibilityRole="radiogroup">
         {MOCK_SAMPLES.map((sample) => (
           <TouchableOpacity key={sample.id} style={styles.row} onPress={() => onSelect(sample.id)}
@@ -23,7 +23,6 @@ export default function MockSampleModal({ visible, selected, onSelect, onClose, 
           </TouchableOpacity>
         ))}
       </View>
-      <Button label="Open Cat Album" variant="outline" onPress={onOpenAlbum} style={styles.button} />
       <Button label="Continue" onPress={onClose} style={styles.button} />
     </ModalSurface>
   );

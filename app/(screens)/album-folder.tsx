@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   gridContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg },
   hint: { ...typography.caption, color: colors.textSecondary, marginVertical: spacing.sm },
   photoGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.xs },
-  photoTile: { width: "31.5%", aspectRatio: 1, minHeight: dimensions.touchTarget, borderWidth: 3,
+  photoTile: { overflow: "hidden", width: "31.5%", aspectRatio: 1, minHeight: dimensions.touchTarget, borderWidth: 3,
     borderColor: "transparent", borderRadius: radii.md, backgroundColor: colors.placeholder,
     alignItems: "center", justifyContent: "center" },
   photoTileSelected: { borderColor: colors.textPrimary },
