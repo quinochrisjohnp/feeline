@@ -58,6 +58,15 @@ export const typography: Record<string, TextStyle> = {
   logoEmoji: { fontSize: 26 },
 };
 
+// Album-module-only font families (Comfortaa headers / Poppins body text).
+// Kept separate from `typography` so unrelated screens keep the system font.
+export const fonts = {
+  albumHeading: "Comfortaa_700Bold",
+  albumBody: "Poppins_400Regular",
+  albumBodyMedium: "Poppins_500Medium",
+  albumLabel: "Poppins_600SemiBold",
+} as const;
+
 export const dimensions = {
   touchTarget: 44,
   button: 48,

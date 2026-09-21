@@ -52,7 +52,8 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
     "@expo/vector-icons": { Ionicons: "Icon" },
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
     "@/constants/theme": { colors: {}, spacing: {}, dimensions: {}, radii: {}, shadows: {}, typography: {}, interaction: {},
-      getTabBarClearance: () => 100 },
+      fonts: {}, getTabBarClearance: () => 100 },
+    "expo-linear-gradient": { LinearGradient: "LinearGradient" },
     "@/context/CatDataContext": { useCatData: () => context() },
     ...dependencies,
   };

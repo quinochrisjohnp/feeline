@@ -12,6 +12,9 @@ interface DetailScreenHeaderProps {
   tintColor?: string;
   rightElement?: React.ReactNode;
   transparent?: boolean;
+  /** Optional font-family override for the title only (e.g. Comfortaa on
+   * Album-module screens). Other callers are unaffected when omitted. */
+  titleFontFamily?: string;
 }
 
 /** Back-button + title header used on every "deep" screen (Settings pages,
@@ -23,6 +26,7 @@ export default function DetailScreenHeader({
   tintColor = colors.textPrimary,
   rightElement,
   transparent = false,
+  titleFontFamily,
 }: DetailScreenHeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -49,7 +53,7 @@ export default function DetailScreenHeader({
         <Ionicons name="arrow-back" size={dimensions.icon} color={tintColor} />
       </TouchableOpacity>
       <View style={styles.titleWrap}>
-        <Text style={[styles.title, { color: tintColor }]} accessibilityRole="header">
+        <Text style={[styles.title, { color: tintColor }, titleFontFamily ? { fontFamily: titleFontFamily } : null]} accessibilityRole="header">
           {title}
         </Text>
         {subtitle ? <Text style={[styles.subtitle, { color: tintColor }]}>{subtitle}</Text> : null}
