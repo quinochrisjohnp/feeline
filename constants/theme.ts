@@ -28,6 +28,9 @@ export const colors = {
   black: "#241A12",
   cameraBackground: "#000000",
   cameraRing: "rgba(255,255,255,0.35)",
+  cameraScrim: "rgba(0,0,0,0.48)",
+  cameraControl: "rgba(0,0,0,0.72)",
+  cameraGuide: "rgba(255,255,255,0.8)",
   photoScrim: "rgba(36,26,18,0.7)",
   photoControl: "rgba(36,26,18,0.4)",
   googleMark: "#EA4335",
@@ -54,6 +57,15 @@ export const typography: Record<string, TextStyle> = {
   emoji: { fontSize: 22 },
   logoEmoji: { fontSize: 26 },
 };
+
+// Album-module-only font families (Comfortaa headers / Poppins body text).
+// Kept separate from `typography` so unrelated screens keep the system font.
+export const fonts = {
+  albumHeading: "Comfortaa_700Bold",
+  albumBody: "Poppins_400Regular",
+  albumBodyMedium: "Poppins_500Medium",
+  albumLabel: "Poppins_600SemiBold",
+} as const;
 
 export const dimensions = {
   touchTarget: 44,

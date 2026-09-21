@@ -1,4 +1,5 @@
 import type { EmotionKey } from "../types/models";
+import { isDeviceImageUri } from "../utils/mediaUri";
 
 export type MockDetection =
   | { outcome: "normal" | "low"; emotion: EmotionKey; confidence: number }
@@ -23,12 +24,11 @@ export interface MockCapture {
   sampleId: MockSampleId;
   imageUri: string;
   capturedAt: string;
+  source: "camera" | "gallery";
 }
 
-export const mockImageUri = (sampleId: MockSampleId) => `mock:camera/${sampleId}`;
-
-export function createMockCapture(sampleId: MockSampleId, capturedAt: string): MockCapture {
-  return { sampleId, imageUri: mockImageUri(sampleId), capturedAt };
+export function createMockCapture(sampleId: MockSampleId, capturedAt: string, imageUri: string, source: MockCapture["source"]): MockCapture {
+  return { sampleId, imageUri, capturedAt, source };
 }
 
 export function detectMockCapture(capture: MockCapture): MockDetection {
@@ -38,9 +38,9 @@ export function detectMockCapture(capture: MockCapture): MockDetection {
 /** Reject incomplete, repeated, or forged route values instead of silently saving defaults. */
 export function parseMockCapture(params: Record<string, string | string[] | undefined>): MockCapture | null {
   const sample = MOCK_SAMPLES.find((item) => item.id === params.sampleId);
-  const { imageUri, capturedAt } = params;
-  if (!sample || imageUri !== mockImageUri(sample.id) || typeof capturedAt !== "string" ||
+  const { imageUri, capturedAt, source } = params;
+  if (!sample || !isDeviceImageUri(imageUri) || (source !== "camera" && source !== "gallery") || typeof capturedAt !== "string" ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(capturedAt) ||
       !Number.isFinite(Date.parse(capturedAt)) || new Date(capturedAt).toISOString() !== capturedAt) return null;
-  return { sampleId: sample.id, imageUri, capturedAt };
+  return { sampleId: sample.id, imageUri, capturedAt, source };
 }

@@ -38,7 +38,23 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow FeELINE to use the camera to capture cat images.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow FeELINE to use the camera to capture cat images.",
+          "photosPermission": "Allow FeELINE to access a photo selected by you for observable emotional-cue interpretation.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

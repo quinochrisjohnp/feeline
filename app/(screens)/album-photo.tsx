@@ -122,6 +122,7 @@ export default function AlbumPhoto() {
 
 const styles = StyleSheet.create({
   photo: {
+    overflow: "hidden",
     marginHorizontal: spacing.lg,
     aspectRatio: 0.85,
     marginTop: spacing.md,

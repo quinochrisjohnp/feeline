@@ -26,10 +26,11 @@ const captures: (Omit<DetectionRecord, "imageId"> & { albumId: string })[] = [
   { id: "det-11", albumId: "album-cat-sean", emotion: "fear", confidence: 60, recordedAt: at(today - 14, 7, 50) },
   { id: "det-12", albumId: "album-cat-kiana", emotion: "happy", confidence: 89, recordedAt: at(today - 6, 16, 20) },
 ];
+const emotionCounts = { happy: 0, neutral: 0, fear: 0, angry: 0 };
 export const mockSavedImages: SavedImage[] = captures.map((capture) => ({
   id: `image-${capture.id}`,
   albumId: capture.albumId,
-  imageUri: `mock:photo-${capture.id}`,
+  imageUri: `mock:cat/${capture.emotion}${(emotionCounts[capture.emotion]++ % 3) + 1}`,
   capturedAt: capture.recordedAt,
 }));
 

@@ -10,7 +10,7 @@ import EmptyState from "@/components/common/EmptyState";
 import { useCatData } from "@/context/CatDataContext";
 import type { Album as AlbumModel } from "@/types/models";
 import { selectAlbumById, selectAlbumName, selectAlbumCoverImage } from "@/context/catDataSelectors";
-import { colors, spacing, typography } from "@/constants/theme";
+import { colors, fonts, spacing, typography } from "@/constants/theme";
 
 // Folder contents and photo detail now live in app/(screens)/album-folder.tsx
 // and album-photo.tsx (siblings of (tabs), so the tab bar hides on them).
@@ -100,8 +100,8 @@ export default function Album() {
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.heading, color: colors.textPrimary, marginTop: spacing.lg },
-  hint: { ...typography.caption, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
+  title: { ...typography.heading, fontFamily: fonts.albumHeading, color: colors.textPrimary, marginTop: spacing.lg },
+  hint: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   tile: { width: "48%", marginBottom: spacing.md },
   systemTile: { width: "100%", aspectRatio: 2.2, marginBottom: spacing.md },

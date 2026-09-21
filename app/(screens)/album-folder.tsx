@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -11,9 +11,16 @@ import { useCatData } from "@/context/CatDataContext";
 import { selectAlbumById, selectAlbumName, selectImagesForAlbum, selectDetectionForImage } from "@/context/catDataSelectors";
 import MockPhoto from "@/components/common/MockPhoto";
 import { formatFullDate, formatTime } from "@/utils/date";
-import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fonts, radii, spacing, typography } from "@/constants/theme";
+
+// Small, consistent gap between thumbnails; Album-module only.
+const ALBUM_GRID_GAP = 4;
+const ALBUM_GRID_OUTER_PADDING = spacing.md; // matches gridContent's paddingHorizontal
 
 export default function AlbumFolder() {
+  const { width } = useWindowDimensions();
+  // itemWidth = (availableWidth - outerPadding*2 - 2 inter-item gaps) / 3
+  const albumThumbnailSize = (width - ALBUM_GRID_OUTER_PADDING * 2 - ALBUM_GRID_GAP * 2) / 3;
   const router = useRouter();
   const params = useLocalSearchParams<{ albumId?: string }>();
   const albumId = typeof params.albumId === "string" ? params.albumId : "";
@@ -62,6 +69,7 @@ export default function AlbumFolder() {
     <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
       <DetailScreenHeader title={album ? albumName : "Album unavailable"}
         subtitle={selectionMode ? `${selectedIds.length} selected` : undefined}
+        titleFontFamily={fonts.albumHeading}
         onBack={selectionMode ? exitSelectionMode : () => {
           if (router.canGoBack()) router.back();
           else backToAlbums();
@@ -76,12 +84,18 @@ export default function AlbumFolder() {
         <ScrollView contentContainerStyle={styles.gridContent}>
           <Text style={styles.hint}>Tap a photo to open it. Hold to select photos.</Text>
           <View style={styles.photoGrid}>
-            {folderImages.map((image) => {
+            {folderImages.map((image, index) => {
               const record = selectDetectionForImage(state, image.id);
               const isSelected = selectedIds.includes(image.id);
+              const isLastInRow = (index + 1) % 3 === 0;
               return (
                 <TouchableOpacity key={image.id}
-                  style={[styles.photoTile, isSelected && styles.photoTileSelected]}
+                  style={[
+                    styles.photoTile,
+                    { width: albumThumbnailSize, height: albumThumbnailSize },
+                    !isLastInRow && { marginRight: ALBUM_GRID_GAP },
+                    isSelected && styles.photoTileSelected,
+                  ]}
                   accessibilityRole={selectionMode ? "checkbox" : "button"}
                   accessibilityState={{ checked: selectionMode ? isSelected : undefined }}
                   accessibilityLabel={`Mock photo, ${formatFullDate(image.capturedAt)}, ${formatTime(image.capturedAt)}`}
@@ -136,12 +150,12 @@ export default function AlbumFolder() {
 
 const styles = StyleSheet.create({
   gridContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg },
-  hint: { ...typography.caption, color: colors.textSecondary, marginVertical: spacing.sm },
-  photoGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.xs },
-  photoTile: { width: "31.5%", aspectRatio: 1, minHeight: dimensions.touchTarget, borderWidth: 3,
-    borderColor: "transparent", borderRadius: radii.md, backgroundColor: colors.placeholder,
+  hint: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textSecondary, marginVertical: spacing.sm },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap" },
+  photoTile: { marginBottom: ALBUM_GRID_GAP, borderWidth: 0,
+    backgroundColor: colors.placeholder,
     alignItems: "center", justifyContent: "center" },
-  photoTileSelected: { borderColor: colors.textPrimary },
+  photoTileSelected: { borderWidth: 3, borderColor: colors.textPrimary },
   emotionDot: { position: "absolute", bottom: 2, left: 2 },
   selectionCheck: { position: "absolute", top: 2, right: 2, backgroundColor: colors.surface, borderRadius: radii.pill },
   selectionBar: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.xs },

@@ -78,7 +78,7 @@ export default function CameraSave() {
       <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
         <DetailScreenHeader title="Save" onBack={handleContinue} />
         <EmptyState icon="camera-outline" title="No result to save"
-          message="Try another mock capture to get a result eligible for saving."
+          message="Capture or select another image to get a result eligible for saving."
           actionLabel="Back to Camera" onAction={handleContinue} />
       </ScreenContainer>
     );
@@ -99,8 +99,8 @@ export default function CameraSave() {
           <View style={styles.intro}>
             <Text style={styles.question} accessibilityRole="header">Which cat should this image be saved to?</Text>
             <View style={styles.preview}>
-              <MockPhoto imageUri={capture.imageUri} size={dimensions.iconLarge} label="Captured mock photo" />
-              <Text style={styles.note}>Mock photo · Saved for this session only.</Text>
+              <View style={styles.thumbnail}><MockPhoto imageUri={capture.imageUri} size={dimensions.iconLarge} label="Captured or selected cat image" /></View>
+              <Text style={styles.note}>Image and simulated result saved for this session only.</Text>
             </View>
             {saveError ? <Text style={styles.error} accessibilityRole="alert">{saveError}</Text> : null}
           </View>
@@ -121,14 +121,14 @@ export default function CameraSave() {
       />
       <ConfirmModal visible={step === "confirmSave"}
         title={`Save image in ${pendingAlbumId ? selectAlbumName(state, pendingAlbumId) : "this album"}?`}
-        message="The mock image and its result will be kept for this session."
+        message="The image and its simulated result will be kept for this session."
         confirmLabel="Save" onConfirm={handleConfirmSave} onCancel={() => setStep("select")} />
       <AddCatForm visible={addingCat} onCancel={() => setAddingCat(false)} onSave={handleAddCatSave} />
       <ConfirmModal visible={catSavedNotice} title="Cat Profile Saved!"
-        message="Your new cat is ready in the list. Choose it to save this mock image."
+        message="Your new cat is ready in the list. Choose it to save this image."
         confirmLabel="Continue" hideCancel onConfirm={() => setCatSavedNotice(false)} onCancel={() => setCatSavedNotice(false)} />
       <ConfirmModal visible={step === "saved"} title="Image Saved!"
-        message="Your mock image and result are in the selected album. Reloading restores the initial mock data."
+        message="Your image and simulated result are in the selected album. Reloading restores the initial mock data."
         confirmLabel="Continue" hideCancel onConfirm={handleContinue} onCancel={handleContinue} />
     </ScreenContainer>
   );
@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
   intro: { paddingVertical: spacing.md },
   question: { ...typography.bodyMedium, color: colors.textPrimary },
+  thumbnail: { width: dimensions.capture, height: dimensions.capture, overflow: "hidden", borderRadius: radii.md },
   preview: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
   note: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
   error: { ...typography.body, color: colors.dangerStrong, marginTop: spacing.sm },
