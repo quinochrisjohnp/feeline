@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import EmptyState from "@/components/common/EmptyState";
@@ -11,10 +12,11 @@ import { useCatData } from "@/context/CatDataContext";
 import { formatFullDate, formatTime } from "@/utils/date";
 import { selectAlbumById, selectImageById, selectDetectionForImage } from "@/context/catDataSelectors";
 import MockPhoto from "@/components/common/MockPhoto";
-import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fonts, spacing, typography } from "@/constants/theme";
 
 export default function AlbumPhoto() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ imageId?: string; from?: string }>();
   const fromCalendar = params.from === "calendar";
   const imageId = typeof params.imageId === "string" ? params.imageId : "";
@@ -73,20 +75,30 @@ export default function AlbumPhoto() {
     setConfirmingDelete(false);
     setDeletedNotice(true);
   };
+
   return (
-    <ScreenContainer
-      edges={["left", "right", "bottom"]}
-      padded={false}
-    >
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
       <DetailScreenHeader title={formatFullDate(image.capturedAt)} subtitle={formatTime(image.capturedAt)} onBack={backToAlbum} />
-      <ScrollView contentContainerStyle={{ paddingBottom: spacing.lg }}>
 
-      <View style={styles.photo}>
-        <MockPhoto imageUri={image.imageUri} size={48} />
-      </View>
+      <ScrollView style={styles.scrollFlex} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Sized from available width/height rather than a fixed aspect ratio,
+            so a future real <Image> can report its own intrinsic ratio here
+            without a layout rewrite. Square (sharp) corners per spec. */}
+        <View style={styles.photo}>
+          <MockPhoto imageUri={image.imageUri} size={48} label="Captured mock photo" />
+        </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel="Emotion" accessibilityState={{ expanded: showEmotion }} onPress={() => setShowEmotion((v) => !v)}>
+        {showEmotion && record && (
+          <View style={styles.emotionWrapper}>
+            <EmotionResultCard emotionKey={record.emotion} confidence={record.confidence} />
+          </View>
+        )}
+        {showEmotion && !record ? <Text style={styles.missingText}>No detection result is available for this mock photo.</Text> : null}
+      </ScrollView>
+
+      <View style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+        <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel="Emotion"
+          accessibilityState={{ expanded: showEmotion }} onPress={() => setShowEmotion((v) => !v)}>
           <Ionicons name="happy-outline" size={22} color={colors.textPrimary} />
           <Text style={styles.actionLabel}>Emotion</Text>
         </TouchableOpacity>
@@ -96,18 +108,10 @@ export default function AlbumPhoto() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel="Delete" onPress={() => setConfirmingDelete(true)}>
           <Ionicons name="trash-outline" size={22} color={colors.dangerStrong} />
-          <Text style={[styles.actionLabel, { color: colors.dangerStrong }]}>Delete</Text>
+          <Text style={[styles.actionLabel, styles.actionLabelDanger]}>Delete</Text>
         </TouchableOpacity>
       </View>
 
-      {showEmotion && record && (
-        <View style={styles.emotionWrapper}>
-          <EmotionResultCard emotionKey={record.emotion} confidence={record.confidence} />
-        </View>
-      )}
-
-      {showEmotion && !record ? <Text style={styles.missingText}>No detection result is available for this mock photo.</Text> : null}
-      </ScrollView>
       <ConfirmModal
         visible={confirmingDelete}
         title="Delete this Photo?"
@@ -121,19 +125,26 @@ export default function AlbumPhoto() {
 }
 
 const styles = StyleSheet.create({
+  scrollFlex: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
   photo: {
-    overflow: "hidden",
-    marginHorizontal: spacing.lg,
-    aspectRatio: 0.85,
-    marginTop: spacing.md,
-    borderRadius: radii.lg,
+    flex: 1,
+    minHeight: 280,
     backgroundColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
+    // No borderRadius here — the full photo must have square corners.
   },
-  actions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-evenly", marginTop: spacing.lg, marginBottom: spacing.md },
-  action: { flexGrow: 1, flexBasis: 80, minHeight: dimensions.touchTarget, padding: spacing.xs, alignItems: "center", gap: 4 },
-  actionLabel: { ...typography.caption, color: colors.textPrimary },
+  toolbar: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.surface,
+    paddingTop: spacing.sm,
+  },
+  action: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
+  actionLabel: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textPrimary },
+  actionLabelDanger: { color: colors.dangerStrong },
   emotionWrapper: { marginTop: spacing.sm },
-  missingText: { ...typography.body, color: colors.textMuted, textAlign: "center", padding: spacing.lg },
+  missingText: { ...typography.body, fontFamily: fonts.albumBody, color: colors.textMuted, textAlign: "center", padding: spacing.lg },
 });

@@ -14,27 +14,33 @@ interface CatCoverCardProps {
   onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
   subtitle?: string;
+  /** This card is the active long-press target. Shows a dark outline; the
+   * photo stays at full brightness (no dark overlay). */
+  selected?: boolean;
+  /** Another card is selected — dim this one via opacity, not a backdrop. */
+  faded?: boolean;
 }
 
 /** Photo-background card with a name overlay. Used for both the Cat Album
  * grid ("tile") and the My Cats list ("bar"). Shadow lives on an outer,
  * unclipped wrapper; the rounded photo surface is a separate inner view —
  * RN cannot both clip (overflow: hidden) and cast a shadow on one view. */
-export default function CatCoverCard({ name, coverUri, variant = "tile", onPress, onLongPress, style, subtitle }: CatCoverCardProps) {
+export default function CatCoverCard({ name, coverUri, variant = "tile", onPress, onLongPress, style, subtitle, selected = false, faded = false }: CatCoverCardProps) {
   const isBar = variant === "bar";
   const longPressed = useRef(false);
 
   return (
-    <View style={[styles.shadowWrap, isBar ? styles.bar : styles.tile, style]}>
+    <View style={[styles.shadowWrap, isBar ? styles.bar : styles.tile, faded && styles.faded, style]}>
       <TouchableOpacity
         activeOpacity={0.85}
         accessibilityRole="button"
         accessibilityLabel={subtitle ? `${name}, ${subtitle}` : name}
         accessibilityHint={onLongPress ? "Open album. Hold for Rename and Delete." : undefined}
+        accessibilityState={{ selected }}
         onPressIn={() => { longPressed.current = false; }}
         onPress={() => { if (!longPressed.current) onPress?.(); }}
         onLongPress={onLongPress ? () => { longPressed.current = true; onLongPress(); } : undefined}
-        style={styles.card}
+        style={[styles.card, selected && styles.selectedBorder]}
       >
         <View style={styles.photoPlaceholder}>
           <MockPhoto imageUri={coverUri} icon="paw" size={isBar ? 30 : 24} />
@@ -58,7 +64,9 @@ const styles = StyleSheet.create({
   shadowWrap: { borderRadius: radii.lg, backgroundColor: "transparent", ...shadows.card },
   tile: { aspectRatio: 1 },
   bar: { width: "100%", minHeight: 140, marginBottom: spacing.md },
+  faded: { opacity: 0.45 },
   card: { flex: 1, borderRadius: radii.lg, overflow: "hidden", justifyContent: "flex-end", padding: spacing.sm },
+  selectedBorder: { borderWidth: 2, borderColor: colors.textPrimary },
   photoPlaceholder: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.border,

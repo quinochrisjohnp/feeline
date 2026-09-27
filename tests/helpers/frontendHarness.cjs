@@ -13,7 +13,7 @@ require.extensions[".ts"] = (module, filename) => {
 
 // A small hook harness exercises the actual route callbacks and provider/reducer.
 // It does not simulate native layout, gestures, or React scheduling.
-function mount(file, { params = {}, context, router = {}, globals = {}, props = {}, navigation = {}, dependencies = {} } = {}) {
+function mount(file, { params = {}, context, router = {}, globals = {}, props = {}, navigation = { setOptions() {} }, dependencies = {} } = {}) {
   const slots = [];
   let cursor = 0;
   const focus = [];
