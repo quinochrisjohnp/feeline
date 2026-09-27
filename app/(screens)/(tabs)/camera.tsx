@@ -21,6 +21,7 @@ export default function Camera() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission, refreshPermission] = useCameraPermissions();
   const camera = useRef<CameraView | null>(null);
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const [ready, setReady] = useState(false);
   const [mountError, setMountError] = useState(false);
   const [cameraKey, setCameraKey] = useState(0);
@@ -44,6 +45,7 @@ export default function Camera() {
     setReviewing(false);
     setReady(false);
     setMountError(false);
+    setCameraKey((key) => key + 1);
     void refreshPermission().catch(() => setError("Camera permission could not be checked. Please try again."));
     return () => {
       active.current = false;
@@ -81,9 +83,9 @@ export default function Camera() {
     setGallerySettings(false);
     return generation.current;
   };
-  const prepare = (uri: string, source: MockCapture["source"], scenario: MockSampleId, ticket: number) => {
+  const prepare = (uri: string, source: MockCapture["source"], scenario: MockSampleId, ticket: number, dimensions?: { width: number; height: number }) => {
     if (!current(ticket)) return;
-    const capture = createMockCapture(scenario, new Date().toISOString(), uri, source);
+    const capture = createMockCapture(scenario, new Date().toISOString(), uri, source, dimensions);
     if (!parseMockCapture({ ...capture })) throw new Error("Unavailable image");
     setLastImage(uri);
     timer.current = setTimeout(() => {
@@ -110,10 +112,10 @@ export default function Camera() {
     if (ticket === null) return;
     const scenario = sampleId;
     try {
-      const photo = await camera.current.takePictureAsync({ quality: 0.9 });
+      const photo = await camera.current.takePictureAsync({ quality: 0.9, skipProcessing: false });
       if (!current(ticket)) return;
       if (!photo?.uri) throw new Error("No photo");
-      prepare(photo.uri, "camera", scenario, ticket);
+      prepare(photo.uri, "camera", scenario, ticket, photo);
     } catch {
       if (current(ticket)) setError("We couldn't capture that photo. Please try again or choose one from your gallery.");
       unlock(ticket);
@@ -133,7 +135,7 @@ export default function Camera() {
       if (result.canceled) { unlock(ticket); return; }
       const uri = result.assets?.[0]?.uri;
       if (!uri) throw new Error("No selected image");
-      prepare(uri, "gallery", scenario, ticket);
+      prepare(uri, "gallery", scenario, ticket, result.assets[0]);
     } catch {
       if (!current(ticket)) return;
       setError("We couldn't open that photo. Try the gallery again, or check photo access in device settings.");
@@ -163,11 +165,16 @@ export default function Camera() {
 
   return (
     <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
+      <View style={StyleSheet.absoluteFill} collapsable={false} onLayout={({ nativeEvent: { layout } }) => {
+        setPreviewSize((previous) => previous.width === layout.width && previous.height === layout.height
+          ? previous : { width: layout.width, height: layout.height });
+      }}>
       {focused && appActive && permission?.granted && !mountError ? (
-        <CameraView key={cameraKey} ref={camera} style={StyleSheet.absoluteFill} facing="back" mode="picture"
+        <CameraView key={cameraKey} ref={camera} style={[StyleSheet.absoluteFill, previewSize.width > 0 && previewSize.height > 0 ? previewSize : null]} facing="back" mode="picture"
           onCameraReady={() => { if (active.current) setReady(true); }}
           onMountError={() => { setReady(false); setMountError(true); }} />
       ) : null}
+      </View>
       {!unavailable ? (
         <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
           <View style={[styles.scrim, { height: top + dimensions.button + spacing.md }]} />

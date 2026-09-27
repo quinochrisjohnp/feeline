@@ -6,15 +6,16 @@ import { getBundledCatImage } from "@/data/bundledCatImages";
 import { isDeviceImageUri } from "@/utils/mediaUri";
 
 /** Bundled demo photos; missing references retain the existing placeholder. */
-export default function MockPhoto({ imageUri, size, icon = "image-outline", color = colors.textMuted, label = "Photo (Placeholder)" }: {
+export default function MockPhoto({ imageUri, size, icon = "image-outline", color = colors.textMuted, label = "Photo (Placeholder)", resizeMode = "cover" }: {
   imageUri?: string | null;
   size: number;
   icon?: React.ComponentProps<typeof Ionicons>["name"];
   color?: string;
   label?: string;
+  resizeMode?: "cover" | "contain";
 }) {
   const source = getBundledCatImage(imageUri) ?? (isDeviceImageUri(imageUri) ? { uri: imageUri } : undefined);
-  if (source) return <Image source={source} resizeMode="cover"
+  if (source) return <Image source={source} resizeMode={resizeMode}
     style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%" }]}
     testID={imageUri ?? undefined} accessible accessibilityRole="image"
     accessibilityLabel={label.replace(/\s*\(?placeholder\)?/ig, "").trim() || "Mock cat photo"} />;

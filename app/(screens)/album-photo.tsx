@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, BackHandler, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,6 +13,21 @@ import { formatFullDate, formatTime } from "@/utils/date";
 import { selectAlbumById, selectImageById, selectDetectionForImage } from "@/context/catDataSelectors";
 import MockPhoto from "@/components/common/MockPhoto";
 import { colors, dimensions, fonts, spacing, typography } from "@/constants/theme";
+
+// No real image assets exist yet in this mock phase, so there is nothing
+// for Image.getSize to actually measure. Give each mock photo a stable,
+// deterministic fallback aspect ratio derived from its own imageUri (same
+// photo always renders the same shape) so contain/orientation behavior is
+// demonstrable today. Once real URIs/assets exist, Image.getSize's success
+// callback will fire with real dimensions and this fallback is never used.
+const MOCK_ASPECT_RATIOS = [0.5, 0.75, 1, 1.6, 2.4]; // tall portrait, portrait, square, landscape, very wide
+function mockAspectRatioFor(imageUri: string): number {
+  let hash = 0;
+  for (let i = 0; i < imageUri.length; i++) hash = (hash * 31 + imageUri.charCodeAt(i)) >>> 0;
+  return MOCK_ASPECT_RATIOS[hash % MOCK_ASPECT_RATIOS.length];
+}
+
+interface Size { width: number; height: number }
 
 export default function AlbumPhoto() {
   const router = useRouter();
@@ -28,6 +43,40 @@ export default function AlbumPhoto() {
   const [showEmotion, setShowEmotion] = useState(fromCalendar);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false);
+
+  // Intrinsic photo dimensions (from Image.getSize, or the safe fallback).
+  const [intrinsic, setIntrinsic] = useState<Size | null>(null);
+  // Measured space actually available for the photo, from onLayout —
+  // naturally recalculates on rotation/resize since RN re-fires onLayout.
+  const [availableArea, setAvailableArea] = useState<Size | null>(null);
+
+  // Resolve intrinsic size whenever the photo changes; ignore a stale
+  // result if the user has moved to a different photo before it resolves.
+  useEffect(() => {
+    setIntrinsic(null);
+    const uri = image?.imageUri;
+    if (!uri) return;
+    let cancelled = false;
+    const useFallback = () => {
+      if (cancelled) return;
+      const ratio = mockAspectRatioFor(uri);
+      setIntrinsic({ width: 1000, height: Math.round(1000 / ratio) });
+    };
+    if (Image && typeof Image.getSize === "function") {
+      try {
+        Image.getSize(
+          uri,
+          (width, height) => { if (!cancelled) setIntrinsic({ width, height }); },
+          useFallback,
+        );
+      } catch {
+        useFallback();
+      }
+    } else {
+      useFallback();
+    }
+    return () => { cancelled = true; };
+  }, [image?.imageUri]);
 
   const [parentAlbumId] = useState(image?.albumId ?? null);
   const availableAlbumId = image?.albumId ?? parentAlbumId;
@@ -76,25 +125,44 @@ export default function AlbumPhoto() {
     setDeletedNotice(true);
   };
 
+  // Uniform "contain" scale: largest box preserving the original ratio that
+  // fits inside the measured available area. The `1` cap never enlarges
+  // the photo past its natural size.
+  let displayWidth = 0;
+  let displayHeight = 0;
+  if (intrinsic && availableArea && availableArea.width > 0 && availableArea.height > 0) {
+    const scale = Math.min(1, availableArea.width / intrinsic.width, availableArea.height / intrinsic.height);
+    displayWidth = intrinsic.width * scale;
+    displayHeight = intrinsic.height * scale;
+  }
+  const ready = intrinsic !== null && availableArea !== null;
+
   return (
     <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
       <DetailScreenHeader title={formatFullDate(image.capturedAt)} subtitle={formatTime(image.capturedAt)} onBack={backToAlbum} />
 
-      <ScrollView style={styles.scrollFlex} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Sized from available width/height rather than a fixed aspect ratio,
-            so a future real <Image> can report its own intrinsic ratio here
-            without a layout rewrite. Square (sharp) corners per spec. */}
-        <View style={styles.photo}>
-          <MockPhoto imageUri={image.imageUri} size={48} label="Captured mock photo" />
-        </View>
-
-        {showEmotion && record && (
-          <View style={styles.emotionWrapper}>
-            <EmotionResultCard emotionKey={record.emotion} confidence={record.confidence} />
+      <View
+        style={styles.imageArea}
+        onLayout={(event) => setAvailableArea({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}
+      >
+        {ready ? (
+          <View style={[styles.photo, { width: displayWidth, height: displayHeight }]}>
+            <MockPhoto imageUri={image.imageUri} size={48} label="Captured mock photo" />
           </View>
+        ) : (
+          <View style={styles.loadingPlaceholder} />
         )}
-        {showEmotion && !record ? <Text style={styles.missingText}>No detection result is available for this mock photo.</Text> : null}
-      </ScrollView>
+      </View>
+
+      {showEmotion ? (
+        <ScrollView style={styles.emotionScroll} contentContainerStyle={styles.emotionScrollContent} showsVerticalScrollIndicator={false}>
+          {record ? (
+            <EmotionResultCard emotionKey={record.emotion} confidence={record.confidence} />
+          ) : (
+            <Text style={styles.missingText}>No detection result is available for this mock photo.</Text>
+          )}
+        </ScrollView>
+      ) : null}
 
       <View style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel="Emotion"
@@ -125,16 +193,16 @@ export default function AlbumPhoto() {
 }
 
 const styles = StyleSheet.create({
-  scrollFlex: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
+  imageArea: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm },
   photo: {
-    flex: 1,
-    minHeight: 280,
     backgroundColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
-    // No borderRadius here — the full photo must have square corners.
+    // No borderRadius — square corners on the full photo, per spec.
   },
+  loadingPlaceholder: { width: "60%", height: "60%", backgroundColor: colors.border },
+  emotionScroll: { maxHeight: "45%" },
+  emotionScrollContent: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
   toolbar: {
     flexDirection: "row",
     borderTopWidth: 1,
@@ -145,6 +213,5 @@ const styles = StyleSheet.create({
   action: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
   actionLabel: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textPrimary },
   actionLabelDanger: { color: colors.dangerStrong },
-  emotionWrapper: { marginTop: spacing.sm },
   missingText: { ...typography.body, fontFamily: fonts.albumBody, color: colors.textMuted, textAlign: "center", padding: spacing.lg },
 });
