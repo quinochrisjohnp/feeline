@@ -11,7 +11,7 @@ import EmptyState from "@/components/common/EmptyState";
 import { useCatData } from "@/context/CatDataContext";
 import type { Album as AlbumModel } from "@/types/models";
 import { selectAlbumById, selectAlbumName, selectAlbumCoverImage } from "@/context/catDataSelectors";
-import { colors, dimensions, fonts, getTabBarClearance, shadows, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, getTabBarClearance, shadows, spacing, typography } from "@/constants/theme";
 
 export default function Album() {
   const router = useRouter();
@@ -136,8 +136,8 @@ const styles = StyleSheet.create({
   scrollFlex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: getTabBarClearance(0) },
   contentWrap: { flex: 1 },
-  title: { ...typography.heading, fontFamily: fonts.albumHeading, color: colors.textPrimary, marginTop: spacing.lg },
-  hint: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
+  title: { ...typography.heading, fontFamily: fontFamily.heading, color: colors.textPrimary, marginTop: spacing.lg },
+  hint: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   tile: { width: "48%", marginBottom: spacing.md },
   systemTile: { width: "100%", aspectRatio: 2.2, marginBottom: spacing.md },
@@ -150,6 +150,6 @@ const styles = StyleSheet.create({
     ...shadows.floating,
   },
   actionButton: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
-  actionLabel: { ...typography.label, fontFamily: fonts.albumLabel, color: colors.textPrimary },
+  actionLabel: { ...typography.label, fontFamily: fontFamily.semibold, color: colors.textPrimary },
   actionLabelDanger: { color: colors.dangerStrong },
 });

@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import MockPhoto from "@/components/common/MockPhoto";
-import { colors, fonts, radii, shadows, spacing, typography } from "@/constants/theme";
+import { colors, fontFamily, radii, shadows, spacing, typography } from "@/constants/theme";
 
 interface CatCoverCardProps {
   name: string;
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   gradient: { position: "absolute", left: 0, right: 0, bottom: 0, height: "42%" },
   dimOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay },
   selectionBorder: { ...StyleSheet.absoluteFillObject, borderRadius: radii.lg, borderWidth: 2, borderColor: colors.textPrimary },
-  name: { ...typography.bodyMedium, fontFamily: fonts.albumLabel, color: colors.white },
-  nameBar: { ...typography.subheading, fontFamily: fonts.albumLabel, color: colors.white },
-  subtitle: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.white, marginTop: spacing.xxs },
+  name: { ...typography.bodyMedium, fontFamily: fontFamily.semibold, color: colors.white },
+  nameBar: { ...typography.subheading, fontFamily: fontFamily.semibold, color: colors.white },
+  subtitle: { ...typography.caption, fontFamily: fontFamily.body, color: colors.white, marginTop: spacing.xxs },
 });

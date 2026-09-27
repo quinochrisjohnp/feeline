@@ -1,33 +1,27 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { colors, dimensions, radii, typography } from "@/constants/theme";
+import { Image, StyleSheet } from "react-native";
+import { dimensions } from "@/constants/theme";
 
-import { EMOTIONS, EmotionKey } from "@/types/models";
-
-const CELLS: EmotionKey[] = ["happy", "fear", "neutral", "angry"];
-
-/** The 2x2 emotion-color logo mark used on the splash/welcome screens. */
+/**
+ * The FeELINE in-app logo mark, shown on Splash and Login.
+ * Previously rendered as a 2x2 colored emotion grid; now renders the
+ * provided brand logo asset (components/images/logo.png). Kept this
+ * component's name/export shape unchanged so BrandedSplash.tsx and
+ * login.tsx need no import changes.
+ */
 export default function EmotionLogoGrid() {
   return (
-    <View style={styles.grid} accessible accessibilityRole="image" accessibilityLabel="FeELINE: Happy, Fearful, Neutral and Angry">
-      {CELLS.map((cell) => (
-        <View key={cell} style={[styles.cell, { backgroundColor: colors.emotion[cell] }]}>
-          <Text style={styles.emoji}>{EMOTIONS[cell].emoji}</Text>
-        </View>
-      ))}
-    </View>
+    <Image
+      source={require("../images/logo.png")}
+      style={styles.logo}
+      resizeMode="contain"
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel="FeELINE logo"
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  grid: {
-    width: dimensions.logo,
-    height: dimensions.logo,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    borderRadius: radii.md,
-    overflow: "hidden",
-  },
-  cell: { width: dimensions.logo / 2, height: dimensions.logo / 2, alignItems: "center", justifyContent: "center" },
-  emoji: typography.logoEmoji,
+  logo: { width: dimensions.logo, height: dimensions.logo },
 });

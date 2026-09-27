@@ -17,8 +17,6 @@ const Login = () => {
     <ScreenContainer scroll verticalPadding constrainWidth>
       <View style={styles.content}>
         <EmotionLogoGrid />
-
-        <Text style={styles.title}>FeELINE</Text>
         <Text style={styles.subtitle}>Understand your cat&apos;s emotional cues</Text>
 
         <PlaceholderBox

@@ -12,7 +12,7 @@ import { useCatData } from "@/context/CatDataContext";
 import { formatFullDate, formatTime } from "@/utils/date";
 import { selectAlbumById, selectImageById, selectDetectionForImage } from "@/context/catDataSelectors";
 import MockPhoto from "@/components/common/MockPhoto";
-import { colors, dimensions, fonts, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, spacing, typography } from "@/constants/theme";
 
 // No real image assets exist yet in this mock phase, so there is nothing
 // for Image.getSize to actually measure. Give each mock photo a stable,
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   action: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
-  actionLabel: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textPrimary },
+  actionLabel: { ...typography.caption, fontFamily: fontFamily.semibold, color: colors.textPrimary },
   actionLabelDanger: { color: colors.dangerStrong },
-  missingText: { ...typography.body, fontFamily: fonts.albumBody, color: colors.textMuted, textAlign: "center", padding: spacing.lg },
+  missingText: { ...typography.body, fontFamily: fontFamily.body, color: colors.textMuted, textAlign: "center", padding: spacing.lg },
 });

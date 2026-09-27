@@ -1,18 +1,19 @@
 import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Image, ImageSourcePropType, StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
 import { colors, dimensions, interaction, navigation as navigationTokens, radii, shadows, spacing } from "@/constants/theme";
 
 const TAB_LABELS: Record<string, string> = { camera: "Camera", album: "Cat Album", calendar: "Calendar", status: "My Cats", settings: "Settings" };
 
-const TAB_ICONS: Record<string, React.ComponentProps<typeof Ionicons>["name"]> = {
-  camera: "camera",
-  album: "images",
-  calendar: "calendar",
-  status: "paw",
-  settings: "settings-outline",
+// Custom multicolor image assets — components/images/*.png. Do not apply
+// tintColor to these; their original colors must be preserved.
+const TAB_IMAGES: Record<string, ImageSourcePropType> = {
+  camera: require("../images/camera.png"),
+  album: require("../images/album.png"),
+  calendar: require("../images/calendar.png"),
+  status: require("../images/profile.png"),
+  settings: require("../images/settings.png"),
 };
 
 /** Floating pill-shaped bottom nav matching the FeELINE Figma prototype. */
@@ -27,7 +28,7 @@ export default function FloatingTabBar({ state, navigation, descriptors }: Botto
       <View style={styles.bar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
-          const iconName = TAB_ICONS[route.name] ?? "ellipse";
+          const imageSource = TAB_IMAGES[route.name];
 
           const onPress = () => {
             const event = navigation.emit({
@@ -52,11 +53,9 @@ export default function FloatingTabBar({ state, navigation, descriptors }: Botto
               accessibilityState={{ selected: isFocused }}
             >
               <View style={[styles.iconCircle, isFocused && styles.iconCircleActive]}>
-                <Ionicons
-                  name={iconName}
-                  size={dimensions.icon}
-                  color={isFocused ? colors.textPrimary : colors.textSecondary}
-                />
+                {imageSource ? (
+                  <Image source={imageSource} style={styles.tabImage} resizeMode="contain" />
+                ) : null}
               </View>
             </TouchableOpacity>
           );
@@ -88,5 +87,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.background,
   },
-  iconCircleActive: { backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.textPrimary },
+  iconCircleActive: { backgroundColor: colors.background, borderWidth: 2, borderColor: colors.textPrimary },
+  tabImage: { width: dimensions.nav_icon, height: dimensions.nav_icon, borderRadius: dimensions.nav_icon / 2 },
 });
