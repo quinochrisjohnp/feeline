@@ -20,7 +20,7 @@ const Login = () => {
         <Text style={styles.subtitle}>Understand your cat&apos;s emotional cues</Text>
 
         <PlaceholderBox
-          icon="happy-outline"
+          emotion="happy"
           label="Cat illustration placeholder"
           backgroundColor={colors.emotion.happy}
           labelColor={colors.textPrimary}

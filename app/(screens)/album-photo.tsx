@@ -7,6 +7,7 @@ import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import EmptyState from "@/components/common/EmptyState";
 import ConfirmModal from "@/components/common/ConfirmModal";
+import EmotionIcon from "@/components/common/EmotionIcon";
 import EmotionResultCard from "@/components/camera/EmotionResultCard";
 import { useCatData } from "@/context/CatDataContext";
 import { formatFullDate, formatTime } from "@/utils/date";
@@ -57,7 +58,7 @@ export default function AlbumPhoto() {
     const uri = image?.imageUri;
     if (!uri) return;
     let cancelled = false;
-    const useFallback = () => {
+    const applyFallback = () => {
       if (cancelled) return;
       const ratio = mockAspectRatioFor(uri);
       setIntrinsic({ width: 1000, height: Math.round(1000 / ratio) });
@@ -67,13 +68,13 @@ export default function AlbumPhoto() {
         Image.getSize(
           uri,
           (width, height) => { if (!cancelled) setIntrinsic({ width, height }); },
-          useFallback,
+          applyFallback,
         );
       } catch {
-        useFallback();
+        applyFallback();
       }
     } else {
-      useFallback();
+      applyFallback();
     }
     return () => { cancelled = true; };
   }, [image?.imageUri]);
@@ -167,7 +168,7 @@ export default function AlbumPhoto() {
       <View style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
         <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel="Emotion"
           accessibilityState={{ expanded: showEmotion }} onPress={() => setShowEmotion((v) => !v)}>
-          <Ionicons name="happy-outline" size={22} color={colors.textPrimary} />
+          <EmotionIcon emotion={record?.emotion} size={22} />
           <Text style={styles.actionLabel}>Emotion</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.action} accessibilityRole="button" accessibilityLabel="Download" onPress={handleDownload}>

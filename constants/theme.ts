@@ -54,8 +54,6 @@ export const typography: Record<string, TextStyle> = {
   caption: { fontSize: 13, fontWeight: "400", lineHeight: 18 },
   label: { fontSize: 14, fontWeight: "500", lineHeight: 18 },
   button: { fontSize: 16, fontWeight: "700", lineHeight: 20 },
-  emoji: { fontSize: 22 },
-  logoEmoji: { fontSize: 26 },
 };
 
 // Centralized font-family tokens. Kept separate from `typography` (which
