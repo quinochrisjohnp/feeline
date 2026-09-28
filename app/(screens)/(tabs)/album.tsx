@@ -72,7 +72,7 @@ export default function Album() {
   };
 
   return (
-    <ScreenContainer padded={false}>
+    <ScreenContainer module="album" padded={false}>
       <ScrollView style={styles.scrollFlex} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Pressable disabled={!selectionActive} onPress={clearSelection} style={styles.contentWrap}>
           <Text style={styles.title} accessibilityRole="header">Cat Album</Text>

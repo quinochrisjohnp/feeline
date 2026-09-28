@@ -66,8 +66,8 @@ export default function AlbumFolder() {
   const dismissNotice = () => { setDeletedNotice(false); exitSelectionMode(); };
 
   return (
-    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title={album ? albumName : "Album unavailable"}
+    <ScreenContainer module="album" edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title={album ? albumName : "Album unavailable"}
         subtitle={selectionMode ? `${selectedIds.length} selected` : undefined}
         titleFontFamily={fontFamily.heading}
         onBack={selectionMode ? exitSelectionMode : () => {

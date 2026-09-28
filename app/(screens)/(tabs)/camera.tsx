@@ -164,7 +164,7 @@ export default function Camera() {
   const top = insets.top + spacing.sm;
 
   return (
-    <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
+    <FullBleedScreen module={unavailable ? "camera" : undefined} statusBarStyle={focused ? (unavailable ? "dark" : "light") : "auto"}>
       <View style={StyleSheet.absoluteFill} collapsable={false} onLayout={({ nativeEvent: { layout } }) => {
         setPreviewSize((previous) => previous.width === layout.width && previous.height === layout.height
           ? previous : { width: layout.width, height: layout.height });
@@ -202,9 +202,9 @@ export default function Camera() {
       {unavailable ? (
         <ScrollView style={[styles.stateArea, { top: top + dimensions.button + spacing.md, bottom: bottom + dimensions.capture + spacing.md }]}
           contentContainerStyle={styles.stateContent}>
-          {!permission ? <ActivityIndicator accessibilityLabel="Checking camera permission" color={colors.textInverse} /> : <>
-            <Text style={styles.stateTitle} accessibilityRole="header">{mountError ? "Camera unavailable" : "Camera access"}</Text>
-            <Text style={styles.stateText}>{mountError ? "We couldn't start the camera. Try again or choose an existing photo."
+          {!permission ? <ActivityIndicator accessibilityLabel="Checking camera permission" color={colors.textPrimary} /> : <>
+            <Text style={[styles.stateTitle, styles.permissionText]} accessibilityRole="header">{mountError ? "Camera unavailable" : "Camera access"}</Text>
+            <Text style={[styles.stateText, styles.permissionText]}>{mountError ? "We couldn't start the camera. Try again or choose an existing photo."
               : permission.canAskAgain ? "Allow FeELINE to capture cat images for this research prototype. Results remain simulated."
               : "Camera access is disabled. Enable it in settings, or choose an existing photo."}</Text>
             <Button label={mountError ? "Retry Camera" : permission.canAskAgain ? "Allow Camera Access" : "Open Settings"}
@@ -253,6 +253,7 @@ const styles = StyleSheet.create({
   spacer: { width: dimensions.button },
   stateArea: { position: "absolute", left: spacing.lg, right: spacing.lg },
   stateContent: { flexGrow: 1, justifyContent: "center", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  permissionText: { color: colors.textPrimary },
   stateTitle: { ...typography.subheading, color: colors.textInverse, textAlign: "center" },
   stateText: { ...typography.body, color: colors.textInverse, textAlign: "center" },
   error: { position: "absolute", left: spacing.md, right: spacing.md, padding: spacing.sm, gap: spacing.xs, borderRadius: radii.md, backgroundColor: colors.cameraControl },

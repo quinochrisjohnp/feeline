@@ -75,8 +75,8 @@ export default function CameraSave() {
 
   if (!capture || result?.outcome !== "normal") {
     return (
-      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-        <DetailScreenHeader title="Save" onBack={handleContinue} />
+      <ScreenContainer module="camera" edges={["left", "right", "bottom"]} padded={false}>
+        <DetailScreenHeader transparent title="Save" onBack={handleContinue} />
         <EmptyState icon="camera-outline" title="No result to save"
           message="Capture or select another image to get a result eligible for saving."
           actionLabel="Back to Camera" onAction={handleContinue} />
@@ -85,8 +85,8 @@ export default function CameraSave() {
   }
 
   return (
-    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title="Save" onBack={handleBack} rightElement={
+    <ScreenContainer module="camera" edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title="Save" onBack={handleBack} rightElement={
         <TouchableOpacity style={styles.addButton} onPress={openAddCat} accessibilityRole="button" accessibilityLabel="New Cat Profile">
           <Ionicons name="add" size={dimensions.icon} color={colors.textPrimary} />
         </TouchableOpacity>

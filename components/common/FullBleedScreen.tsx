@@ -2,9 +2,12 @@ import React from "react";
 import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { colors } from "@/constants/theme";
 import { StatusBar } from "expo-status-bar";
+import ModuleBackground from "./ModuleBackground";
+import type { BackgroundModule } from "@/constants/moduleBackgrounds";
 
 interface FullBleedScreenProps {
   children: React.ReactNode;
+  module?: BackgroundModule;
   backgroundColor?: string;
   statusBarStyle?: "light" | "dark" | "auto";
   style?: StyleProp<ViewStyle>;
@@ -21,12 +24,14 @@ interface FullBleedScreenProps {
  */
 export default function FullBleedScreen({
   children,
+  module,
   backgroundColor = colors.cameraBackground,
   statusBarStyle = "light",
   style,
 }: FullBleedScreenProps) {
   return (
     <View style={[styles.container, { backgroundColor }, style]}>
+      {module ? <ModuleBackground module={module} /> : null}
       <StatusBar style={statusBarStyle} />
       {children}
     </View>

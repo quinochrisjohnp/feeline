@@ -39,7 +39,7 @@ const Settings = () => {
   const displayEmail = profile?.email ?? "No email available";
 
   return (
-    <ScreenContainer scroll tabBar>
+    <ScreenContainer module="settings" scroll tabBar>
       <View style={styles.profileRow}>
         {profile?.profileImageUrl ? (
           <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} />

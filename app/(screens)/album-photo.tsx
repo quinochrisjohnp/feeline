@@ -98,8 +98,8 @@ export default function AlbumPhoto() {
 
   if (deletedNotice) {
     return (
-      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-        <DetailScreenHeader title="Photo" onBack={backToAlbum} />
+      <ScreenContainer module={fromCalendar ? "calendar" : "album"} edges={["left", "right", "bottom"]} padded={false}>
+        <DetailScreenHeader transparent title="Photo" onBack={backToAlbum} />
         <ConfirmModal visible title="Image Deleted" confirmLabel="Continue" hideCancel
           onConfirm={backToAlbum} onCancel={backToAlbum} />
       </ScreenContainer>
@@ -108,8 +108,8 @@ export default function AlbumPhoto() {
 
   if (!image) {
     return (
-      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-        <DetailScreenHeader title="Photo" onBack={backToAlbum} />
+      <ScreenContainer module={fromCalendar ? "calendar" : "album"} edges={["left", "right", "bottom"]} padded={false}>
+        <DetailScreenHeader transparent title="Photo" onBack={backToAlbum} />
         <EmptyState icon="image-outline" title="Photo unavailable" message="This photo may have been deleted."
           actionLabel={fromCalendar ? "Back to Calendar" : parentExists ? "Back to album" : "Back to Cat Album"} onAction={backToAlbum} />
       </ScreenContainer>
@@ -139,8 +139,8 @@ export default function AlbumPhoto() {
   const ready = intrinsic !== null && availableArea !== null;
 
   return (
-    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title={formatFullDate(image.capturedAt)} subtitle={formatTime(image.capturedAt)} onBack={backToAlbum} />
+    <ScreenContainer module={fromCalendar ? "calendar" : "album"} edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title={formatFullDate(image.capturedAt)} subtitle={formatTime(image.capturedAt)} onBack={backToAlbum} />
 
       <View
         style={styles.imageArea}

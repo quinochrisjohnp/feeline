@@ -2,9 +2,12 @@ import React from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { Edge, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, dimensions, getTabBarClearance, spacing } from "@/constants/theme";
+import ModuleBackground from "./ModuleBackground";
+import type { BackgroundModule } from "@/constants/moduleBackgrounds";
 
 interface ScreenContainerProps {
   children: React.ReactNode;
+  module?: BackgroundModule;
   scroll?: boolean;
   edges?: readonly Edge[];
   padded?: boolean;
@@ -19,7 +22,7 @@ interface ScreenContainerProps {
   constrainWidth?: boolean;
 }
 
-export default function ScreenContainer({ children, scroll = false, edges = ["top", "left", "right", "bottom"],
+export default function ScreenContainer({ children, module, scroll = false, edges = ["top", "left", "right", "bottom"],
   padded = true, backgroundColor = colors.background, contentContainerStyle, style, keyboardAware = false,
   keyboardVerticalOffset = 0, tabBar = false, verticalPadding = false, constrainWidth = false }: ScreenContainerProps) {
   const insets = useSafeAreaInsets();
@@ -35,12 +38,15 @@ export default function ScreenContainer({ children, scroll = false, edges = ["to
   ) : <View style={[styles.flex, ...contentStyle]}>{children}</View>;
 
   return (
-    <SafeAreaView edges={edges as Edge[]} style={[styles.safe, { backgroundColor }, style]}>
+    <View style={[styles.safe, { backgroundColor }]}>
+      {module ? <ModuleBackground module={module} /> : null}
+      <SafeAreaView edges={edges as Edge[]} style={[styles.safe, style]}>
       {keyboardAware ? (
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={keyboardVerticalOffset}>{content}</KeyboardAvoidingView>
       ) : content}
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 

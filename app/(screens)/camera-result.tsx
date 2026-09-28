@@ -25,8 +25,8 @@ export default function CameraResult() {
 
   const isError = !result || result.outcome === "error";
   return (
-    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title="Emotion Result" onBack={handleRetake}
+    <ScreenContainer module="camera" edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title="Emotion Result" onBack={handleRetake}
         rightElement={result?.outcome === "normal" ? <Button label="Save" size="sm" variant="outline" onPress={handleSave} /> : undefined} />
       <ScrollView style={styles.resultContent} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator
         accessibilityLabel="Image and emotion result" bounces={false}>
