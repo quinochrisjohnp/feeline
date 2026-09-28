@@ -19,5 +19,6 @@ const images: Record<string, ImageSourcePropType> = {
 export function getBundledCatImage(key?: string | null): ImageSourcePropType | undefined {
   if (!key) return undefined;
   const cameraEmotion = /^mock:camera\/(angry|happy|neutral|fear)$/.exec(key)?.[1];
-  return images[cameraEmotion ? `mock:cat/${cameraEmotion}1` : key];
+  const imageKey = cameraEmotion ? `mock:cat/${cameraEmotion}1` : key;
+  return Object.prototype.hasOwnProperty.call(images, imageKey) ? images[imageKey] : undefined;
 }

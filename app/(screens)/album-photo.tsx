@@ -148,7 +148,7 @@ export default function AlbumPhoto() {
       >
         {ready ? (
           <View style={[styles.photo, { width: displayWidth, height: displayHeight }]}>
-            <MockPhoto imageUri={image.imageUri} size={48} label="Captured mock photo" />
+            <MockPhoto imageUri={image.imageUri} size={48} label="Captured mock photo" resizeMode="contain" />
           </View>
         ) : (
           <View style={styles.loadingPlaceholder} />
