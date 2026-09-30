@@ -5,7 +5,6 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import * as AuthSession from "expo-auth-session";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { apiFetch, clearToken, getToken, saveToken } from "../services/api";
@@ -30,18 +29,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [request, , promptAsync] = Google.useAuthRequest({
+  // Configure Google Auth for Implicit Flow
+  const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB,
-    scopes: ["openid", "profile", "email"],
   });
-
-  useEffect(() => {
-    if (request) {
-      console.log("FEELINE_DEBUG redirectUri:", request.redirectUri);
-    }
-  }, [request]);
 
   const restoreSession = useCallback(async () => {
     setIsLoading(true);
@@ -53,15 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const response = await apiFetch("/auth/me");
+      const res = await apiFetch("/auth/me");
 
-      if (!response.ok) {
+      if (!res.ok) {
         await clearToken();
         setProfile(null);
         return;
       }
 
-      const data = await response.json();
+      const data = await res.json();
       setProfile(data.profile);
     } catch (err) {
       console.error("Failed to restore session:", err);
@@ -85,42 +78,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsSigningIn(true);
 
     try {
-      const result = await promptAsync();
+      const res = await promptAsync();
 
-      if (result.type === "cancel" || result.type === "dismiss") {
+      if (res.type !== "success") {
+        setIsSigningIn(false);
         return;
       }
 
-      if (result.type !== "success" || !result.params.code) {
-        throw new Error("Google sign-in did not complete successfully.");
-      }
+      // Grab ID Token directly from the implicit flow authentication object
+      const idToken = res.authentication?.idToken || res.params?.id_token;
 
-      const tokenResult = await AuthSession.exchangeCodeAsync(
-        {
-          clientId: request.clientId,
-          code: result.params.code,
-          redirectUri: request.redirectUri,
-          extraParams: request.codeVerifier
-            ? { code_verifier: request.codeVerifier }
-            : undefined,
-        },
-        { tokenEndpoint: "https://oauth2.googleapis.com/token" }
-      );
-
-      if (!tokenResult.idToken) {
+      if (!idToken) {
         throw new Error("Google did not return an ID token.");
       }
 
-      const response = await apiFetch("/auth/google", {
+      const backendRes = await apiFetch("/auth/google", {
         method: "POST",
-        body: JSON.stringify({ idToken: tokenResult.idToken }),
+        body: JSON.stringify({ idToken }),
       });
 
-      if (!response.ok) {
+      if (!backendRes.ok) {
         throw new Error("Backend rejected the Google sign-in.");
       }
 
-      const data: AuthResponse = await response.json();
+      const data: AuthResponse = await backendRes.json();
 
       await saveToken(data.token);
       setProfile(data.profile);
