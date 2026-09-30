@@ -5,22 +5,12 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import { clearToken, getToken, saveToken } from "../services/api";
-import type { FeelineProfile } from "../types/auth";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { apiFetch, clearToken, getToken, saveToken } from "../services/api";
+import type { AuthResponse, FeelineProfile } from "../types/auth";
 
-// --- Phase 1 (frontend-only) mock account -------------------------------
-// TODO(auth): Replace with real Google sign-in (expo-auth-session +
-// WebBrowser) once the backend + Google OAuth credentials are wired up.
-// TODO(backend): Replace restoreSession's local check with a real
-// GET /auth/me call once the API is connected.
-const MOCK_TOKEN = "mock-session-token";
-const MOCK_PROFILE: FeelineProfile = {
-  profileId: "mock-profile",
-  email: "demo.user@feeline.app",
-  firstName: "Demo",
-  lastName: "User",
-  profileImageUrl: null,
-};
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextValue {
   profile: FeelineProfile | null;
@@ -39,11 +29,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Configure Google Auth for Implicit Flow
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB,
+  });
+
   const restoreSession = useCallback(async () => {
     setIsLoading(true);
     try {
       const token = await getToken();
-      setProfile(token === MOCK_TOKEN ? MOCK_PROFILE : null);
+
+      if (!token) {
+        setProfile(null);
+        return;
+      }
+
+      const res = await apiFetch("/auth/me");
+
+      if (!res.ok) {
+        await clearToken();
+        setProfile(null);
+        return;
+      }
+
+      const data = await res.json();
+      setProfile(data.profile);
     } catch (err) {
       console.error("Failed to restore session:", err);
       setProfile(null);
@@ -57,21 +69,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [restoreSession]);
 
   const signIn = useCallback(async () => {
+    if (!request) {
+      setError("Google sign-in is not ready yet. Try again in a moment.");
+      return;
+    }
+
     setError(null);
     setIsSigningIn(true);
 
     try {
-      // Simulated network delay so the loading state is visible in the UI.
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      await saveToken(MOCK_TOKEN);
-      setProfile(MOCK_PROFILE);
+      const res = await promptAsync();
+
+      if (res.type !== "success") {
+        setIsSigningIn(false);
+        return;
+      }
+
+      // Grab ID Token directly from the implicit flow authentication object
+      const idToken = res.authentication?.idToken || res.params?.id_token;
+
+      if (!idToken) {
+        throw new Error("Google did not return an ID token.");
+      }
+
+      const backendRes = await apiFetch("/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!backendRes.ok) {
+        throw new Error("Backend rejected the Google sign-in.");
+      }
+
+      const data: AuthResponse = await backendRes.json();
+
+      await saveToken(data.token);
+      setProfile(data.profile);
     } catch (err) {
-      console.error("Mock sign-in failed:", err);
-      setError("Could not sign in. Please try again.");
+      console.error("Sign-in failed:", err);
+      setError("Could not sign in with Google. Please try again.");
     } finally {
       setIsSigningIn(false);
     }
-  }, []);
+  }, [request, promptAsync]);
 
   const signOut = useCallback(async () => {
     await clearToken();
