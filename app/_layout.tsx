@@ -1,36 +1,53 @@
-import { Stack, useRouter, useSegments } from "expo-router";
-import { useEffect } from "react";
-import { AuthProvider, useAuth } from "../context/AuthContext";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useFonts } from "expo-font";
+import { Comfortaa_700Bold } from "@expo-google-fonts/comfortaa";
+import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold } from "@expo-google-fonts/poppins";
+import { AuthProvider } from "../context/AuthContext";
+import { CatDataProvider } from "../context/CatDataContext";
+import BrandedSplash from "@/components/common/BrandedSplash";
+import { colors } from "@/constants/theme";
 
 function RootNavigation() {
-  const { profile, isLoading } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    const inAuthGroup = segments.includes("(auth)");
-    const inTabsGroup = segments.includes("(tabs)");
-
-    if (!profile && !inAuthGroup) {
-      router.replace("/(screens)/(auth)/login");
-    } else if (profile && !inTabsGroup) {
-      router.replace("/(screens)/(tabs)/camera");
-    }
-  }, [profile, isLoading, segments, router]);
-
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(screens)" />
-    </Stack>
+    <>
+      <StatusBar style="dark" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
+        <Stack.Screen name="(screens)" />
+      </Stack>
+    </>
   );
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Comfortaa_700Bold,
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaProvider>
+        <BrandedSplash />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
-    <AuthProvider>
-      <RootNavigation />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <CatDataProvider>
+          <RootNavigation />
+        </CatDataProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
