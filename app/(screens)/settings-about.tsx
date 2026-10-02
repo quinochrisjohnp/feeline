@@ -15,8 +15,8 @@ const FEATURES = [
 export default function AboutFeeline() {
   const router = useRouter();
   return (
-    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title="About FeELINE" onBack={() => router.dismissTo("/settings")} />
+    <ScreenContainer module="settings" edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title="About FeELINE" onBack={() => router.dismissTo("/settings")} />
       <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.body}>
         <Text style={styles.paragraph}>

@@ -21,6 +21,7 @@ export default function Camera() {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission, refreshPermission] = useCameraPermissions();
   const camera = useRef<CameraView | null>(null);
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const [ready, setReady] = useState(false);
   const [mountError, setMountError] = useState(false);
   const [cameraKey, setCameraKey] = useState(0);
@@ -44,6 +45,7 @@ export default function Camera() {
     setReviewing(false);
     setReady(false);
     setMountError(false);
+    setCameraKey((key) => key + 1);
     void refreshPermission().catch(() => setError("Camera permission could not be checked. Please try again."));
     return () => {
       active.current = false;
@@ -81,9 +83,9 @@ export default function Camera() {
     setGallerySettings(false);
     return generation.current;
   };
-  const prepare = (uri: string, source: MockCapture["source"], scenario: MockSampleId, ticket: number) => {
+  const prepare = (uri: string, source: MockCapture["source"], scenario: MockSampleId, ticket: number, dimensions?: { width: number; height: number }) => {
     if (!current(ticket)) return;
-    const capture = createMockCapture(scenario, new Date().toISOString(), uri, source);
+    const capture = createMockCapture(scenario, new Date().toISOString(), uri, source, dimensions);
     if (!parseMockCapture({ ...capture })) throw new Error("Unavailable image");
     setLastImage(uri);
     timer.current = setTimeout(() => {
@@ -110,10 +112,10 @@ export default function Camera() {
     if (ticket === null) return;
     const scenario = sampleId;
     try {
-      const photo = await camera.current.takePictureAsync({ quality: 0.9 });
+      const photo = await camera.current.takePictureAsync({ quality: 0.9, skipProcessing: false });
       if (!current(ticket)) return;
       if (!photo?.uri) throw new Error("No photo");
-      prepare(photo.uri, "camera", scenario, ticket);
+      prepare(photo.uri, "camera", scenario, ticket, photo);
     } catch {
       if (current(ticket)) setError("We couldn't capture that photo. Please try again or choose one from your gallery.");
       unlock(ticket);
@@ -133,7 +135,7 @@ export default function Camera() {
       if (result.canceled) { unlock(ticket); return; }
       const uri = result.assets?.[0]?.uri;
       if (!uri) throw new Error("No selected image");
-      prepare(uri, "gallery", scenario, ticket);
+      prepare(uri, "gallery", scenario, ticket, result.assets[0]);
     } catch {
       if (!current(ticket)) return;
       setError("We couldn't open that photo. Try the gallery again, or check photo access in device settings.");
@@ -162,12 +164,17 @@ export default function Camera() {
   const top = insets.top + spacing.sm;
 
   return (
-    <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
+    <FullBleedScreen module={unavailable ? "camera" : undefined} statusBarStyle={focused ? (unavailable ? "dark" : "light") : "auto"}>
+      <View style={StyleSheet.absoluteFill} collapsable={false} onLayout={({ nativeEvent: { layout } }) => {
+        setPreviewSize((previous) => previous.width === layout.width && previous.height === layout.height
+          ? previous : { width: layout.width, height: layout.height });
+      }}>
       {focused && appActive && permission?.granted && !mountError ? (
-        <CameraView key={cameraKey} ref={camera} style={StyleSheet.absoluteFill} facing="back" mode="picture"
+        <CameraView key={cameraKey} ref={camera} style={[StyleSheet.absoluteFill, previewSize.width > 0 && previewSize.height > 0 ? previewSize : null]} facing="back" mode="picture"
           onCameraReady={() => { if (active.current) setReady(true); }}
           onMountError={() => { setReady(false); setMountError(true); }} />
       ) : null}
+      </View>
       {!unavailable ? (
         <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
           <View style={[styles.scrim, { height: top + dimensions.button + spacing.md }]} />
@@ -195,9 +202,9 @@ export default function Camera() {
       {unavailable ? (
         <ScrollView style={[styles.stateArea, { top: top + dimensions.button + spacing.md, bottom: bottom + dimensions.capture + spacing.md }]}
           contentContainerStyle={styles.stateContent}>
-          {!permission ? <ActivityIndicator accessibilityLabel="Checking camera permission" color={colors.textInverse} /> : <>
-            <Text style={styles.stateTitle} accessibilityRole="header">{mountError ? "Camera unavailable" : "Camera access"}</Text>
-            <Text style={styles.stateText}>{mountError ? "We couldn't start the camera. Try again or choose an existing photo."
+          {!permission ? <ActivityIndicator accessibilityLabel="Checking camera permission" color={colors.textPrimary} /> : <>
+            <Text style={[styles.stateTitle, styles.permissionText]} accessibilityRole="header">{mountError ? "Camera unavailable" : "Camera access"}</Text>
+            <Text style={[styles.stateText, styles.permissionText]}>{mountError ? "We couldn't start the camera. Try again or choose an existing photo."
               : permission.canAskAgain ? "Allow FeELINE to capture cat images for this research prototype. Results remain simulated."
               : "Camera access is disabled. Enable it in settings, or choose an existing photo."}</Text>
             <Button label={mountError ? "Retry Camera" : permission.canAskAgain ? "Allow Camera Access" : "Open Settings"}
@@ -246,6 +253,7 @@ const styles = StyleSheet.create({
   spacer: { width: dimensions.button },
   stateArea: { position: "absolute", left: spacing.lg, right: spacing.lg },
   stateContent: { flexGrow: 1, justifyContent: "center", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  permissionText: { color: colors.textPrimary },
   stateTitle: { ...typography.subheading, color: colors.textInverse, textAlign: "center" },
   stateText: { ...typography.body, color: colors.textInverse, textAlign: "center" },
   error: { position: "absolute", left: spacing.md, right: spacing.md, padding: spacing.sm, gap: spacing.xs, borderRadius: radii.md, backgroundColor: colors.cameraControl },

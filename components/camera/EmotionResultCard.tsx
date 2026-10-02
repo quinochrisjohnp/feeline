@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import EmotionIcon from "@/components/common/EmotionIcon";
+import { normalizeEmotionKey } from "@/utils/emotion";
 import { EMOTIONS, EmotionKey } from "@/types/models";
 import { RECOMMENDED_ACTIONS } from "@/data/recommendations";
 import Button from "@/components/common/Button";
@@ -24,7 +25,8 @@ const PLACEHOLDER_ACTIONS = [
 ];
 
 export default function EmotionResultCard({ emotionKey, confidence, variant = "normal", onRetry }: EmotionResultCardProps) {
-  const meta = emotionKey ? EMOTIONS[emotionKey] : null;
+  const key = normalizeEmotionKey(emotionKey);
+  const meta = key ? EMOTIONS[key] : null;
   const isPlaceholder = !meta;
   const isLowConfidence = variant === "lowConfidence" && !!emotionKey;
   const actions = meta ? RECOMMENDED_ACTIONS[meta.key] : PLACEHOLDER_ACTIONS;
@@ -34,12 +36,8 @@ export default function EmotionResultCard({ emotionKey, confidence, variant = "n
       <View style={styles.handle} />
 
       <View style={styles.headerRow}>
-        <View accessible accessibilityRole="image" accessibilityLabel={meta?.label ?? "Mock emotion result"} style={[styles.emotionBadge, meta ? { backgroundColor: colors.emotion[meta.key] } : null]}>
-          {isPlaceholder ? (
-            <Ionicons name="help-outline" size={22} color={colors.textSecondary} />
-          ) : (
-            <Text style={styles.emoji}>{meta!.emoji}</Text>
-          )}
+        <View style={styles.emotionBadge}>
+          <EmotionIcon emotion={emotionKey} size={dimensions.emotionBadge} />
         </View>
         <View style={styles.headerText}>
           <Text style={styles.emotionLabel}>{isPlaceholder ? "Emotion Result" : meta!.label}</Text>
@@ -91,12 +89,10 @@ const styles = StyleSheet.create({
     width: dimensions.emotionBadge,
     height: dimensions.emotionBadge,
     borderRadius: radii.pill,
-    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.sm,
   },
-  emoji: typography.emoji,
   headerText: { flexGrow: 1, flexBasis: dimensions.actionMinWidth, marginRight: spacing.xs },
   emotionLabel: { ...typography.subheading, color: colors.textPrimary },
   emotionSub: { ...typography.caption, color: colors.textSecondary },

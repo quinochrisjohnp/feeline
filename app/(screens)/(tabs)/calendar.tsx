@@ -70,7 +70,7 @@ export default function Calendar() {
   const dateHeading = isSameDay(selectedDate, new Date()) ? "TODAY" : formatFullDate(selectedDate.toISOString()).toUpperCase();
 
   return (
-    <ScreenContainer padded={false}>
+    <ScreenContainer module="calendar" padded={false}>
       <View style={styles.root} onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}>
         <ScrollView ref={scrollRef} onScroll={handleScroll} scrollEventThrottle={16}
           showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: getTabBarClearance(0) }}>

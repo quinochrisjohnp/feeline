@@ -1,3 +1,5 @@
+import EmotionIcon from "@/components/common/EmotionIcon";
+import { normalizeEmotionKey } from "@/utils/emotion";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { EMOTIONS, EmotionKey } from "@/types/models";
@@ -11,15 +13,15 @@ interface DetectionListRowProps {
 }
 
 export default function DetectionListRow({ catName, emotion, time, onPress }: DetectionListRowProps) {
+  const key = normalizeEmotionKey(emotion);
+  const label = key ? EMOTIONS[key].label : "Emotion unavailable";
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}
-      accessibilityRole="button" accessibilityLabel={`${catName}, ${EMOTIONS[emotion].label}, ${time}. Open photo`}>
-      <View style={[styles.icon, { backgroundColor: colors.emotion[emotion] }]}>
-        <Text>{EMOTIONS[emotion].emoji}</Text>
-      </View>
+      accessibilityRole="button" accessibilityLabel={`${catName}, ${label}, ${time}. Open photo`}>
+      <EmotionIcon emotion={emotion} size={30} />
       <View style={styles.text}>
         <Text style={styles.catName}>{catName}</Text>
-        <Text style={styles.emotion}>{EMOTIONS[emotion].label}</Text>
+        <Text style={styles.emotion}>{label}</Text>
       </View>
       <Text style={styles.time}>{time}</Text>
     </TouchableOpacity>
@@ -28,7 +30,6 @@ export default function DetectionListRow({ catName, emotion, time, onPress }: De
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", minHeight: 44, paddingVertical: spacing.sm, gap: spacing.xs },
-  icon: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   text: { flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.xs },
   catName: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
   emotion: { ...typography.bodyMedium, color: colors.textPrimary },

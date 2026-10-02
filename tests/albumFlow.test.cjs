@@ -158,24 +158,59 @@ test("My Cats excludes Unknown, confirms creation, and derives profile age, late
   assert.equal(routes[0].params.albumId, album.id);
 });
 
-test("Add Cat validates required/past dates, trims names, derives age, and prevents duplicate submissions", () => {
+test("Add Cat picks images independently, uses a date picker with ISO storage, trims names and prevents duplicate submissions", async () => {
   const saved = [];
-  const form = mount("components/cats/AddCatForm.tsx", { props: { visible: true, onSave: (cat) => saved.push(cat), onCancel() {} } });
-  const field = (label) => nodes(form.render()).find((node) => node.props?.label === label);
-  assert.equal(field("Save").props.disabled, true);
+  const opened = [];
+  const pickerCalls = [];
+  const results = [
+    { canceled: false, assets: [{ uri: "file:///cover.jpg" }] },
+    { canceled: false, assets: [{ uri: "file:///avatar.jpg" }] },
+    { canceled: true, assets: null },
+    { canceled: false, assets: [] },
+  ];
+  const dependencies = {
+    "expo-image-picker": {
+      getMediaLibraryPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
+      requestMediaLibraryPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
+      launchImageLibraryAsync: async (options) => { pickerCalls.push(options); return results.shift(); },
+    },
+    "@react-native-community/datetimepicker": { __esModule: true, default: "DateTimePicker",
+      DateTimePickerAndroid: { open: (options) => opened.push(options) } },
+  };
+  const form = mount("components/cats/AddCatForm.tsx", { props: { visible: true, onSave: (cat) => saved.push(cat), onCancel() {} }, dependencies });
+  const field = (label) => nodes(form.render()).find((node) => node.props?.accessibilityLabel === label);
+  const imageUris = () => nodes(form.render()).filter((node) => node.type === "Image").map((node) => node.props.source.uri);
+
+  await field("Save").props.onPress(); // nothing filled in yet
+  assert.equal(saved.length, 0);
+
   field("Name").props.onChangeText("  Test Cat  ");
-  field("Birthdate").props.onChangeText("12/31/2999");
-  assert.equal(field("Save").props.disabled, true);
-  field("Birthdate").props.onChangeText("02/30/2024");
-  assert.equal(field("Save").props.disabled, true);
-  field("Birthdate").props.onChangeText("02/29/2024");
-  const button = field("Save");
-  assert.equal(button.props.disabled, false);
-  button.props.onPress();
-  button.props.onPress();
+  await field("Change cover photo").props.onPress();
+  await field("Change profile photo").props.onPress();
+  assert.equal(pickerCalls[0].aspect.join(":"), "16:9");
+  assert.equal(pickerCalls[1].aspect.join(":"), "1:1");
+  assert.equal(pickerCalls[0].mediaTypes.join(), "images");
+  assert.deepEqual(imageUris(), ["file:///cover.jpg", "file:///avatar.jpg"]);
+  await field("Change cover photo").props.onPress(); // cancelled: keeps both images
+  await field("Change profile photo").props.onPress(); // no asset: keeps both, no crash
+  assert.deepEqual(imageUris(), ["file:///cover.jpg", "file:///avatar.jpg"]);
+
+  field("Birthdate").props.onPress();
+  assert.equal(typeof opened[0].maximumDate.getTime, "function");
+  opened[0].onChange({ type: "set" }, new Date(2999, 0, 1)); // future: rejected
+  opened[0].onChange({ type: "dismissed" }, new Date(2020, 0, 1)); // cancelled: ignored
+  await field("Save").props.onPress();
+  assert.equal(saved.length, 0);
+  opened[0].onChange({ type: "set" }, new Date(2024, 1, 29));
+
+  const save = field("Save");
+  await save.props.onPress();
+  await save.props.onPress();
   assert.equal(saved.length, 1);
   assert.equal(saved[0].name, "Test Cat");
   assert.equal(saved[0].birthdate, "2024-02-29");
+  assert.equal(saved[0].photoUri, "file:///avatar.jpg");
+  assert.equal(saved[0].coverUri, "file:///cover.jpg");
   assert.equal("age" in saved[0], false);
 });
 

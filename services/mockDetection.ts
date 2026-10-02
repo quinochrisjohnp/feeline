@@ -25,10 +25,13 @@ export interface MockCapture {
   imageUri: string;
   capturedAt: string;
   source: "camera" | "gallery";
+  width?: string;
+  height?: string;
 }
 
-export function createMockCapture(sampleId: MockSampleId, capturedAt: string, imageUri: string, source: MockCapture["source"]): MockCapture {
-  return { sampleId, imageUri, capturedAt, source };
+export function createMockCapture(sampleId: MockSampleId, capturedAt: string, imageUri: string, source: MockCapture["source"], dimensions?: { width: number; height: number }): MockCapture {
+  return { sampleId, imageUri, capturedAt, source, ...(dimensions && dimensions.width > 0 && dimensions.height > 0
+    ? { width: String(dimensions.width), height: String(dimensions.height) } : {}) };
 }
 
 export function detectMockCapture(capture: MockCapture): MockDetection {
@@ -38,9 +41,13 @@ export function detectMockCapture(capture: MockCapture): MockDetection {
 /** Reject incomplete, repeated, or forged route values instead of silently saving defaults. */
 export function parseMockCapture(params: Record<string, string | string[] | undefined>): MockCapture | null {
   const sample = MOCK_SAMPLES.find((item) => item.id === params.sampleId);
-  const { imageUri, capturedAt, source } = params;
+  const { imageUri, capturedAt, source, width, height } = params;
+  const hasDimensions = width !== undefined || height !== undefined;
+  if (hasDimensions && (typeof width !== "string" || typeof height !== "string" ||
+      !/^[1-9]\d*$/.test(width) || !/^[1-9]\d*$/.test(height) ||
+      !Number.isSafeInteger(Number(width)) || !Number.isSafeInteger(Number(height)))) return null;
   if (!sample || !isDeviceImageUri(imageUri) || (source !== "camera" && source !== "gallery") || typeof capturedAt !== "string" ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(capturedAt) ||
       !Number.isFinite(Date.parse(capturedAt)) || new Date(capturedAt).toISOString() !== capturedAt) return null;
-  return { sampleId: sample.id, imageUri, capturedAt, source };
+  return { sampleId: sample.id, imageUri, capturedAt, source, ...(hasDimensions ? { width, height } : {}) };
 }
