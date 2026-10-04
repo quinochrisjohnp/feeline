@@ -2,14 +2,26 @@ import { PrismaClient } from '../generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 
-// Driver adapter - kailangan na ngayon sa Prisma 7 para gumawa ng
-// actual na connection papunta sa PostgreSQL database
+// ============================================================
+// DATABASE CONFIGURATION
+// ============================================================
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error(
+    'DATABASE_URL is not configured'
+  );
+}
+
+// Prisma 7 PostgreSQL driver adapter
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
 });
 
-// Isang shared Prisma client instance na gagamitin sa buong app,
-// gamit yung adapter para malaman kung paano at saan mag-connect
-const prisma = new PrismaClient({ adapter });
+// Shared Prisma client instance used throughout the backend
+const prisma = new PrismaClient({
+  adapter,
+});
 
 export default prisma;

@@ -1,0 +1,1433 @@
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  GoogleSignin,
+  isCancelledResponse,
+  isSuccessResponse,
+} from "@react-native-google-signin/google-signin";
+
+import {
+  apiFetch,
+  clearToken,
+  getToken,
+  saveToken,
+} from "../services/api";
+
+import type {
+  AuthResponse,
+  FeelineProfile,
+} from "../types/auth";
+
+interface AuthContextValue {
+  profile: FeelineProfile | null;
+  isLoading: boolean;
+  isSigningIn: boolean;
+  error: string | null;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(
+  undefined
+);
+
+const googleWebClientId =
+  process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB;
+
+// Configure native Google Sign-In using the Web OAuth Client ID.
+if (googleWebClientId) {
+  GoogleSignin.configure({
+    webClientId: googleWebClientId,
+    offlineAccess: false,
+  });
+}
+
+export function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [profile, setProfile] = useState<FeelineProfile | null>(
+    null
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Restore an existing FeELINE session.
+  const restoreSession = useCallback(async () => {
+    setIsLoading(true);
+
+    try {
+      const token = await getToken();
+
+      if (!token) {
+        setProfile(null);
+        return;
+      }
+
+      const response = await apiFetch("/api/auth/me");
+
+      if (!response.ok) {
+        await clearToken();
+        setProfile(null);
+        return;
+      }
+
+      const data = await response.json();
+      setProfile(data.profile);
+    } catch (err) {
+      console.error("Failed to restore FeELINE session:", err);
+
+      await clearToken();
+      setProfile(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
+
+  // Sign in with Google, then exchange the Google ID token
+  // for a FeELINE JWT from the backend.
+  const signIn = useCallback(async () => {
+    if (!googleWebClientId) {
+      console.error(
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB is not configured."
+      );
+      setError("Google Sign-In is not configured.");
+      return;
+    }
+
+    setError(null);
+    setIsSigningIn(true);
+
+    try {
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+
+      const response = await GoogleSignin.signIn();
+
+      if (isCancelledResponse(response)) {
+        return;
+      }
+
+      if (!isSuccessResponse(response)) {
+        throw new Error(
+          "Google Sign-In did not complete successfully."
+        );
+      }
+
+      const idToken = response.data.idToken;
+
+      if (!idToken) {
+        throw new Error("Google did not return an ID token.");
+      }
+
+      const backendResponse = await apiFetch(
+        "/api/auth/google",
+        {
+          method: "POST",
+          body: JSON.stringify({ idToken }),
+        }
+      );
+
+      if (!backendResponse.ok) {
+        const errorBody = await backendResponse.text();
+
+        console.error(
+          "Backend Google authentication failed:",
+          backendResponse.status,
+          errorBody
+        );
+
+        throw new Error(
+          "Backend rejected Google authentication."
+        );
+      }
+
+      const data: AuthResponse =
+        await backendResponse.json();
+
+      if (!data.token) {
+        throw new Error(
+          "Backend did not return a FeELINE token."
+        );
+      }
+
+      await saveToken(data.token);
+
+      setProfile(data.profile);
+      setError(null);
+
+      console.log(
+        "FeELINE authentication completed successfully."
+      );
+    } catch (err) {
+      console.error("Google Sign-In failed:", err);
+
+      setError(
+        "Could not sign in with Google. Please try again."
+      );
+    } finally {
+      setIsSigningIn(false);
+    }
+  }, []);
+
+  // Sign out from Google and remove the local FeELINE JWT.
+  const signOut = useCallback(async () => {
+    try {
+      try {
+        await GoogleSignin.signOut();
+      } catch (googleError) {
+        console.warn(
+          "Google Sign-Out warning:",
+          googleError
+        );
+      }
+
+      await clearToken();
+    } catch (err) {
+      console.error("FeELINE Sign-Out failed:", err);
+    } finally {
+      setProfile(null);
+      setError(null);
+    }
+  }, []);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        profile,
+        isLoading,
+        isSigningIn,
+        error,
+        signIn,
+        signOut,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error(
+      "useAuth must be used within an AuthProvider."
+    );
+  }
+
+  return context;
+}import React, { createContext, useContext, useMemo, useReducer } from "react";
+import { initialCatDataState } from "@/data/initialAppData";
+import type { Cat, CatChanges, CatDataState, DetectionRecord, SavedImage, SaveCaptureInput } from "@/types/models";
+import { generateId } from "@/utils/id";
+import { catDataReducer } from "./catDataReducer";
+
+export interface CatDataContextValue {
+  state: CatDataState;
+  addCat(cat: Cat): void;
+  updateCat(catId: string, changes: CatChanges): void;
+  renameAlbum(albumId: string, name: string): void;
+  deleteCat(catId: string): void;
+  saveCapture(input: SaveCaptureInput): { image: SavedImage; detection: DetectionRecord };
+  deleteImage(imageId: string): void;
+  deleteImages(imageIds: string[]): void;
+  resetMockData(): void;
+}
+
+const CatDataContext = createContext<CatDataContextValue | undefined>(undefined);
+
+export function CatDataProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(catDataReducer, initialCatDataState);
+  const actions = useMemo<Omit<CatDataContextValue, "state">>(() => ({
+    addCat: (cat) => dispatch({ type: "ADD_CAT", cat }),
+    updateCat: (catId, changes) => dispatch({ type: "UPDATE_CAT", catId, changes }),
+    renameAlbum: (albumId, name) => dispatch({ type: "RENAME_ALBUM", albumId, name }),
+    deleteCat: (catId) => dispatch({ type: "DELETE_CAT", catId }),
+    saveCapture: (input) => {
+      const image: SavedImage = {
+        id: generateId("image"), albumId: input.albumId,
+        imageUri: input.imageUri, capturedAt: input.capturedAt,
+      };
+      const detection: DetectionRecord = {
+        id: generateId("det"), imageId: image.id, emotion: input.emotion,
+        confidence: input.confidence, recordedAt: input.capturedAt,
+      };
+      dispatch({ type: "SAVE_CAPTURE", image, detection });
+      return { image, detection };
+    },
+    deleteImage: (imageId) => dispatch({ type: "DELETE_IMAGE", imageId }),
+    deleteImages: (imageIds) => dispatch({ type: "DELETE_IMAGES", imageIds }),
+    resetMockData: () => dispatch({ type: "RESET_MOCK_DATA" }),
+  }), []);
+  const value = useMemo(() => ({ state, ...actions }), [state, actions]);
+
+  return <CatDataContext.Provider value={value}>{children}</CatDataContext.Provider>;
+}
+
+export function useCatData(): CatDataContextValue {
+  const context = useContext(CatDataContext);
+  if (!context) throw new Error("useCatData must be used within a CatDataProvider.");
+  return context;
+}
+import { initialCatDataState } from "../data/initialAppData";
+import { EMOTIONS, UNKNOWN_ALBUM_ID } from "../types/models";
+import type { Cat, CatChanges, CatDataState, DetectionRecord, SavedImage } from "../types/models";
+import { isValidBirthdate } from "../utils/date";
+
+export type CatDataAction =
+  | { type: "ADD_CAT"; cat: Cat }
+  | { type: "UPDATE_CAT"; catId: string; changes: CatChanges }
+  | { type: "RENAME_ALBUM"; albumId: string; name: string }
+  | { type: "DELETE_CAT"; catId: string }
+  | { type: "SAVE_CAPTURE"; image: SavedImage; detection: DetectionRecord }
+  | { type: "DELETE_IMAGE"; imageId: string }
+  | { type: "DELETE_IMAGES"; imageIds: string[] }
+  | { type: "RESET_MOCK_DATA" };
+
+function removeImages(state: CatDataState, ids: Set<string>): CatDataState {
+  if (!state.images.some((image) => ids.has(image.id))) return state;
+  return {
+    ...state,
+    images: state.images.filter((image) => !ids.has(image.id)),
+    detectionRecords: state.detectionRecords.filter((record) => !ids.has(record.imageId)),
+  };
+}
+
+export function catDataReducer(state: CatDataState, action: CatDataAction): CatDataState {
+  switch (action.type) {
+    case "ADD_CAT": {
+      const { cat } = action;
+      const albumId = `album-${cat.id}`;
+      if (!cat.id || cat.id === UNKNOWN_ALBUM_ID || !cat.name.trim() ||
+          !isValidBirthdate(cat.birthdate) ||
+          state.cats.some((existing) => existing.id === cat.id) ||
+          state.albums.some((album) => album.id === albumId || album.catId === cat.id)) return state;
+      return {
+        ...state,
+        cats: [{ ...cat, name: cat.name.trim() }, ...state.cats],
+        albums: [{ id: albumId, kind: "cat", catId: cat.id }, ...state.albums],
+      };
+    }
+    case "UPDATE_CAT": {
+      const { catId, changes } = action;
+      if (catId === UNKNOWN_ALBUM_ID || !state.cats.some((cat) => cat.id === catId) ||
+          (changes.name !== undefined && !changes.name.trim()) ||
+          (changes.birthdate !== undefined && !isValidBirthdate(changes.birthdate))) return state;
+      // Explicit allowlist: even an untyped caller cannot change identity.
+      const updates: CatChanges = {};
+      if (changes.name !== undefined) updates.name = changes.name.trim();
+      if (changes.gender !== undefined) updates.gender = changes.gender;
+      if (changes.birthdate !== undefined) updates.birthdate = changes.birthdate;
+      if (changes.photoUri !== undefined) updates.photoUri = changes.photoUri;
+      if (changes.coverUri !== undefined) updates.coverUri = changes.coverUri;
+      return { ...state, cats: state.cats.map((cat) => cat.id === catId ? { ...cat, ...updates } : cat) };
+    }
+    case "RENAME_ALBUM": {
+      const album = state.albums.find((item) => item.id === action.albumId);
+      if (!album || album.id === UNKNOWN_ALBUM_ID || album.kind !== "cat" || !album.catId) return state;
+      return catDataReducer(state, { type: "UPDATE_CAT", catId: album.catId, changes: { name: action.name } });
+    }
+    case "DELETE_CAT": {
+      if (action.catId === UNKNOWN_ALBUM_ID || !state.cats.some((cat) => cat.id === action.catId)) return state;
+      const albumIds = new Set(state.albums.filter((album) =>
+        album.kind === "cat" && album.id !== UNKNOWN_ALBUM_ID && album.catId === action.catId
+      ).map((album) => album.id));
+      const imageIds = new Set(state.images.filter((image) => albumIds.has(image.albumId)).map((image) => image.id));
+      return {
+        ...removeImages(state, imageIds),
+        cats: state.cats.filter((cat) => cat.id !== action.catId),
+        albums: state.albums.filter((album) => !albumIds.has(album.id)),
+      };
+    }
+    case "SAVE_CAPTURE": {
+      const { image, detection } = action;
+      if (!state.albums.some((album) => album.id === image.albumId) ||
+          !image.id || !detection.id || !image.imageUri.trim() ||
+          detection.imageId !== image.id ||
+          !Object.hasOwn(EMOTIONS, detection.emotion) ||
+          !Number.isInteger(detection.confidence) || detection.confidence < 0 || detection.confidence > 100 ||
+          !Number.isFinite(Date.parse(image.capturedAt)) || !Number.isFinite(Date.parse(detection.recordedAt)) ||
+          state.images.some((existing) => existing.id === image.id) ||
+          state.detectionRecords.some((existing) => existing.id === detection.id)) return state;
+      return { ...state, images: [{ ...image }, ...state.images], detectionRecords: [{ ...detection }, ...state.detectionRecords] };
+    }
+    case "DELETE_IMAGE":
+      return removeImages(state, new Set([action.imageId]));
+    case "DELETE_IMAGES":
+      return removeImages(state, new Set(action.imageIds));
+    case "RESET_MOCK_DATA":
+      return {
+        cats: initialCatDataState.cats.map((cat) => ({ ...cat })),
+        albums: initialCatDataState.albums.map((album) => ({ ...album })),
+        images: initialCatDataState.images.map((image) => ({ ...image })),
+        detectionRecords: initialCatDataState.detectionRecords.map((record) => ({ ...record })),
+      };
+  }
+}
+import type { CatDataState, DetectionRecord } from "../types/models";
+import { EMOTIONS, UNKNOWN_ALBUM_ID } from "../types/models";
+import { isSameDay, isValidBirthdate } from "../utils/date";
+
+export const selectCatById = (state: CatDataState, catId: string) =>
+  state.cats.find((cat) => cat.id === catId) ?? null;
+
+export const selectAlbumById = (state: CatDataState, albumId: string) =>
+  state.albums.find((album) => album.id === albumId) ?? null;
+
+export const selectAlbumForCat = (state: CatDataState, catId: string) =>
+  state.albums.find((album) => album.kind === "cat" && album.catId === catId) ?? null;
+
+export function selectAlbumName(state: CatDataState, albumId: string): string {
+  const album = selectAlbumById(state, albumId);
+  if (album?.kind === "unknown") return "Unknown Cats";
+  return album?.catId ? selectCatById(state, album.catId)?.name ?? "Album" : "Album";
+}
+
+export const selectImageById = (state: CatDataState, imageId: string) =>
+  state.images.find((image) => image.id === imageId) ?? null;
+
+export const selectImagesForAlbum = (state: CatDataState, albumId: string) =>
+  state.images.filter((image) => image.albumId === albumId)
+    .sort((a, b) => Date.parse(b.capturedAt) - Date.parse(a.capturedAt));
+
+export const selectAlbumCoverImage = (state: CatDataState, albumId: string) =>
+  selectImagesForAlbum(state, albumId)[0] ?? null;
+
+export const selectDetectionForImage = (state: CatDataState, imageId: string) =>
+  state.detectionRecords.filter((record) => record.imageId === imageId)
+    .sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt))[0] ?? null;
+
+export function selectDetectionsForAlbum(state: CatDataState, albumId: string) {
+  const imageIds = new Set(selectImagesForAlbum(state, albumId).map((image) => image.id));
+  return state.detectionRecords.filter((record) => imageIds.has(record.imageId))
+    .sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+}
+
+export function selectDetectionsForCat(state: CatDataState, catId: string) {
+  const album = selectAlbumForCat(state, catId);
+  return album ? selectDetectionsForAlbum(state, album.id) : [];
+}
+
+export const selectLatestDetectionForCat = (state: CatDataState, catId: string) =>
+  selectDetectionsForCat(state, catId)[0] ?? null;
+
+export function selectCatForDetection(state: CatDataState, record: DetectionRecord) {
+  const image = selectImageById(state, record.imageId);
+  const album = image ? selectAlbumById(state, image.albumId) : null;
+  return album?.catId ? selectCatById(state, album.catId) : null;
+}
+
+/** Calendar history only includes complete, valid ownership chains. No state is repaired here. */
+export function selectCalendarRecords(state: CatDataState, catId: string | null = null) {
+  return state.detectionRecords.filter((record) => {
+    if (!Number.isFinite(Date.parse(record.recordedAt)) || !Object.hasOwn(EMOTIONS, record.emotion)) return false;
+    const image = selectImageById(state, record.imageId);
+    const album = image ? selectAlbumById(state, image.albumId) : null;
+    if (!album) return false;
+    if (album.kind === "unknown") {
+      return album.id === UNKNOWN_ALBUM_ID && album.catId === null && (catId === null || catId === UNKNOWN_ALBUM_ID);
+    }
+    return album.kind === "cat" && album.id !== UNKNOWN_ALBUM_ID && !!album.catId &&
+      !!selectCatById(state, album.catId) && (catId === null || catId === album.catId);
+  }).sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt) || a.id.localeCompare(b.id));
+}
+
+/** Filter is a real Cat ID, the Unknown Cats album ID, or null for all. Dates use local time. */
+export function selectCalendarRecordsForDate(state: CatDataState, date: Date, catId: string | null = null) {
+  return selectCalendarRecords(state, catId).filter((record) => isSameDay(new Date(record.recordedAt), date));
+}
+
+/** Annual birthdays are date-only values; February 29 appears only in leap years. */
+export function selectBirthdayCatsForDate(state: CatDataState, date: Date, catId: string | null = null) {
+  if (catId === UNKNOWN_ALBUM_ID) return [];
+  return state.cats.filter((cat) => {
+    if ((catId !== null && cat.id !== catId) || !isValidBirthdate(cat.birthdate)) return false;
+    const [year, month, day] = cat.birthdate.split("-").map(Number);
+    return date.getFullYear() >= year && date.getMonth() + 1 === month && date.getDate() === day;
+  }).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
+
+export function selectCalendarFilterOptions(state: CatDataState) {
+  const options = state.cats.map((cat) => ({ id: cat.id, name: cat.name }));
+  const unknown = selectAlbumById(state, UNKNOWN_ALBUM_ID);
+  if (unknown?.kind === "unknown" && unknown.catId === null) {
+    options.push({ id: UNKNOWN_ALBUM_ID, name: selectAlbumName(state, UNKNOWN_ALBUM_ID) });
+  }
+  return options;
+}
+import type { CatDataState } from "../types/models";
+import { UNKNOWN_ALBUM_ID } from "../types/models";
+import { mockCats } from "./mockCats";
+import { mockDetectionRecords, mockSavedImages } from "./mockDetectionRecords";
+
+/** In-memory fixtures only. Reloading the app recreates this state. */
+export const initialCatDataState: CatDataState = {
+  cats: mockCats.map((cat) => ({ ...cat })),
+  albums: [
+    ...mockCats.map((cat) => ({ id: `album-${cat.id}`, kind: "cat" as const, catId: cat.id })),
+    { id: UNKNOWN_ALBUM_ID, kind: "unknown", catId: null },
+  ],
+  images: mockSavedImages,
+  detectionRecords: mockDetectionRecords,
+};
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+if (!API_URL) {
+  console.warn("EXPO_PUBLIC_API_URL is not set. Set it in your .env file.");
+}
+
+const TOKEN_KEY = "feeline_auth_token";
+// SecureStore is native-only. Web previews keep the same mock session in memory;
+// a reload signs out, with no browser storage or second authentication system.
+let webToken: string | null = null;
+
+export async function saveToken(token: string): Promise<void> {
+  if (Platform.OS === "web") { webToken = token; return; }
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
+}
+
+export async function getToken(): Promise<string | null> {
+  if (Platform.OS === "web") return webToken;
+  return SecureStore.getItemAsync(TOKEN_KEY);
+}
+
+export async function clearToken(): Promise<void> {
+  if (Platform.OS === "web") { webToken = null; return; }
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
+}
+
+export async function apiFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = await getToken();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return fetch(`${API_URL}${path}`, { ...options, headers });
+}
+export type EmotionKey = "happy" | "neutral" | "fear" | "angry";
+
+export interface EmotionMeta {
+  key: EmotionKey;
+  label: string;
+  emoji: string;
+}
+
+// The four FeELINE emotion categories. Do not add more without updating
+// the design (constants/theme.ts colors.emotion) to match.
+export const EMOTIONS: Record<EmotionKey, EmotionMeta> = {
+  happy: { key: "happy", label: "Happy", emoji: "😻" },
+  neutral: { key: "neutral", label: "Neutral", emoji: "😑" },
+  fear: { key: "fear", label: "Fearful", emoji: "😰" },
+  angry: { key: "angry", label: "Angry", emoji: "😾" },
+};
+
+export type CatGender = "Male" | "Female";
+
+export interface Cat {
+  id: string;
+  name: string;
+  gender: CatGender;
+  /** YYYY-MM-DD */
+  birthdate: string;
+  /** Mock/local reference; null renders the placeholder. */
+  photoUri: string | null;
+  /** Mock/local reference; null renders the placeholder. */
+  coverUri: string | null;
+}
+
+export type AlbumKind = "cat" | "unknown";
+
+export const UNKNOWN_ALBUM_ID = "unknown-cats";
+
+export interface Album {
+  id: string;
+  kind: AlbumKind;
+  /** Null only for the Unknown Cats system album. */
+  catId: string | null;
+}
+
+export interface SavedImage {
+  id: string;
+  albumId: string;
+  /** Key or URI for a bundled/mock image. */
+  imageUri: string;
+  /** ISO datetime when the mock capture occurred. */
+  capturedAt: string;
+}
+
+export interface DetectionRecord {
+  id: string;
+  imageId: string;
+  emotion: EmotionKey;
+  /** Integer from 0 through 100. */
+  confidence: number;
+  /** ISO datetime string. */
+  recordedAt: string;
+}
+
+export interface CatDataState {
+  cats: Cat[];
+  albums: Album[];
+  images: SavedImage[];
+  detectionRecords: DetectionRecord[];
+}
+
+export type CatChanges = Partial<Pick<Cat, "name" | "gender" | "birthdate" | "photoUri" | "coverUri">>;
+
+export interface SaveCaptureInput {
+  albumId: string;
+  imageUri: string;
+  capturedAt: string;
+  emotion: EmotionKey;
+  confidence: number;
+}
+/** Parse date-only values in local time, avoiding UTC birthday shifts. */
+function localDate(iso: string): Date {
+  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso);
+}
+
+export function isValidBirthdate(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const date = localDate(iso);
+  return Number.isFinite(date.getTime()) && toDateOnly(date) === iso;
+}
+
+export function toDateOnly(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Form boundary: accept MM/DD/YYYY while storing only YYYY-MM-DD. */
+export function birthdateFromInput(value: string): string | null {
+  const trimmed = value.trim();
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
+  const iso = match ? `${match[3]}-${match[1]}-${match[2]}` : trimmed;
+  return isValidBirthdate(iso) ? iso : null;
+}
+
+export function getAgeYears(birthdateIso: string): number {
+  const birth = localDate(birthdateIso);
+  if (Number.isNaN(birth.getTime())) return 0;
+
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const hasHadBirthdayThisYear =
+    now.getMonth() > birth.getMonth() ||
+    (now.getMonth() === birth.getMonth() && now.getDate() >= birth.getDate());
+  if (!hasHadBirthdayThisYear) age -= 1;
+
+  return Math.max(0, age);
+}
+
+export function formatShortDate(iso: string): string {
+  const date = localDate(iso);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
+}
+
+export function formatFullDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}
+
+export function formatTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+export function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+export interface CalendarCell {
+  date: Date;
+  inCurrentMonth: boolean;
+}
+
+/**
+ * Builds a 6x7 grid of dates covering the given month (Sunday-first weeks),
+ * including the leading/trailing days from adjacent months.
+ */
+export function getMonthMatrix(monthDate: Date): CalendarCell[] {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = firstOfMonth.getDay(); // 0 = Sunday
+  const gridStart = new Date(year, month, 1 - startOffset);
+
+  const cells: CalendarCell[] = [];
+  for (let i = 0; i < 42; i += 1) {
+    const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+    cells.push({ date, inCurrentMonth: date.getMonth() === month });
+  }
+  return cells;
+}
+
+export function monthLabel(monthDate: Date): string {
+  return monthDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+/** The Sunday-first week (7 consecutive dates) containing the given date.
+ * Used by the Calendar's collapsed compact-week header. */
+export function getWeekDates(date: Date): Date[] {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay());
+  return Array.from({ length: 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+}
+import React, { useEffect, useRef, useState } from "react";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FormField from "@/components/common/FormField";
+import Button from "@/components/common/Button";
+import type { Cat, CatGender } from "@/types/models";
+import { birthdateFromInput, getAgeYears, toDateOnly } from "@/utils/date";
+import { generateId } from "@/utils/id";
+import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
+
+interface AddCatFormProps {
+  visible: boolean;
+  onCancel: () => void;
+  onSave: (cat: Cat) => void;
+}
+
+export default function AddCatForm({ visible, onCancel, onSave }: AddCatFormProps) {
+  const insets = useSafeAreaInsets();
+  const [name, setName] = useState("");
+  const [gender, setGender] = useState<CatGender>("Male");
+  const [birthdate, setBirthdate] = useState("");
+
+  const [nameTouched, setNameTouched] = useState(false);
+  const [birthdateTouched, setBirthdateTouched] = useState(false);
+  const submitted = useRef(false);
+  useEffect(() => { if (visible) submitted.current = false; }, [visible]);
+  const birthdateIso = birthdateFromInput(birthdate);
+  const validBirthdate = !!birthdateIso && birthdateIso <= toDateOnly(new Date());
+  const age = validBirthdate ? getAgeYears(birthdateIso!) : null;
+
+  const reset = () => {
+    setName("");
+    setGender("Male");
+    setBirthdate("");
+    setNameTouched(false);
+    setBirthdateTouched(false);
+  };
+
+  const handleCancel = () => {
+    reset();
+    onCancel();
+  };
+
+  const handleSave = () => {
+    if (submitted.current || !name.trim() || !validBirthdate || !birthdateIso) return;
+    submitted.current = true;
+    const newCat: Cat = {
+      id: generateId("cat"),
+      name: name.trim(),
+      gender,
+      birthdate: birthdateIso,
+      photoUri: null,
+      coverUri: null,
+    };
+    onSave(newCat);
+    reset();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl),
+          paddingLeft: Math.max(insets.left, spacing.lg), paddingRight: Math.max(insets.right, spacing.lg) }]}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+            <View style={styles.photoRow}>
+              <View style={styles.coverPlaceholder}>
+                <Ionicons name="image-outline" size={36} color={colors.textMuted} />
+                <View style={styles.cameraBadgeCover}>
+                  <Ionicons name="camera" size={14} color={colors.textPrimary} />
+                </View>
+              </View>
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="image-outline" size={28} color={colors.textMuted} />
+                <View style={styles.cameraBadgeAvatar}>
+                  <Ionicons name="camera" size={12} color={colors.textPrimary} />
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.title} accessibilityRole="header">New Cat Profile</Text>
+            <Text style={styles.mockNote}>Profile and cover images are placeholders. No photo picker is connected.</Text>
+
+            <FormField label="Name" value={name} onChangeText={setName} placeholder="Name"
+              onBlur={() => setNameTouched(true)} hint="Required"
+              error={nameTouched && !name.trim() ? "Enter a cat name." : undefined} />
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Gender</Text>
+              <View style={styles.genderRow}>
+                {(["Male", "Female"] as CatGender[]).map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    accessibilityRole="radio" accessibilityLabel={option} accessibilityState={{ checked: gender === option }}
+                    style={[styles.genderPill, gender === option && styles.genderPillActive]}
+                    onPress={() => setGender(option)}
+                  >
+                    <Text style={styles.genderLabel}>{option}</Text>
+                    <View style={[styles.radioOuter, gender === option && styles.radioOuterActive]}>
+                      {gender === option ? <View style={styles.radioInner} /> : null}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <FormField label="Birthdate" value={birthdate} onChangeText={setBirthdate}
+              placeholder="MM/DD/YYYY" keyboardType="numbers-and-punctuation"
+              onBlur={() => setBirthdateTouched(true)} hint="Required - MM/DD/YYYY"
+              error={(birthdateTouched || birthdate.length >= 10) && !validBirthdate
+                ? "Enter a valid birthdate that is not in the future." : undefined} />
+            <Text style={styles.age}>Age: {age === null ? "--" : age} years</Text>
+            <Text style={styles.mockNote}>Age is calculated from the birthdate.</Text>
+
+            <View style={styles.actions}>
+              <Button label="Cancel" variant="outline" onPress={handleCancel} style={styles.actionButton} />
+              <Button
+                label="Save"
+                variant="primary"
+                onPress={handleSave}
+                disabled={!name.trim() || !validBirthdate}
+                style={styles.actionButton}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: "flex-end" },
+  sheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    maxHeight: "88%",
+    ...shadows.floating,
+  },
+  photoRow: { alignItems: "center", marginBottom: spacing.md },
+  coverPlaceholder: {
+    width: "100%",
+    height: 120,
+    borderRadius: radii.lg,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cameraBadgeCover: {
+    position: "absolute",
+    right: spacing.sm,
+    bottom: spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadows.card,
+  },
+  avatarPlaceholder: {
+    width: 88,
+    height: 88,
+    borderRadius: radii.pill,
+    backgroundColor: colors.border,
+    marginTop: -44,
+    borderWidth: 4,
+    borderColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cameraBadgeAvatar: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 24,
+    height: 24,
+    borderRadius: radii.pill,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadows.card,
+  },
+  title: { ...typography.subheading, color: colors.textPrimary, textAlign: "center", marginBottom: spacing.lg },
+  field: { marginBottom: spacing.md },
+  label: { ...typography.label, color: colors.textPrimary, marginBottom: spacing.xs },
+  genderRow: { flexDirection: "row", gap: spacing.sm },
+  genderPill: {
+    minHeight: dimensions.touchTarget,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  genderPillActive: { borderColor: colors.primary },
+  genderLabel: { ...typography.body, color: colors.textPrimary, flexShrink: 1 },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioOuterActive: { borderColor: colors.primary },
+  radioInner: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: colors.primary },
+  age: { ...typography.bodyMedium, color: colors.textPrimary },
+  mockNote: { ...typography.caption, color: colors.textSecondary, textAlign: "center", marginBottom: spacing.md },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
+  actionButton: { flexGrow: 1, flexBasis: dimensions.actionMinWidth },
+});
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import CatCoverCard from "@/components/cats/CatCoverCard";
+import CatProfileHeader from "@/components/cats/CatProfileHeader";
+import EmotionBadge from "@/components/common/EmotionBadge";
+import EmptyState from "@/components/common/EmptyState";
+import Button from "@/components/common/Button";
+import ConfirmModal from "@/components/common/ConfirmModal";
+import AddCatForm from "@/components/cats/AddCatForm";
+import { useCatData } from "@/context/CatDataContext";
+import { selectAlbumForCat, selectCatById, selectLatestDetectionForCat } from "@/context/catDataSelectors";
+import { EMOTIONS } from "@/types/models";
+import type { Cat } from "@/types/models";
+import { getAgeYears, formatShortDate } from "@/utils/date";
+import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
+
+export default function Status() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [createdNotice, setCreatedNotice] = useState(false);
+  const { state, addCat } = useCatData();
+  const { cats } = state;
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [addingCat, setAddingCat] = useState(false);
+
+  const selectedCat = selectCatById(state, selectedCatId ?? "");
+  const navigation = useNavigation();
+  const showingProfile = !!selectedCat;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ tabBarStyle: showingProfile ? { display: "none" } : undefined });
+  }, [navigation, showingProfile]);
+
+  useFocusEffect(useCallback(() => {
+    if (!showingProfile) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      setSelectedCatId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [showingProfile]));
+
+  const latestRecordFor = (catId: string) => selectLatestDetectionForCat(state, catId);
+
+  const handleSaveCat = (cat: Cat) => {
+    addCat(cat);
+    setAddingCat(false);
+    setCreatedNotice(true);
+  };
+
+  if (selectedCat) {
+    const latest = latestRecordFor(selectedCat.id);
+    const album = selectAlbumForCat(state, selectedCat.id);
+
+    return (
+      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: spacing.lg + insets.bottom }}>
+          <CatProfileHeader name={selectedCat.name} photoUri={selectedCat.photoUri} coverUri={selectedCat.coverUri} />
+
+          <View style={styles.profileBody}>
+            <Text style={styles.catName}>{selectedCat.name}</Text>
+
+            <View style={styles.card}>
+              {latest ? (
+                <>
+                  <EmotionBadge emotion={latest.emotion} size={56} />
+                  <Text style={styles.emotionLabel}>{EMOTIONS[latest.emotion].label.toUpperCase()}</Text>
+                  <Text style={styles.cardCaption}>Latest Detected Emotion</Text>
+                  <Text style={styles.cardCaption}>Mock observable cues, not a diagnosis.</Text>
+                  <View style={styles.statRow}>
+                    <View style={styles.statCol}>
+                      <Text style={styles.statValue}>{formatShortDate(latest.recordedAt)}</Text>
+                      <Text style={styles.statCaption}>Last Checked</Text>
+                    </View>
+                    <View style={styles.statCol}>
+                      <Text style={styles.statValue}>{latest.confidence}%</Text>
+                      <Text style={styles.statCaption}>Confidence Percentage</Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.noDataText}>No detections yet for {selectedCat.name}.</Text>
+              )}
+            </View>
+
+            <Text style={styles.sectionTitle}>Cats Info</Text>
+            <View style={styles.card}>
+              <View style={styles.infoRow}>
+                <Ionicons name="male-female-outline" size={22} color={colors.accent} />
+                <Text style={styles.infoValue}>{selectedCat.gender}</Text>
+              </View>
+              <Text style={styles.cardCaption}>Gender</Text>
+              <View style={styles.statRow}>
+                <View style={styles.statCol}>
+                  <Text style={styles.statValue}>{formatShortDate(selectedCat.birthdate)}</Text>
+                  <Text style={styles.statCaption}>Birthdate</Text>
+                </View>
+                <View style={styles.statCol}>
+                  <Text style={styles.statValue}>{getAgeYears(selectedCat.birthdate)} Yrs. Old</Text>
+                  <Text style={styles.statCaption}>Age</Text>
+                </View>
+              </View>
+            </View>
+            {album ? <Button label="Open Album" variant="outline"
+              onPress={() => router.push({ pathname: "/album-folder", params: { albumId: album.id } })} /> : null}
+          </View>
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + spacing.sm }]}
+          onPress={() => setSelectedCatId(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Back to My Cats"
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.white} />
+        </TouchableOpacity>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer tabBar>
+      <View style={styles.header}>
+        <Text style={styles.title} accessibilityRole="header">My Cats</Text>
+        <TouchableOpacity style={styles.addButton} accessibilityRole="button" onPress={() => setAddingCat(true)} accessibilityLabel="Add cat">
+          <Ionicons name="add" size={28} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      {cats.length === 0 ? (
+        <EmptyState
+          icon="paw-outline"
+          title="No cats added yet"
+          message="Add a cat profile to organize your mock photos and emotion-cue results."
+          actionLabel="Add your first cat"
+          onAction={() => setAddingCat(true)}
+        />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {cats.map((cat) => (
+            <CatCoverCard key={cat.id} name={cat.name} coverUri={cat.coverUri ?? cat.photoUri} subtitle={`${cat.gender} / ${getAgeYears(cat.birthdate)} years old`} variant="bar" onPress={() => setSelectedCatId(cat.id)} />
+          ))}
+        </ScrollView>
+      )}
+
+      <AddCatForm visible={addingCat} onCancel={() => setAddingCat(false)} onSave={handleSaveCat} />
+      <ConfirmModal visible={createdNotice} title="Cat Profile Saved!" message="Your cat and its album are ready for this mock session."
+        hideCancel confirmLabel="Continue" onConfirm={() => setCreatedNotice(false)} onCancel={() => setCreatedNotice(false)} />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.md },
+  title: { ...typography.heading, color: colors.textPrimary },
+  addButton: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center" },
+  backButton: {
+    position: "absolute",
+    left: spacing.md,
+    width: dimensions.touchTarget,
+    height: dimensions.touchTarget,
+    borderRadius: radii.pill,
+    backgroundColor: colors.photoControl,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileBody: { paddingHorizontal: spacing.lg, marginTop: 52, alignItems: "center" },
+  catName: { ...typography.heading, color: colors.textPrimary, marginBottom: spacing.lg, textAlign: "center" },
+  card: {
+    width: "100%",
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    alignItems: "center",
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  emotionLabel: { ...typography.subheading, color: colors.textPrimary, marginTop: spacing.xs, letterSpacing: 1 },
+  cardCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  statRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, width: "100%", justifyContent: "space-around", marginTop: spacing.md },
+  statCol: { flexGrow: 1, flexBasis: 110, alignItems: "center" },
+  statValue: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
+  statCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2, textAlign: "center" },
+  noDataText: { ...typography.body, color: colors.textMuted, textAlign: "center" },
+  sectionTitle: { ...typography.subheading, color: colors.textPrimary, alignSelf: "flex-start", marginBottom: spacing.sm },
+  infoRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  infoValue: { ...typography.subheading, color: colors.textPrimary },
+});
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import CatCoverCard from "@/components/cats/CatCoverCard";
+import RenameCatModal from "@/components/cats/RenameCatModal";
+import ConfirmModal from "@/components/common/ConfirmModal";
+import EmptyState from "@/components/common/EmptyState";
+import { useCatData } from "@/context/CatDataContext";
+import type { Album as AlbumModel } from "@/types/models";
+import { selectAlbumById, selectAlbumName, selectAlbumCoverImage } from "@/context/catDataSelectors";
+import { colors, dimensions, fonts, getTabBarClearance, shadows, spacing, typography } from "@/constants/theme";
+
+// Folder contents and photo detail now live in app/(screens)/album-folder.tsx
+// and album-photo.tsx (siblings of (tabs), so the tab bar hides on them).
+export default function Album() {
+  const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const { state, renameAlbum, deleteCat } = useCatData();
+
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const [renamingAlbum, setRenamingAlbum] = useState<AlbumModel | null>(null);
+  const [deletingAlbum, setDeletingAlbum] = useState<AlbumModel | null>(null);
+
+  const albumFolders = state.albums;
+  const selectedAlbum = selectAlbumById(state, selectedAlbumId ?? "");
+  // Only regular cat albums are selectable — Unknown Cats never has onLongPress wired up.
+  const selectionActive = selectedAlbum?.kind === "cat";
+
+  // Established app pattern (see status.tsx) for hiding the floating tab bar
+  // while a temporary in-screen action bar takes its place.
+  useLayoutEffect(() => {
+    navigation.setOptions({ tabBarStyle: selectionActive ? { display: "none" } : undefined });
+  }, [navigation, selectionActive]);
+
+  useFocusEffect(useCallback(() => {
+    if (!selectionActive) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      setSelectedAlbumId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [selectionActive]));
+
+  const clearSelection = () => setSelectedAlbumId(null);
+
+  const openFolder = (albumId: string) => {
+    router.push({ pathname: "/album-folder", params: { albumId } });
+  };
+
+  const handleAlbumPress = (albumId: string) => {
+    // Tapping any album while one is selected counts as "tapping outside"
+    // the selected card — dismiss selection rather than navigate.
+    if (selectionActive) { clearSelection(); return; }
+    openFolder(albumId);
+  };
+
+  const handleRenamePress = () => {
+    if (selectedAlbum?.kind === "cat") setRenamingAlbum(selectedAlbum);
+    setSelectedAlbumId(null);
+  };
+
+  const handleDeletePress = () => {
+    if (selectedAlbum?.kind === "cat") setDeletingAlbum(selectedAlbum);
+    setSelectedAlbumId(null);
+  };
+
+  const handleRenameSave = (newName: string) => {
+    if (renamingAlbum?.kind === "cat") renameAlbum(renamingAlbum.id, newName.trim());
+    setRenamingAlbum(null);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deletingAlbum?.kind === "cat" && deletingAlbum.catId) deleteCat(deletingAlbum.catId);
+    setDeletingAlbum(null);
+  };
+
+  return (
+    <ScreenContainer padded={false}>
+      <ScrollView style={styles.scrollFlex} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity activeOpacity={1} disabled={!selectionActive} onPress={clearSelection} style={styles.contentWrap}>
+          <Text style={styles.title} accessibilityRole="header">Cat Album</Text>
+          <Text style={styles.hint}>Long-press an album to rename or delete it.</Text>
+
+          <View style={styles.grid}>
+            {albumFolders.map((album) => (
+              <CatCoverCard
+                key={album.id}
+                name={selectAlbumName(state, album.id)}
+                coverUri={selectAlbumCoverImage(state, album.id)?.imageUri ?? null}
+                variant="tile"
+                selected={selectionActive && album.id === selectedAlbumId}
+                faded={selectionActive && album.id !== selectedAlbumId}
+                onPress={() => handleAlbumPress(album.id)}
+                onLongPress={album.kind === "unknown" ? undefined : () => setSelectedAlbumId(album.id)}
+                style={album.kind === "unknown" ? styles.systemTile : styles.tile}
+              />
+            ))}
+          </View>
+        </TouchableOpacity>
+        {albumFolders.length === 0 ? <EmptyState title="No albums available" icon="images-outline"
+          message="Add a cat profile to create an album for this mock session."
+          actionLabel="Open My Cats" onAction={() => router.navigate("/status")} /> : null}
+      </ScrollView>
+
+      {selectionActive ? (
+        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleRenamePress} accessibilityRole="button" accessibilityLabel="Rename album">
+            <Ionicons name="pencil-outline" size={dimensions.icon} color={colors.textPrimary} />
+            <Text style={styles.actionLabel}>Rename</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={handleDeletePress} accessibilityRole="button" accessibilityLabel="Delete album">
+            <Ionicons name="trash-outline" size={dimensions.icon} color={colors.dangerStrong} />
+            <Text style={[styles.actionLabel, styles.actionLabelDanger]}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <RenameCatModal
+        visible={!!renamingAlbum}
+        initialName={selectAlbumName(state, renamingAlbum?.id ?? "")}
+        onCancel={() => setRenamingAlbum(null)}
+        onSave={handleRenameSave}
+      />
+
+      <ConfirmModal
+        visible={!!deletingAlbum}
+        title="Delete this album?"
+        message="This also deletes the connected Cat Profile, its saved mock photos, and their detection records."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeletingAlbum(null)}
+      />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollFlex: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: getTabBarClearance(0) },
+  contentWrap: { flex: 1 },
+  title: { ...typography.heading, fontFamily: fonts.albumHeading, color: colors.textPrimary, marginTop: spacing.lg },
+  hint: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  tile: { width: "48%", marginBottom: spacing.md },
+  systemTile: { width: "100%", aspectRatio: 2.2, marginBottom: spacing.md },
+  actionBar: {
+    flexDirection: "row",
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingTop: spacing.sm,
+    ...shadows.floating,
+  },
+  actionButton: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
+  actionLabel: { ...typography.label, fontFamily: fonts.albumLabel, color: colors.textPrimary },
+  actionLabelDanger: { color: colors.dangerStrong },
+});import React, { useCallback, useRef, useState } from "react";
+import { BackHandler, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import DetailScreenHeader from "@/components/common/DetailScreenHeader";
+import ConfirmModal from "@/components/common/ConfirmModal";
+import Button from "@/components/common/Button";
+import EmptyState from "@/components/common/EmptyState";
+import MockPhoto from "@/components/common/MockPhoto";
+import AddCatForm from "@/components/cats/AddCatForm";
+import { useCatData } from "@/context/CatDataContext";
+import { selectAlbumById, selectAlbumName } from "@/context/catDataSelectors";
+import { detectMockCapture, parseMockCapture } from "@/services/mockDetection";
+import type { Cat } from "@/types/models";
+import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
+
+type SaveStep = "select" | "confirmSave" | "saved";
+
+export default function CameraSave() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const { state, addCat, saveCapture } = useCatData();
+  const capture = parseMockCapture(params);
+  const result = capture ? detectMockCapture(capture) : null;
+  const [step, setStep] = useState<SaveStep>("select");
+  const [pendingAlbumId, setPendingAlbumId] = useState<string | null>(null);
+  const [addingCat, setAddingCat] = useState(false);
+  const [catSavedNotice, setCatSavedNotice] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saved = useRef(false);
+  const catSubmitted = useRef(false);
+
+  const handleContinue = useCallback(() => router.dismissTo("/camera"), [router]);
+  const handleBack = useCallback(() => {
+    if (saved.current || !capture) handleContinue();
+    else router.replace({ pathname: "/camera-result", params: { ...capture } });
+  }, [capture, handleContinue, router]);
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleBack]));
+
+  const handleConfirmSave = () => {
+    if (saved.current || !capture || result?.outcome !== "normal") return;
+    if (!pendingAlbumId || !selectAlbumById(state, pendingAlbumId)) {
+      setStep("select");
+      setSaveError("That album is no longer available. Please choose another.");
+      return;
+    }
+    // Synchronous latch also blocks a second tap before React renders the success state.
+    saved.current = true;
+    saveCapture({
+      albumId: pendingAlbumId, emotion: result.emotion, confidence: result.confidence,
+      capturedAt: capture.capturedAt, imageUri: capture.imageUri,
+    });
+    setStep("saved");
+  };
+
+  const openAddCat = () => {
+    catSubmitted.current = false;
+    setAddingCat(true);
+  };
+  const handleAddCatSave = (cat: Cat) => {
+    if (catSubmitted.current) return;
+    catSubmitted.current = true;
+    addCat(cat);
+    setAddingCat(false);
+    setCatSavedNotice(true);
+  };
+
+  if (!capture || result?.outcome !== "normal") {
+    return (
+      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+        <DetailScreenHeader title="Save" onBack={handleContinue} />
+        <EmptyState icon="camera-outline" title="No result to save"
+          message="Capture or select another image to get a result eligible for saving."
+          actionLabel="Back to Camera" onAction={handleContinue} />
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title="Save" onBack={handleBack} rightElement={
+        <TouchableOpacity style={styles.addButton} onPress={openAddCat} accessibilityRole="button" accessibilityLabel="New Cat Profile">
+          <Ionicons name="add" size={dimensions.icon} color={colors.textPrimary} />
+        </TouchableOpacity>
+      } />
+      <FlatList
+        data={state.albums}
+        keyExtractor={(album) => album.id}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.intro}>
+            <Text style={styles.question} accessibilityRole="header">Which cat should this image be saved to?</Text>
+            <View style={styles.preview}>
+              <View style={styles.thumbnail}><MockPhoto imageUri={capture.imageUri} size={dimensions.iconLarge} label="Captured or selected cat image" /></View>
+              <Text style={styles.note}>Image and simulated result saved for this session only.</Text>
+            </View>
+            {saveError ? <Text style={styles.error} accessibilityRole="alert">{saveError}</Text> : null}
+          </View>
+        }
+        renderItem={({ item: album }) => (
+          <TouchableOpacity style={styles.row} accessibilityRole="button"
+            accessibilityLabel={`Save to ${selectAlbumName(state, album.id)}`}
+            onPress={() => { setSaveError(null); setPendingAlbumId(album.id); setStep("confirmSave"); }}>
+            <View style={styles.avatar}><Ionicons name="paw" size={dimensions.icon} color={colors.textSecondary} /></View>
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>{selectAlbumName(state, album.id)}</Text>
+              {album.kind === "unknown" ? <Text style={styles.note}>For cats without a profile</Text> : null}
+            </View>
+            <Ionicons name="chevron-forward" size={dimensions.iconSmall} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+        ListFooterComponent={<Button label="New Cat Profile" variant="outline" onPress={openAddCat} style={styles.newCat} />}
+      />
+      <ConfirmModal visible={step === "confirmSave"}
+        title={`Save image in ${pendingAlbumId ? selectAlbumName(state, pendingAlbumId) : "this album"}?`}
+        message="The image and its simulated result will be kept for this session."
+        confirmLabel="Save" onConfirm={handleConfirmSave} onCancel={() => setStep("select")} />
+      <AddCatForm visible={addingCat} onCancel={() => setAddingCat(false)} onSave={handleAddCatSave} />
+      <ConfirmModal visible={catSavedNotice} title="Cat Profile Saved!"
+        message="Your new cat is ready in the list. Choose it to save this image."
+        confirmLabel="Continue" hideCancel onConfirm={() => setCatSavedNotice(false)} onCancel={() => setCatSavedNotice(false)} />
+      <ConfirmModal visible={step === "saved"} title="Image Saved!"
+        message="Your image and simulated result are in the selected album. Reloading restores the initial mock data."
+        confirmLabel="Continue" hideCancel onConfirm={handleContinue} onCancel={handleContinue} />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  addButton: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center" },
+  listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  intro: { paddingVertical: spacing.md },
+  question: { ...typography.bodyMedium, color: colors.textPrimary },
+  thumbnail: { width: dimensions.capture, height: dimensions.capture, overflow: "hidden", borderRadius: radii.md },
+  preview: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
+  note: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
+  error: { ...typography.body, color: colors.dangerStrong, marginTop: spacing.sm },
+  row: { flexDirection: "row", alignItems: "center", padding: spacing.md, gap: spacing.sm,
+    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  avatar: { width: dimensions.touchTarget, height: dimensions.touchTarget, borderRadius: radii.md,
+    backgroundColor: colors.placeholder, alignItems: "center", justifyContent: "center" },
+  rowText: { flex: 1 },
+  rowLabel: { ...typography.subheading, color: colors.textPrimary },
+  newCat: { marginTop: spacing.lg },
+});

@@ -1,0 +1,3118 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model cat_images {
+  image_id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cat_id             String               @db.Uuid
+  image_url          String
+  file_name          String?              @db.VarChar(255)
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  cats               cats                 @relation(fields: [cat_id], references: [cat_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cat_images_cat")
+  emotion_detections emotion_detections[]
+}
+
+model cats {
+  cat_id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id         String               @db.Uuid
+  name               String               @db.VarChar(100)
+  breed              String?              @db.VarChar(100)
+  sex                String?              @db.VarChar(20)
+  age                Int?
+  birthdate          DateTime?            @db.Date
+  description        String?
+  profile_image_url  String?
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+
+  cat_images         cat_images[]
+  profiles           profiles             @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cats_profile")
+  emotion_detections emotion_detections[]
+}
+
+model emotion_categories {
+  emotion_id         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  emotion_name       String               @unique @db.VarChar(50)
+  description        String?
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  emotion_detections emotion_detections[]
+  recommendations    recommendations[]
+}
+
+model emotion_detections {
+  detection_id       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cat_id             String             @db.Uuid
+  image_id           String?            @db.Uuid
+  emotion_id         String             @db.Uuid
+  confidence_score   Decimal?           @db.Decimal(5, 4)
+  detected_at        DateTime?          @default(now()) @db.Timestamptz(6)
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  cats               cats               @relation(fields: [cat_id], references: [cat_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_detections_cat")
+  emotion_categories emotion_categories @relation(fields: [emotion_id], references: [emotion_id], onUpdate: NoAction, map: "fk_detections_emotion")
+  cat_images         cat_images?        @relation(fields: [image_id], references: [image_id], onUpdate: NoAction, map: "fk_detections_image")
+}
+
+model feedback {
+  feedback_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id  String?   @db.Uuid
+  title       String?   @db.VarChar(150)
+  email       String    @db.VarChar(255)
+  subject     String?   @db.VarChar(255)
+  message     String
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  profiles    profiles? @relation(fields: [profile_id], references: [profile_id], onUpdate: NoAction, map: "fk_feedback_profile")
+}
+
+model profiles {
+  profile_id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  google_id         String     @unique @db.VarChar(255)
+  email             String     @unique @db.VarChar(255)
+  first_name        String?    @db.VarChar(100)
+  last_name         String?    @db.VarChar(100)
+  profile_image_url String?
+  created_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  cats              cats[]
+  feedback          feedback[]
+}
+
+model recommendations {
+  recommendation_id   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  emotion_id          String             @db.Uuid
+  title               String             @db.VarChar(150)
+  recommendation_text String
+  created_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  emotion_categories  emotion_categories @relation(fields: [emotion_id], references: [emotion_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_recommendations_emotion")
+}
+import express from 'express';
+import 'dotenv/config';
+import cors from 'cors';
+import authRoutes from './routes/auth.routes.js';
+import detectionRoutes from './routes/detection.routes.js';
+import catsRoutes from './routes/cats.routes.js';
+import { notFound, errorHandler } from './middleware/error.middleware.js';
+
+const app = express();
+
+const PORT = process.env.PORT ?? 4000;
+
+app.use(cors());
+
+app.use(express.json());
+
+// Test route - confirms the API is running when you hit the root URL
+app.get('/', (_, res) => {
+  res.json({
+    status: 'ok',
+    message: 'API is running',
+  });
+});
+
+
+//Google OAuth
+app.use('/api/auth', authRoutes);
+
+//Detection
+app.use('/api/detection', detectionRoutes);
+
+//Cats
+app.use('/api/cats', catsRoutes);
+
+// These must stay after all the routes
+app.use(notFound);
+app.use(errorHandler);
+
+// Start the server and listen on the given port
+app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));import type { Response } from 'express';
+import type { AuthRequest } from '../middleware/auth.middleware.js';
+import { uploadImageToCloudinary } from '../services/cloudinary.service.js';
+import { UNKNOWN_ALBUM_NAME } from '../utils/constants.js';
+import { isUuid } from '../utils/validators.js';
+import prisma from '../config/db.config.js';
+
+export const detectEmotion = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    // ========================================================
+    // AUTHENTICATION CHECK
+    // ========================================================
+
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+      });
+    }
+
+    // ========================================================
+    // IMAGE CHECK
+    // ========================================================
+
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'No image file provided',
+      });
+    }
+
+    const { catId } = req.body;
+
+    // catId is optional.
+    // If provided, it must be a valid UUID.
+    if (
+      catId !== undefined &&
+      catId !== '' &&
+      !isUuid(catId)
+    ) {
+      return res.status(400).json({
+        error: 'Invalid catId',
+      });
+    }
+
+    let targetCatId: string;
+
+    // ========================================================
+    // DETERMINE CAT
+    // ========================================================
+
+    if (catId) {
+      // ------------------------------------------------------
+      // EXISTING CAT
+      // ------------------------------------------------------
+      // If the mobile app/Postman sends a catId,
+      // verify that the cat belongs to the logged-in user.
+
+      const cat = await prisma.cats.findFirst({
+        where: {
+          cat_id: catId,
+          profile_id: req.profileId,
+        },
+      });
+
+      if (!cat) {
+        return res.status(404).json({
+          error: 'Cat not found',
+        });
+      }
+
+      targetCatId = cat.cat_id;
+    } else {
+      // ------------------------------------------------------
+      // NO CAT SELECTED
+      // ------------------------------------------------------
+      // Create a NEW Unknown Cats record for every detection.
+      //
+      // We intentionally DO NOT use findFirst() here.
+      // This guarantees a new cat_id for every detection
+      // that does not provide an existing catId.
+
+      const unknownCat = await prisma.cats.create({
+        data: {
+          profile_id: req.profileId,
+          name: UNKNOWN_ALBUM_NAME,
+        },
+      });
+
+      targetCatId = unknownCat.cat_id;
+    }
+
+    // ========================================================
+    // UPLOAD IMAGE TO CLOUDINARY
+    // ========================================================
+
+    const imageUrl = await uploadImageToCloudinary(
+      req.file.buffer,
+      `feeline/${req.profileId}`
+    );
+
+    // ========================================================
+    // TEMPORARY DETECTION RESULT
+    // ========================================================
+    // Keep this for now until the Python/FastAPI AI
+    // service is connected.
+
+    const detectionResult = {
+      emotion: 'Angry',
+      confidence: 0.9,
+      recommendations: [
+        'Avoid physical interaction for now, as your cat may react defensively.',
+        'Give your cat space and allow them time to calm down.',
+        'Identify and remove possible triggers such as loud noise, sudden movements, or overstimulation.',
+      ],
+    };
+
+    // ========================================================
+    // SAVE TO DATABASE
+    // ========================================================
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Find the emotion category.
+      let emotionCategory =
+        await tx.emotion_categories.findUnique({
+          where: {
+            emotion_name: detectionResult.emotion,
+          },
+        });
+
+      // Create it if it doesn't exist.
+      if (!emotionCategory) {
+        emotionCategory =
+          await tx.emotion_categories.create({
+            data: {
+              emotion_name: detectionResult.emotion,
+            },
+          });
+      }
+
+      // Save the Cloudinary image URL.
+      const catImage = await tx.cat_images.create({
+        data: {
+          cat_id: targetCatId,
+          image_url: imageUrl,
+        },
+      });
+
+      // Save the emotion detection.
+      const detection =
+        await tx.emotion_detections.create({
+          data: {
+            cat_id: targetCatId,
+            image_id: catImage.image_id,
+            emotion_id: emotionCategory.emotion_id,
+            confidence_score: detectionResult.confidence,
+          },
+        });
+
+      return {
+        catImage,
+        detection,
+      };
+    });
+
+    // ========================================================
+    // RESPONSE
+    // ========================================================
+
+    return res.status(201).json({
+      catId: targetCatId,
+      imageId: result.catImage.image_id,
+      imageUrl,
+      emotion: detectionResult.emotion,
+      confidence: detectionResult.confidence,
+      recommendations: detectionResult.recommendations,
+      detectionId: result.detection.detection_id,
+    });
+  } catch (error) {
+    console.error('Emotion detection error:', error);
+
+    return res.status(500).json({
+      error: 'Failed to process image',
+    });
+  }
+};import type { Response } from "express";
+
+import prisma from "../config/db.config.js";
+import type { AuthRequest } from "../middleware/auth.middleware.js";
+import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
+import { UNKNOWN_ALBUM_NAME } from "../utils/constants.js";
+import { parseIdParam } from "../utils/validators.js";
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+const cleanName = (value: unknown): string =>
+  typeof value === "string" ? value.trim() : "";
+
+const cleanOptionalString = (value: unknown): string | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const cleaned = value.trim();
+
+  return cleaned || null;
+};
+
+const isReservedName = (name: string): boolean =>
+  name.toLowerCase() === UNKNOWN_ALBUM_NAME.toLowerCase();
+
+const parseAge = (value: unknown): number | null | "invalid" => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const age = Number(value);
+
+  return Number.isInteger(age) && age >= 0 ? age : "invalid";
+};
+
+const parseBirthdate = (value: unknown): Date | null | "invalid" => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return "invalid";
+  }
+
+  const birthdate = new Date(`${value}T00:00:00.000Z`);
+
+  if (Number.isNaN(birthdate.getTime()) || birthdate > new Date()) {
+    return "invalid";
+  }
+
+  return birthdate;
+};
+
+const findDuplicateName = (
+  profileId: string,
+  name: string,
+  excludeCatId?: string,
+) =>
+  prisma.cats.findFirst({
+    where: {
+      profile_id: profileId,
+
+      name: {
+        equals: name,
+        mode: "insensitive",
+      },
+
+      ...(excludeCatId
+        ? {
+            cat_id: {
+              not: excludeCatId,
+            },
+          }
+        : {}),
+    },
+  });
+
+// ============================================================
+// CREATE CAT
+// ============================================================
+
+export const createCat = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const body = req.body ?? {};
+
+    const name = cleanName(body.name);
+
+    if (!name) {
+      return res.status(400).json({
+        error: "Cat name is required",
+      });
+    }
+
+    if (isReservedName(name)) {
+      return res.status(400).json({
+        error: `"${UNKNOWN_ALBUM_NAME}" is a reserved name`,
+      });
+    }
+
+    const age = parseAge(body.age);
+
+    if (age === "invalid") {
+      return res.status(400).json({
+        error: "Age must be a whole number",
+      });
+    }
+
+    const birthdate = parseBirthdate(body.birthdate);
+
+    if (birthdate === "invalid") {
+      return res.status(400).json({
+        error: "Invalid birthdate",
+      });
+    }
+
+    const duplicateCat = await findDuplicateName(req.profileId, name);
+
+    if (duplicateCat) {
+      return res.status(409).json({
+        error: "You already have a cat with this name",
+      });
+    }
+
+    const cat = await prisma.cats.create({
+      data: {
+        profile_id: req.profileId,
+        name,
+        breed: cleanOptionalString(body.breed),
+        sex: cleanOptionalString(body.sex),
+        age,
+        birthdate,
+        description: cleanOptionalString(body.description),
+      },
+    });
+
+    return res.status(201).json({
+      cat,
+    });
+  } catch (error) {
+    console.error("Create cat error:", error);
+
+    return res.status(500).json({
+      error: "Failed to create cat",
+    });
+  }
+};
+
+// ============================================================
+// GET ALL CATS
+// ============================================================
+
+export const getMyCats = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const name = cleanName(req.query.name);
+
+    const cats = await prisma.cats.findMany({
+      where: {
+        profile_id: req.profileId,
+
+        ...(name
+          ? {
+              name: {
+                equals: name,
+                mode: "insensitive" as const,
+              },
+            }
+          : {}),
+      },
+
+      orderBy: {
+        created_at: "desc",
+      },
+
+      include: {
+        cat_images: true,
+
+        emotion_detections: {
+          include: {
+            emotion_categories: true,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      cats,
+    });
+  } catch (error) {
+    console.error("Get cats error:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch cats",
+    });
+  }
+};
+
+// ============================================================
+// GET CAT DETECTIONS
+// ============================================================
+
+export const getCatDetections = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const catId = parseIdParam(req.params.catId);
+
+    if (!catId) {
+      return res.status(400).json({
+        error: "Invalid cat ID",
+      });
+    }
+
+    const cat = await prisma.cats.findFirst({
+      where: {
+        cat_id: catId,
+        profile_id: req.profileId,
+      },
+    });
+
+    if (!cat) {
+      return res.status(404).json({
+        error: "Cat not found",
+      });
+    }
+
+    const detections = await prisma.emotion_detections.findMany({
+      where: {
+        cat_id: catId,
+      },
+
+      orderBy: {
+        detected_at: "desc",
+      },
+
+      include: {
+        cat_images: true,
+        emotion_categories: true,
+      },
+    });
+
+    return res.json({
+      detections,
+    });
+  } catch (error) {
+    console.error("Get cat detections error:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch detection history",
+    });
+  }
+};
+
+// ============================================================
+// UPDATE CAT
+// ============================================================
+
+export const updateCat = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const catId = parseIdParam(req.params.catId);
+
+    if (!catId) {
+      return res.status(400).json({
+        error: "Invalid cat ID",
+      });
+    }
+
+    // Make sure the cat belongs to the logged-in user
+    const existingCat = await prisma.cats.findFirst({
+      where: {
+        cat_id: catId,
+        profile_id: req.profileId,
+      },
+    });
+
+    if (!existingCat) {
+      return res.status(404).json({
+        error: "Cat not found",
+      });
+    }
+
+    const body = req.body ?? {};
+
+    // ========================================================
+    // NAME
+    // ========================================================
+
+    let name: string | undefined;
+
+    if (body.name !== undefined) {
+      name = cleanName(body.name);
+
+      if (!name) {
+        return res.status(400).json({
+          error: "Cat name cannot be empty",
+        });
+      }
+
+      /*
+       * An existing "Unknown Cats" record CAN be renamed.
+       *
+       * This is important because your detection endpoint now
+       * creates a temporary Unknown Cats record for each
+       * unassigned detection.
+       *
+       * However, a normal cat cannot be manually renamed TO
+       * "Unknown Cats".
+       */
+      if (isReservedName(name) && !isReservedName(existingCat.name)) {
+        return res.status(400).json({
+          error: `"${UNKNOWN_ALBUM_NAME}" is a reserved name`,
+        });
+      }
+
+      const duplicateCat = await findDuplicateName(req.profileId, name, catId);
+
+      if (duplicateCat) {
+        return res.status(409).json({
+          error: "You already have a cat with this name",
+        });
+      }
+    }
+
+    // ========================================================
+    // AGE
+    // ========================================================
+
+    let age: number | null | undefined;
+
+    if (body.age !== undefined) {
+      const parsedAge = parseAge(body.age);
+
+      if (parsedAge === "invalid") {
+        return res.status(400).json({
+          error: "Age must be a whole number",
+        });
+      }
+
+      age = parsedAge;
+    }
+
+    // ========================================================
+    // BIRTHDATE
+    // ========================================================
+
+    let birthdate: Date | null | undefined;
+
+    if (body.birthdate !== undefined) {
+      const parsedBirthdate = parseBirthdate(body.birthdate);
+
+      if (parsedBirthdate === "invalid") {
+        return res.status(400).json({
+          error: "Invalid birthdate",
+        });
+      }
+
+      birthdate = parsedBirthdate;
+    }
+
+    // ========================================================
+    // PROFILE IMAGE
+    // ========================================================
+
+    let profileImageUrl: string | undefined;
+
+    if (req.file) {
+      profileImageUrl = await uploadImageToCloudinary(
+        req.file.buffer,
+        `feeline/${req.profileId}/profiles`,
+      );
+    }
+
+    // ========================================================
+    // UPDATE DATABASE
+    // ========================================================
+
+    const updatedCat = await prisma.cats.update({
+      where: {
+        cat_id: catId,
+      },
+
+      data: {
+        ...(name !== undefined
+          ? {
+              name,
+            }
+          : {}),
+
+        ...(body.breed !== undefined
+          ? {
+              breed: cleanOptionalString(body.breed),
+            }
+          : {}),
+
+        ...(body.sex !== undefined
+          ? {
+              sex: cleanOptionalString(body.sex),
+            }
+          : {}),
+
+        ...(age !== undefined
+          ? {
+              age,
+            }
+          : {}),
+
+        ...(birthdate !== undefined
+          ? {
+              birthdate,
+            }
+          : {}),
+
+        ...(body.description !== undefined
+          ? {
+              description: cleanOptionalString(body.description),
+            }
+          : {}),
+
+        ...(profileImageUrl !== undefined
+          ? {
+              profile_image_url: profileImageUrl,
+            }
+          : {}),
+      },
+    });
+
+    return res.json({
+      cat: updatedCat,
+    });
+  } catch (error) {
+    console.error("Update cat error:", error);
+
+    return res.status(500).json({
+      error: "Failed to update cat",
+    });
+  }
+};
+
+// ============================================================
+// DELETE CAT
+// ============================================================
+
+export const deleteCat = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const catId = parseIdParam(req.params.catId);
+
+    if (!catId) {
+      return res.status(400).json({
+        error: "Invalid cat ID",
+      });
+    }
+
+    const existingCat = await prisma.cats.findFirst({
+      where: {
+        cat_id: catId,
+        profile_id: req.profileId,
+      },
+    });
+
+    if (!existingCat) {
+      return res.status(404).json({
+        error: "Cat not found",
+      });
+    }
+
+    await prisma.cats.delete({
+      where: {
+        cat_id: catId,
+      },
+    });
+
+    return res.json({
+      message: "Cat deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete cat error:", error);
+
+    return res.status(500).json({
+      error: "Failed to delete cat",
+    });
+  }
+};
+import { Router } from 'express';
+import upload from '../middleware/upload.middleware.js';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { detectEmotion } from '../controllers/detection.controller.js';
+
+const router = Router();
+
+router.post('/', authenticate, upload.single('image'), detectEmotion);
+
+export default router;import { Router } from 'express';
+import { authenticate } from '../middleware/auth.middleware.js';
+import upload from '../middleware/upload.middleware.js';
+
+import {
+  createCat,
+  getMyCats,
+  getCatDetections,
+  updateCat,
+  deleteCat,
+} from '../controllers/cats.controller.js';
+
+const router = Router();
+
+router.post('/', authenticate, createCat);
+
+router.get('/', authenticate, getMyCats);
+
+router.put(
+  '/:catId',
+  authenticate,
+  upload.single('profile_image'),
+  updateCat
+);
+
+router.delete('/:catId', authenticate, deleteCat);
+
+router.get(
+  '/:catId/detections',
+  authenticate,
+  getCatDetections
+);
+
+export default router;import cloudinary from '../config/cloudinary.config.js';
+
+// Uploads the image buffer to Cloudinary, while automatically optimizing/
+// reducing its size to help save on the free tier quota
+export const uploadImageToCloudinary = (
+  fileBuffer: Buffer,
+  folder: string 
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        // Resize to max 1000px width (enough for mobile display)
+        // "limit" crop mode = won't upscale small images, only downscales large ones
+        transformation: [
+          { width: 1000, crop: 'limit' },
+          { quality: 'auto:good' }, // automatically optimizes quality/compression
+          { fetch_format: 'auto' }, // picks the most efficient format (e.g. WebP)
+        ],
+      },
+      (error, result) => {
+        if (error || !result) {
+          return reject(error ?? new Error('Upload failed'));
+        }
+        resolve(result.secure_url);
+      }
+    );
+
+    uploadStream.end(fileBuffer);
+  });
+};import multer from 'multer';
+import path from 'path';
+
+const storage = multer.memoryStorage();
+
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max upload size (before Cloudinary compresses it)
+  },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isImageMimetype = file.mimetype.startsWith('image/');
+    const isImageExtension = allowedExtensions.includes(ext);
+
+    // Accept the file if EITHER the mimetype OR the extension looks like an image
+    // (some clients like Postman on Windows can send incorrect mimetypes)
+    if (isImageMimetype || isImageExtension) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
+
+export default upload;import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react";
+
+import { initialCatDataState } from "@/data/initialAppData";
+
+import type {
+  Cat,
+  CatChanges,
+  CatDataState,
+  DetectionRecord,
+  SavedImage,
+  SaveCaptureInput,
+} from "@/types/models";
+
+import { generateId } from "@/utils/id";
+
+import {
+  createCat as createCatApi,
+  deleteCat as deleteCatApi,
+  fetchCats,
+  updateCat as updateCatApi,
+} from "@/services/cats";
+
+import { useAuth } from "@/context/AuthContext";
+import { catDataReducer } from "./catDataReducer";
+
+export interface CatDataContextValue {
+  state: CatDataState;
+
+  catsLoading: boolean;
+  catsError: string | null;
+
+  refreshCats(): Promise<void>;
+
+  addCat(cat: Cat): Promise<Cat>;
+
+  updateCat(
+    catId: string,
+    changes: CatChanges
+  ): Promise<Cat>;
+
+  renameAlbum(
+    albumId: string,
+    name: string
+  ): Promise<void>;
+
+  deleteCat(
+    catId: string
+  ): Promise<void>;
+
+  saveCapture(
+    input: SaveCaptureInput
+  ): {
+    image: SavedImage;
+    detection: DetectionRecord;
+  };
+
+  deleteImage(imageId: string): void;
+
+  deleteImages(
+    imageIds: string[]
+  ): void;
+
+  resetMockData(): void;
+}
+
+const CatDataContext =
+  createContext<
+    CatDataContextValue | undefined
+  >(undefined);
+
+export function CatDataProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { profile } = useAuth();
+
+  const [state, dispatch] = useReducer(
+    catDataReducer,
+    initialCatDataState
+  );
+
+  const [
+    catsLoading,
+    setCatsLoading,
+  ] = useState(false);
+
+  const [
+    catsError,
+    setCatsError,
+  ] = useState<string | null>(null);
+
+  const refreshCats =
+    useCallback(async () => {
+      if (!profile) {
+        dispatch({
+          type: "SET_CATS",
+          cats: [],
+        });
+
+        return;
+      }
+
+      try {
+        setCatsLoading(true);
+        setCatsError(null);
+
+        const cats =
+          await fetchCats();
+
+        dispatch({
+          type: "SET_CATS",
+          cats,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch cats";
+
+        console.error(
+          "Fetch cats error:",
+          error
+        );
+
+        setCatsError(message);
+      } finally {
+        setCatsLoading(false);
+      }
+    }, [profile]);
+
+  useEffect(() => {
+    void refreshCats();
+  }, [refreshCats]);
+
+  const addCat = useCallback(
+    async (
+      cat: Cat
+    ): Promise<Cat> => {
+      const savedCat =
+        await createCatApi(cat);
+
+      dispatch({
+        type: "ADD_CAT",
+        cat: savedCat,
+      });
+
+      return savedCat;
+    },
+    []
+  );
+
+  const updateCat = useCallback(
+    async (
+      catId: string,
+      changes: CatChanges
+    ): Promise<Cat> => {
+      const savedCat =
+        await updateCatApi(
+          catId,
+          changes
+        );
+
+      dispatch({
+        type: "UPDATE_CAT",
+        catId,
+        changes: {
+          name: savedCat.name,
+          gender: savedCat.gender,
+          birthdate:
+            savedCat.birthdate,
+          photoUri:
+            savedCat.photoUri,
+          coverUri:
+            savedCat.coverUri,
+        },
+      });
+
+      return savedCat;
+    },
+    []
+  );
+
+  const renameAlbum = useCallback(
+    async (
+      albumId: string,
+      name: string
+    ): Promise<void> => {
+      const album =
+        state.albums.find(
+          (item) =>
+            item.id === albumId
+        );
+
+      if (
+        !album ||
+        album.kind !== "cat" ||
+        !album.catId
+      ) {
+        return;
+      }
+
+      await updateCat(
+        album.catId,
+        {
+          name,
+        }
+      );
+    },
+    [state.albums, updateCat]
+  );
+
+  const deleteCat = useCallback(
+    async (
+      catId: string
+    ): Promise<void> => {
+      await deleteCatApi(catId);
+
+      dispatch({
+        type: "DELETE_CAT",
+        catId,
+      });
+    },
+    []
+  );
+
+  const saveCapture = useCallback(
+    (
+      input: SaveCaptureInput
+    ) => {
+      const image: SavedImage = {
+        id: generateId("image"),
+        albumId: input.albumId,
+        imageUri: input.imageUri,
+        capturedAt:
+          input.capturedAt,
+      };
+
+      const detection: DetectionRecord =
+        {
+          id: generateId("det"),
+          imageId: image.id,
+          emotion: input.emotion,
+          confidence:
+            input.confidence,
+          recordedAt:
+            input.capturedAt,
+        };
+
+      dispatch({
+        type: "SAVE_CAPTURE",
+        image,
+        detection,
+      });
+
+      return {
+        image,
+        detection,
+      };
+    },
+    []
+  );
+
+  const deleteImage = useCallback(
+    (imageId: string) => {
+      dispatch({
+        type: "DELETE_IMAGE",
+        imageId,
+      });
+    },
+    []
+  );
+
+  const deleteImages = useCallback(
+    (imageIds: string[]) => {
+      dispatch({
+        type: "DELETE_IMAGES",
+        imageIds,
+      });
+    },
+    []
+  );
+
+  const resetMockData =
+    useCallback(() => {
+      dispatch({
+        type: "RESET_MOCK_DATA",
+      });
+    }, []);
+
+  const value =
+    useMemo<CatDataContextValue>(
+      () => ({
+        state,
+
+        catsLoading,
+        catsError,
+
+        refreshCats,
+
+        addCat,
+        updateCat,
+        renameAlbum,
+        deleteCat,
+
+        saveCapture,
+        deleteImage,
+        deleteImages,
+        resetMockData,
+      }),
+      [
+        state,
+        catsLoading,
+        catsError,
+        refreshCats,
+        addCat,
+        updateCat,
+        renameAlbum,
+        deleteCat,
+        saveCapture,
+        deleteImage,
+        deleteImages,
+        resetMockData,
+      ]
+    );
+
+  return (
+    <CatDataContext.Provider
+      value={value}
+    >
+      {children}
+    </CatDataContext.Provider>
+  );
+}
+
+export function useCatData(): CatDataContextValue {
+  const context =
+    useContext(CatDataContext);
+
+  if (!context) {
+    throw new Error(
+      "useCatData must be used within a CatDataProvider."
+    );
+  }
+
+  return context;
+}import { initialCatDataState } from "../data/initialAppData";
+import {
+  EMOTIONS,
+  UNKNOWN_ALBUM_ID,
+} from "../types/models";
+import type {
+  Cat,
+  CatChanges,
+  CatDataState,
+  DetectionRecord,
+  SavedImage,
+} from "../types/models";
+import { isValidBirthdate } from "../utils/date";
+
+export type CatDataAction =
+  | {
+      type: "SET_CATS";
+      cats: Cat[];
+    }
+  | {
+      type: "ADD_CAT";
+      cat: Cat;
+    }
+  | {
+      type: "UPDATE_CAT";
+      catId: string;
+      changes: CatChanges;
+    }
+  | {
+      type: "RENAME_ALBUM";
+      albumId: string;
+      name: string;
+    }
+  | {
+      type: "DELETE_CAT";
+      catId: string;
+    }
+  | {
+      type: "SAVE_CAPTURE";
+      image: SavedImage;
+      detection: DetectionRecord;
+    }
+  | {
+      type: "DELETE_IMAGE";
+      imageId: string;
+    }
+  | {
+      type: "DELETE_IMAGES";
+      imageIds: string[];
+    }
+  | {
+      type: "RESET_MOCK_DATA";
+    };
+
+function removeImages(
+  state: CatDataState,
+  ids: Set<string>
+): CatDataState {
+  if (
+    !state.images.some((image) =>
+      ids.has(image.id)
+    )
+  ) {
+    return state;
+  }
+
+  return {
+    ...state,
+    images: state.images.filter(
+      (image) => !ids.has(image.id)
+    ),
+    detectionRecords:
+      state.detectionRecords.filter(
+        (record) =>
+          !ids.has(record.imageId)
+      ),
+  };
+}
+
+export function catDataReducer(
+  state: CatDataState,
+  action: CatDataAction
+): CatDataState {
+  switch (action.type) {
+    case "SET_CATS": {
+      const catAlbums = action.cats.map(
+        (cat) => ({
+          id: `album-${cat.id}`,
+          kind: "cat" as const,
+          catId: cat.id,
+        })
+      );
+
+      const unknownAlbum =
+        state.albums.find(
+          (album) =>
+            album.id === UNKNOWN_ALBUM_ID
+        ) ?? {
+          id: UNKNOWN_ALBUM_ID,
+          kind: "unknown" as const,
+          catId: null,
+        };
+
+      return {
+        ...state,
+        cats: action.cats,
+        albums: [
+          ...catAlbums,
+          unknownAlbum,
+        ],
+      };
+    }
+
+    case "ADD_CAT": {
+      const { cat } = action;
+      const albumId = `album-${cat.id}`;
+
+      if (
+        !cat.id ||
+        cat.id === UNKNOWN_ALBUM_ID ||
+        !cat.name.trim() ||
+        !isValidBirthdate(cat.birthdate) ||
+        state.cats.some(
+          (existing) =>
+            existing.id === cat.id
+        ) ||
+        state.albums.some(
+          (album) =>
+            album.id === albumId ||
+            album.catId === cat.id
+        )
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        cats: [
+          {
+            ...cat,
+            name: cat.name.trim(),
+          },
+          ...state.cats,
+        ],
+        albums: [
+          {
+            id: albumId,
+            kind: "cat",
+            catId: cat.id,
+          },
+          ...state.albums,
+        ],
+      };
+    }
+
+    case "UPDATE_CAT": {
+      const { catId, changes } = action;
+
+      if (
+        catId === UNKNOWN_ALBUM_ID ||
+        !state.cats.some(
+          (cat) => cat.id === catId
+        ) ||
+        (changes.name !== undefined &&
+          !changes.name.trim()) ||
+        (changes.birthdate !== undefined &&
+          !isValidBirthdate(
+            changes.birthdate
+          ))
+      ) {
+        return state;
+      }
+
+      const updates: CatChanges = {};
+
+      if (changes.name !== undefined) {
+        updates.name =
+          changes.name.trim();
+      }
+
+      if (changes.gender !== undefined) {
+        updates.gender =
+          changes.gender;
+      }
+
+      if (
+        changes.birthdate !== undefined
+      ) {
+        updates.birthdate =
+          changes.birthdate;
+      }
+
+      if (
+        changes.photoUri !== undefined
+      ) {
+        updates.photoUri =
+          changes.photoUri;
+      }
+
+      if (
+        changes.coverUri !== undefined
+      ) {
+        updates.coverUri =
+          changes.coverUri;
+      }
+
+      return {
+        ...state,
+        cats: state.cats.map((cat) =>
+          cat.id === catId
+            ? {
+                ...cat,
+                ...updates,
+              }
+            : cat
+        ),
+      };
+    }
+
+    case "RENAME_ALBUM": {
+      const album = state.albums.find(
+        (item) =>
+          item.id === action.albumId
+      );
+
+      if (
+        !album ||
+        album.id === UNKNOWN_ALBUM_ID ||
+        album.kind !== "cat" ||
+        !album.catId
+      ) {
+        return state;
+      }
+
+      return catDataReducer(state, {
+        type: "UPDATE_CAT",
+        catId: album.catId,
+        changes: {
+          name: action.name,
+        },
+      });
+    }
+
+    case "DELETE_CAT": {
+      if (
+        action.catId ===
+          UNKNOWN_ALBUM_ID ||
+        !state.cats.some(
+          (cat) =>
+            cat.id === action.catId
+        )
+      ) {
+        return state;
+      }
+
+      const albumIds = new Set(
+        state.albums
+          .filter(
+            (album) =>
+              album.kind === "cat" &&
+              album.id !==
+                UNKNOWN_ALBUM_ID &&
+              album.catId ===
+                action.catId
+          )
+          .map((album) => album.id)
+      );
+
+      const imageIds = new Set(
+        state.images
+          .filter((image) =>
+            albumIds.has(image.albumId)
+          )
+          .map((image) => image.id)
+      );
+
+      return {
+        ...removeImages(
+          state,
+          imageIds
+        ),
+        cats: state.cats.filter(
+          (cat) =>
+            cat.id !== action.catId
+        ),
+        albums: state.albums.filter(
+          (album) =>
+            !albumIds.has(album.id)
+        ),
+      };
+    }
+
+    case "SAVE_CAPTURE": {
+      const { image, detection } =
+        action;
+
+      if (
+        !state.albums.some(
+          (album) =>
+            album.id === image.albumId
+        ) ||
+        !image.id ||
+        !detection.id ||
+        !image.imageUri.trim() ||
+        detection.imageId !== image.id ||
+        !Object.hasOwn(
+          EMOTIONS,
+          detection.emotion
+        ) ||
+        !Number.isInteger(
+          detection.confidence
+        ) ||
+        detection.confidence < 0 ||
+        detection.confidence > 100 ||
+        !Number.isFinite(
+          Date.parse(image.capturedAt)
+        ) ||
+        !Number.isFinite(
+          Date.parse(
+            detection.recordedAt
+          )
+        ) ||
+        state.images.some(
+          (existing) =>
+            existing.id === image.id
+        ) ||
+        state.detectionRecords.some(
+          (existing) =>
+            existing.id ===
+            detection.id
+        )
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        images: [
+          { ...image },
+          ...state.images,
+        ],
+        detectionRecords: [
+          { ...detection },
+          ...state.detectionRecords,
+        ],
+      };
+    }
+
+    case "DELETE_IMAGE":
+      return removeImages(
+        state,
+        new Set([action.imageId])
+      );
+
+    case "DELETE_IMAGES":
+      return removeImages(
+        state,
+        new Set(action.imageIds)
+      );
+
+    case "RESET_MOCK_DATA":
+      return {
+        cats: initialCatDataState.cats.map(
+          (cat) => ({ ...cat })
+        ),
+        albums:
+          initialCatDataState.albums.map(
+            (album) => ({ ...album })
+          ),
+        images:
+          initialCatDataState.images.map(
+            (image) => ({ ...image })
+          ),
+        detectionRecords:
+          initialCatDataState.detectionRecords.map(
+            (record) => ({
+              ...record,
+            })
+          ),
+      };
+  }
+}import type { CatDataState, DetectionRecord } from "../types/models";
+import { EMOTIONS, UNKNOWN_ALBUM_ID } from "../types/models";
+import { isSameDay, isValidBirthdate } from "../utils/date";
+
+export const selectCatById = (state: CatDataState, catId: string) =>
+  state.cats.find((cat) => cat.id === catId) ?? null;
+
+export const selectAlbumById = (state: CatDataState, albumId: string) =>
+  state.albums.find((album) => album.id === albumId) ?? null;
+
+export const selectAlbumForCat = (state: CatDataState, catId: string) =>
+  state.albums.find((album) => album.kind === "cat" && album.catId === catId) ?? null;
+
+export function selectAlbumName(state: CatDataState, albumId: string): string {
+  const album = selectAlbumById(state, albumId);
+  if (album?.kind === "unknown") return "Unknown Cats";
+  return album?.catId ? selectCatById(state, album.catId)?.name ?? "Album" : "Album";
+}
+
+export const selectImageById = (state: CatDataState, imageId: string) =>
+  state.images.find((image) => image.id === imageId) ?? null;
+
+export const selectImagesForAlbum = (state: CatDataState, albumId: string) =>
+  state.images.filter((image) => image.albumId === albumId)
+    .sort((a, b) => Date.parse(b.capturedAt) - Date.parse(a.capturedAt));
+
+export const selectAlbumCoverImage = (state: CatDataState, albumId: string) =>
+  selectImagesForAlbum(state, albumId)[0] ?? null;
+
+export const selectDetectionForImage = (state: CatDataState, imageId: string) =>
+  state.detectionRecords.filter((record) => record.imageId === imageId)
+    .sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt))[0] ?? null;
+
+export function selectDetectionsForAlbum(state: CatDataState, albumId: string) {
+  const imageIds = new Set(selectImagesForAlbum(state, albumId).map((image) => image.id));
+  return state.detectionRecords.filter((record) => imageIds.has(record.imageId))
+    .sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+}
+
+export function selectDetectionsForCat(state: CatDataState, catId: string) {
+  const album = selectAlbumForCat(state, catId);
+  return album ? selectDetectionsForAlbum(state, album.id) : [];
+}
+
+export const selectLatestDetectionForCat = (state: CatDataState, catId: string) =>
+  selectDetectionsForCat(state, catId)[0] ?? null;
+
+export function selectCatForDetection(state: CatDataState, record: DetectionRecord) {
+  const image = selectImageById(state, record.imageId);
+  const album = image ? selectAlbumById(state, image.albumId) : null;
+  return album?.catId ? selectCatById(state, album.catId) : null;
+}
+
+/** Calendar history only includes complete, valid ownership chains. No state is repaired here. */
+export function selectCalendarRecords(state: CatDataState, catId: string | null = null) {
+  return state.detectionRecords.filter((record) => {
+    if (!Number.isFinite(Date.parse(record.recordedAt)) || !Object.hasOwn(EMOTIONS, record.emotion)) return false;
+    const image = selectImageById(state, record.imageId);
+    const album = image ? selectAlbumById(state, image.albumId) : null;
+    if (!album) return false;
+    if (album.kind === "unknown") {
+      return album.id === UNKNOWN_ALBUM_ID && album.catId === null && (catId === null || catId === UNKNOWN_ALBUM_ID);
+    }
+    return album.kind === "cat" && album.id !== UNKNOWN_ALBUM_ID && !!album.catId &&
+      !!selectCatById(state, album.catId) && (catId === null || catId === album.catId);
+  }).sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt) || a.id.localeCompare(b.id));
+}
+
+/** Filter is a real Cat ID, the Unknown Cats album ID, or null for all. Dates use local time. */
+export function selectCalendarRecordsForDate(state: CatDataState, date: Date, catId: string | null = null) {
+  return selectCalendarRecords(state, catId).filter((record) => isSameDay(new Date(record.recordedAt), date));
+}
+
+/** Annual birthdays are date-only values; February 29 appears only in leap years. */
+export function selectBirthdayCatsForDate(state: CatDataState, date: Date, catId: string | null = null) {
+  if (catId === UNKNOWN_ALBUM_ID) return [];
+  return state.cats.filter((cat) => {
+    if ((catId !== null && cat.id !== catId) || !isValidBirthdate(cat.birthdate)) return false;
+    const [year, month, day] = cat.birthdate.split("-").map(Number);
+    return date.getFullYear() >= year && date.getMonth() + 1 === month && date.getDate() === day;
+  }).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
+
+export function selectCalendarFilterOptions(state: CatDataState) {
+  const options = state.cats.map((cat) => ({ id: cat.id, name: cat.name }));
+  const unknown = selectAlbumById(state, UNKNOWN_ALBUM_ID);
+  if (unknown?.kind === "unknown" && unknown.catId === null) {
+    options.push({ id: UNKNOWN_ALBUM_ID, name: selectAlbumName(state, UNKNOWN_ALBUM_ID) });
+  }
+  return options;
+}
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL;
+
+if (!API_URL) {
+  console.warn(
+    "EXPO_PUBLIC_API_URL is not set. Set it in your .env file."
+  );
+}
+
+const TOKEN_KEY = "feeline_auth_token";
+
+let webToken: string | null = null;
+
+export async function saveToken(
+  token: string
+): Promise<void> {
+  if (Platform.OS === "web") {
+    webToken = token;
+    return;
+  }
+
+  await SecureStore.setItemAsync(
+    TOKEN_KEY,
+    token
+  );
+}
+
+export async function getToken(): Promise<
+  string | null
+> {
+  if (Platform.OS === "web") {
+    return webToken;
+  }
+
+  return SecureStore.getItemAsync(TOKEN_KEY);
+}
+
+export async function clearToken(): Promise<void> {
+  if (Platform.OS === "web") {
+    webToken = null;
+    return;
+  }
+
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
+}
+
+export async function apiFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  if (!API_URL) {
+    throw new Error(
+      "EXPO_PUBLIC_API_URL is not configured."
+    );
+  }
+
+  const token = await getToken();
+
+  const headers = new Headers(
+    options.headers
+  );
+
+  if (
+    options.body &&
+    !(options.body instanceof FormData) &&
+    !headers.has("Content-Type")
+  ) {
+    headers.set(
+      "Content-Type",
+      "application/json"
+    );
+  }
+
+  if (token) {
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
+  }
+
+  return fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  });
+}import { apiFetch } from "./api";
+import type {
+  Cat,
+  CatChanges,
+  CatGender,
+} from "../types/models";
+import { getAgeYears } from "../utils/date";
+
+interface BackendCat {
+  cat_id: string;
+  profile_id: string;
+  name: string;
+  breed: string | null;
+  sex: string | null;
+  age: number | null;
+  birthdate: string | null;
+  description: string | null;
+  profile_image_url: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface CatsResponse {
+  cats: BackendCat[];
+}
+
+interface CatResponse {
+  cat: BackendCat;
+}
+
+function mapGender(value: string | null): CatGender {
+  return value === "Female" ? "Female" : "Male";
+}
+
+function mapBackendCat(cat: BackendCat): Cat {
+  return {
+    id: cat.cat_id,
+    name: cat.name,
+    gender: mapGender(cat.sex),
+    birthdate: cat.birthdate
+      ? cat.birthdate.slice(0, 10)
+      : "",
+    photoUri: cat.profile_image_url ?? null,
+    coverUri: cat.profile_image_url ?? null,
+  };
+}
+
+async function getErrorMessage(
+  response: Response
+): Promise<string> {
+  try {
+    const data = await response.json();
+
+    if (
+      data &&
+      typeof data.error === "string"
+    ) {
+      return data.error;
+    }
+  } catch {
+    // Ignore JSON parsing failure.
+  }
+
+  return `Request failed (${response.status})`;
+}
+
+export async function fetchCats(): Promise<Cat[]> {
+  const response = await apiFetch("/api/cats");
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response)
+    );
+  }
+
+  const data =
+    (await response.json()) as CatsResponse;
+
+  return data.cats.map(mapBackendCat);
+}
+
+export async function createCat(
+  cat: Cat
+): Promise<Cat> {
+  const response = await apiFetch("/api/cats", {
+    method: "POST",
+    body: JSON.stringify({
+      name: cat.name,
+      sex: cat.gender,
+      birthdate: cat.birthdate,
+      age: getAgeYears(cat.birthdate),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response)
+    );
+  }
+
+  const data =
+    (await response.json()) as CatResponse;
+
+  return mapBackendCat(data.cat);
+}
+
+export async function updateCat(
+  catId: string,
+  changes: CatChanges
+): Promise<Cat> {
+  const body: Record<string, unknown> = {};
+
+  if (changes.name !== undefined) {
+    body.name = changes.name;
+  }
+
+  if (changes.gender !== undefined) {
+    body.sex = changes.gender;
+  }
+
+  if (changes.birthdate !== undefined) {
+    body.birthdate = changes.birthdate;
+    body.age = getAgeYears(
+      changes.birthdate
+    );
+  }
+
+  const response = await apiFetch(
+    `/api/cats/${catId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response)
+    );
+  }
+
+  const data =
+    (await response.json()) as CatResponse;
+
+  return mapBackendCat(data.cat);
+}
+
+export async function deleteCat(
+  catId: string
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/cats/${catId}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(response)
+    );
+  }
+}export type EmotionKey = "happy" | "neutral" | "fear" | "angry";
+
+export interface EmotionMeta {
+  key: EmotionKey;
+  label: string;
+  emoji: string;
+}
+
+// The four FeELINE emotion categories. Do not add more without updating
+// the design (constants/theme.ts colors.emotion) to match.
+export const EMOTIONS: Record<EmotionKey, EmotionMeta> = {
+  happy: { key: "happy", label: "Happy", emoji: "😻" },
+  neutral: { key: "neutral", label: "Neutral", emoji: "😑" },
+  fear: { key: "fear", label: "Fearful", emoji: "😰" },
+  angry: { key: "angry", label: "Angry", emoji: "😾" },
+};
+
+export type CatGender = "Male" | "Female";
+
+export interface Cat {
+  id: string;
+  name: string;
+  gender: CatGender;
+  /** YYYY-MM-DD */
+  birthdate: string;
+  /** Mock/local reference; null renders the placeholder. */
+  photoUri: string | null;
+  /** Mock/local reference; null renders the placeholder. */
+  coverUri: string | null;
+}
+
+export type AlbumKind = "cat" | "unknown";
+
+export const UNKNOWN_ALBUM_ID = "unknown-cats";
+
+export interface Album {
+  id: string;
+  kind: AlbumKind;
+  /** Null only for the Unknown Cats system album. */
+  catId: string | null;
+}
+
+export interface SavedImage {
+  id: string;
+  albumId: string;
+  /** Key or URI for a bundled/mock image. */
+  imageUri: string;
+  /** ISO datetime when the mock capture occurred. */
+  capturedAt: string;
+}
+
+export interface DetectionRecord {
+  id: string;
+  imageId: string;
+  emotion: EmotionKey;
+  /** Integer from 0 through 100. */
+  confidence: number;
+  /** ISO datetime string. */
+  recordedAt: string;
+}
+
+export interface CatDataState {
+  cats: Cat[];
+  albums: Album[];
+  images: SavedImage[];
+  detectionRecords: DetectionRecord[];
+}
+
+export type CatChanges = Partial<Pick<Cat, "name" | "gender" | "birthdate" | "photoUri" | "coverUri">>;
+
+export interface SaveCaptureInput {
+  albumId: string;
+  imageUri: string;
+  capturedAt: string;
+  emotion: EmotionKey;
+  confidence: number;
+}
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, AppState, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FullBleedScreen from "@/components/common/FullBleedScreen";
+import MockPhoto from "@/components/common/MockPhoto";
+import Button from "@/components/common/Button";
+import CaptureButton from "@/components/camera/CaptureButton";
+import WhatToAvoidModal from "@/components/camera/WhatToAvoidModal";
+import MockSampleModal from "@/components/camera/MockSampleModal";
+import { createMockCapture, parseMockCapture, MOCK_SAMPLES, type MockSampleId, type MockCapture } from "@/services/mockDetection";
+import { colors, dimensions, getTabBarClearance, interaction, radii, spacing, typography } from "@/constants/theme";
+
+export default function Camera() {
+  const router = useRouter();
+  const focused = useIsFocused();
+  const insets = useSafeAreaInsets();
+  const [permission, requestPermission, refreshPermission] = useCameraPermissions();
+  const camera = useRef<CameraView | null>(null);
+  const [ready, setReady] = useState(false);
+  const [mountError, setMountError] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
+  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  const [avoidVisible, setAvoidVisible] = useState(false);
+  const [samplesVisible, setSamplesVisible] = useState(false);
+  const [sampleId, setSampleId] = useState<MockSampleId>("angry");
+  const [reviewing, setReviewing] = useState(false);
+  const [lastImage, setLastImage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [gallerySettings, setGallerySettings] = useState(false);
+  const [guideWidth, setGuideWidth] = useState<number | undefined>();
+  const lock = useRef(false);
+  const active = useRef(false);
+  const generation = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    active.current = true;
+    lock.current = false;
+    setReviewing(false);
+    setReady(false);
+    setMountError(false);
+    void refreshPermission().catch(() => setError("Camera permission could not be checked. Please try again."));
+    return () => {
+      active.current = false;
+      generation.current += 1;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      lock.current = false;
+      setReady(false);
+      setReviewing(false);
+      setAvoidVisible(false);
+      setSamplesVisible(false);
+    };
+  }, [refreshPermission]));
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      setAppActive(state === "active");
+      if (state !== "active") setReady(false);
+      else if (active.current) void refreshPermission().catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [refreshPermission]);
+
+  const current = (ticket: number) => active.current && generation.current === ticket;
+  const unlock = (ticket: number) => {
+    if (!current(ticket)) return;
+    lock.current = false;
+    setReviewing(false);
+  };
+  const begin = () => {
+    if (!active.current || lock.current) return null;
+    lock.current = true;
+    setReviewing(true);
+    setError(null);
+    setGallerySettings(false);
+    return generation.current;
+  };
+  const prepare = (uri: string, source: MockCapture["source"], scenario: MockSampleId, ticket: number) => {
+    if (!current(ticket)) return;
+    const capture = createMockCapture(scenario, new Date().toISOString(), uri, source);
+    if (!parseMockCapture({ ...capture })) throw new Error("Unavailable image");
+    setLastImage(uri);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      if (!current(ticket)) return;
+      // Invalidate this operation before navigating, including an already queued callback.
+      generation.current += 1;
+      active.current = false;
+      try {
+        router.push({ pathname: "/camera-result", params: { ...capture } });
+      } catch {
+        active.current = true;
+        setError("The result could not be opened. Please try again.");
+      } finally {
+        lock.current = false;
+        setReviewing(false);
+      }
+    }, 450);
+  };
+
+  const handleCapture = async () => {
+    if (!permission?.granted || !ready || !camera.current) return;
+    const ticket = begin();
+    if (ticket === null) return;
+    const scenario = sampleId;
+    try {
+      const photo = await camera.current.takePictureAsync({ quality: 0.9 });
+      if (!current(ticket)) return;
+      if (!photo?.uri) throw new Error("No photo");
+      prepare(photo.uri, "camera", scenario, ticket);
+    } catch {
+      if (current(ticket)) setError("We couldn't capture that photo. Please try again or choose one from your gallery.");
+      unlock(ticket);
+    }
+  };
+
+  const handleGallery = async () => {
+    const ticket = begin();
+    if (ticket === null) return;
+    const scenario = sampleId;
+    try {
+      // The system photo picker grants access only to the chosen image; no broad library permission request.
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"], allowsMultipleSelection: false, allowsEditing: false, quality: 1,
+      });
+      if (!current(ticket)) return;
+      if (result.canceled) { unlock(ticket); return; }
+      const uri = result.assets?.[0]?.uri;
+      if (!uri) throw new Error("No selected image");
+      prepare(uri, "gallery", scenario, ticket);
+    } catch {
+      if (!current(ticket)) return;
+      setError("We couldn't open that photo. Try the gallery again, or check photo access in device settings.");
+      setGallerySettings(Platform.OS !== "web");
+      unlock(ticket);
+    }
+  };
+
+  const handlePermission = async () => {
+    if (lock.current) return;
+    lock.current = true;
+    try { await requestPermission(); }
+    catch { setError("Camera access could not be requested. Please try again or use your gallery."); }
+    finally { lock.current = false; }
+  };
+  const openSettings = async () => {
+    try { await Linking.openSettings(); }
+    catch { setError("Open your device settings and allow camera or photo access for FeELINE."); }
+  };
+  const sample = MOCK_SAMPLES.find((item) => item.id === sampleId)!;
+  const resultLabel = sample.result.outcome === "error"
+    ? ({ "no-cat": "No cat", blurry: "Blurry", dark: "Dark", cropped: "Cropped", error: "Error" } as Record<string, string>)[sampleId]
+    : `${sampleId === "low" ? "Low confidence" : sample.label.replace(" cues", "")} ${sample.result.confidence}%`;
+  const unavailable = !permission?.granted || mountError;
+  const bottom = getTabBarClearance(insets.bottom);
+  const top = insets.top + spacing.sm;
+
+  return (
+    <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
+      {focused && appActive && permission?.granted && !mountError ? (
+        <CameraView key={cameraKey} ref={camera} style={StyleSheet.absoluteFill} facing="back" mode="picture"
+          onCameraReady={() => { if (active.current) setReady(true); }}
+          onMountError={() => { setReady(false); setMountError(true); }} />
+      ) : null}
+      {!unavailable ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
+          <View style={[styles.scrim, { height: top + dimensions.button + spacing.md }]} />
+          <View style={styles.guideRow} onLayout={({ nativeEvent: { layout } }) => {
+            setGuideWidth(Math.min(layout.width * 0.84, layout.height * 0.82));
+          }}>
+            <View style={[styles.scrim, styles.side]} />
+            <View style={[styles.guide, { width: guideWidth ?? "84%" }]}><Text style={styles.guideLabel}>Position your cat inside the guide</Text></View>
+            <View style={[styles.scrim, styles.side]} />
+          </View>
+          <View style={[styles.scrim, { height: bottom + dimensions.capture + spacing.lg }]} />
+        </View>
+      ) : null}
+      <View style={[styles.topRow, { top, left: Math.max(insets.left, spacing.md), right: Math.max(insets.right, spacing.md) }]}>
+        <TouchableOpacity style={styles.scenario} onPress={() => { if (!lock.current) setSamplesVisible(true); }}
+          disabled={reviewing} accessibilityState={{ disabled: reviewing }} accessibilityRole="button"
+          accessibilityLabel={`Change simulated detection result. Mock result: ${resultLabel}`} activeOpacity={interaction.pressedOpacity}>
+          <Text style={styles.lightCaption}>Mock result: {resultLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.roundButton} onPress={() => { if (!lock.current) setAvoidVisible(true); }}
+          disabled={reviewing} accessibilityState={{ disabled: reviewing }} accessibilityRole="button" accessibilityLabel="What to Avoid">
+          <Ionicons name="help-circle-outline" size={dimensions.icon} color={colors.textInverse} />
+        </TouchableOpacity>
+      </View>
+      {unavailable ? (
+        <ScrollView style={[styles.stateArea, { top: top + dimensions.button + spacing.md, bottom: bottom + dimensions.capture + spacing.md }]}
+          contentContainerStyle={styles.stateContent}>
+          {!permission ? <ActivityIndicator accessibilityLabel="Checking camera permission" color={colors.textInverse} /> : <>
+            <Text style={styles.stateTitle} accessibilityRole="header">{mountError ? "Camera unavailable" : "Camera access"}</Text>
+            <Text style={styles.stateText}>{mountError ? "We couldn't start the camera. Try again or choose an existing photo."
+              : permission.canAskAgain ? "Allow FeELINE to capture cat images for this research prototype. Results remain simulated."
+              : "Camera access is disabled. Enable it in settings, or choose an existing photo."}</Text>
+            <Button label={mountError ? "Retry Camera" : permission.canAskAgain ? "Allow Camera Access" : "Open Settings"}
+              disabled={reviewing} onPress={mountError ? () => { setReady(false); setMountError(false); setCameraKey((key) => key + 1); }
+                : permission.canAskAgain ? handlePermission : openSettings} fullWidth />
+            <Button label="Choose from Gallery" disabled={reviewing} onPress={handleGallery} fullWidth />
+          </>}
+        </ScrollView>
+      ) : null}
+      {error ? <View style={[styles.error, { bottom: bottom + dimensions.capture + spacing.sm }]} accessibilityLiveRegion="polite">
+        <Text style={styles.lightCaption} accessibilityRole="alert">{error}</Text>
+        {gallerySettings ? <Button label="Open Settings" size="sm" onPress={openSettings} /> : null}
+      </View> : null}
+      <View style={[styles.controls, { bottom, paddingLeft: Math.max(insets.left, spacing.lg), paddingRight: Math.max(insets.right, spacing.lg) }]}>
+        <TouchableOpacity style={styles.roundButton} disabled={reviewing} accessibilityState={{ disabled: reviewing }}
+          onPress={handleGallery} accessibilityRole="button" accessibilityLabel="Choose image from gallery">
+          {lastImage ? <MockPhoto imageUri={lastImage} size={dimensions.icon} label="Most recent camera or gallery image" />
+            : <Ionicons name="images-outline" size={dimensions.icon} color={colors.textInverse} />}
+        </TouchableOpacity>
+        <CaptureButton onPress={handleCapture} disabled={reviewing || !ready || !permission?.granted || mountError || !focused || !appActive} />
+        <View style={styles.spacer} />
+      </View>
+      {reviewing ? <View style={styles.processing} accessibilityLiveRegion="polite" accessibilityViewIsModal>
+        <ActivityIndicator color={colors.textInverse} />
+        <Text style={styles.stateText}>Reviewing observable cues…</Text>
+        <Text style={styles.lightCaption}>Using the selected mock result for this prototype.</Text>
+      </View> : null}
+      <WhatToAvoidModal visible={avoidVisible} onClose={() => setAvoidVisible(false)} />
+      <MockSampleModal visible={samplesVisible} selected={sampleId} onSelect={(id) => { if (!lock.current) setSampleId(id); }}
+        onClose={() => setSamplesVisible(false)} />
+    </FullBleedScreen>
+  );
+}
+
+const styles = StyleSheet.create({
+  topRow: { position: "absolute", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  scenario: { flexShrink: 1, minHeight: dimensions.touchTarget, justifyContent: "center", paddingHorizontal: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.cameraControl },
+  roundButton: { width: dimensions.button, height: dimensions.button, borderRadius: radii.pill, overflow: "hidden", backgroundColor: colors.cameraControl, alignItems: "center", justifyContent: "center" },
+  lightCaption: { ...typography.caption, color: colors.textInverse, textAlign: "center" },
+  scrim: { backgroundColor: colors.cameraScrim },
+  guideRow: { flex: 1, flexDirection: "row" },
+  side: { flex: 1 },
+  guide: { borderWidth: 1, borderColor: colors.cameraGuide, borderRadius: radii.xl, justifyContent: "flex-end", alignItems: "center", padding: spacing.sm },
+  guideLabel: { ...typography.caption, color: colors.textInverse, backgroundColor: colors.cameraControl, borderRadius: radii.sm, padding: spacing.xs, textAlign: "center" },
+  controls: { position: "absolute", left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-around" },
+  spacer: { width: dimensions.button },
+  stateArea: { position: "absolute", left: spacing.lg, right: spacing.lg },
+  stateContent: { flexGrow: 1, justifyContent: "center", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  stateTitle: { ...typography.subheading, color: colors.textInverse, textAlign: "center" },
+  stateText: { ...typography.body, color: colors.textInverse, textAlign: "center" },
+  error: { position: "absolute", left: spacing.md, right: spacing.md, padding: spacing.sm, gap: spacing.xs, borderRadius: radii.md, backgroundColor: colors.cameraControl },
+  processing: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.cameraControl, alignItems: "center", justifyContent: "center", padding: spacing.lg, gap: spacing.sm },
+});
+import React, { useRef } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import FullBleedScreen from "@/components/common/FullBleedScreen";
+import DetailScreenHeader from "@/components/common/DetailScreenHeader";
+import Button from "@/components/common/Button";
+import MockCapturePhoto from "@/components/camera/MockCapturePhoto";
+import EmotionResultCard from "@/components/camera/EmotionResultCard";
+import { detectMockCapture, parseMockCapture } from "@/services/mockDetection";
+import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
+
+export default function CameraResult() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const capture = parseMockCapture(params);
+  const result = capture ? detectMockCapture(capture) : null;
+  const leaving = useRef(false);
+  const handleRetake = () => router.dismissTo("/camera");
+  const handleSave = () => {
+    if (leaving.current || !capture || result?.outcome !== "normal") return;
+    leaving.current = true;
+    // Only one pending deep screen: completed saves cannot reveal an old result on Back.
+    router.replace({ pathname: "/camera-save", params: { ...capture } });
+  };
+
+  if (!result || result.outcome === "error") {
+    return (
+      <FullBleedScreen statusBarStyle="dark">
+        <ScreenContainer edges={["left", "right", "bottom"]} padded={false} backgroundColor={colors.black}>
+          <DetailScreenHeader title="Emotion Result" onBack={handleRetake} />
+          <ScrollView contentContainerStyle={styles.errorContent}>
+            {capture ? <MockCapturePhoto imageUri={capture.imageUri} /> : null}
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle} accessibilityRole="header">Emotion Detection Error.</Text>
+              <Text style={styles.message}>{result?.outcome === "error" ? result.message : "This image is unavailable. Please try again."}</Text>
+              <Text style={styles.mockNote}>Simulated prototype result - no AI image analysis was performed.</Text>
+              <Button label="Try Again" onPress={handleRetake} fullWidth />
+            </View>
+          </ScrollView>
+        </ScreenContainer>
+      </FullBleedScreen>
+    );
+  }
+
+  return (
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title="Emotion Result" onBack={handleRetake}
+        rightElement={result.outcome === "normal" ? <Button label="Save" size="sm" variant="outline" onPress={handleSave} /> : undefined} />
+      <ScrollView contentContainerStyle={styles.resultContent}>
+        <View style={styles.photo}>
+          <MockCapturePhoto imageUri={capture!.imageUri} />
+        </View>
+        <Text style={styles.mockNote}>Simulated prototype result - no AI image analysis was performed.</Text>
+        <EmotionResultCard emotionKey={result.emotion} confidence={result.confidence}
+          variant={result.outcome === "low" ? "lowConfidence" : "normal"} onRetry={handleRetake} />
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  resultContent: { flexGrow: 1, paddingBottom: spacing.md },
+  photo: { flexGrow: 1, minHeight: 240, margin: spacing.lg },
+  errorContent: { flexGrow: 1, justifyContent: "center", padding: spacing.lg, gap: spacing.lg },
+  errorCard: { width: "100%", maxWidth: dimensions.dialogMaxWidth, alignSelf: "center",
+    backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing.lg, ...shadows.floating },
+  errorTitle: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
+  message: { ...typography.body, color: colors.textSecondary, marginVertical: spacing.sm, textAlign: "center" },
+  mockNote: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: "center" },
+});
+import React, { useCallback, useRef, useState } from "react";
+import { BackHandler, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import DetailScreenHeader from "@/components/common/DetailScreenHeader";
+import ConfirmModal from "@/components/common/ConfirmModal";
+import Button from "@/components/common/Button";
+import EmptyState from "@/components/common/EmptyState";
+import MockPhoto from "@/components/common/MockPhoto";
+import AddCatForm from "@/components/cats/AddCatForm";
+import { useCatData } from "@/context/CatDataContext";
+import { selectAlbumById, selectAlbumName } from "@/context/catDataSelectors";
+import { detectMockCapture, parseMockCapture } from "@/services/mockDetection";
+import type { Cat } from "@/types/models";
+import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
+
+type SaveStep = "select" | "confirmSave" | "saved";
+
+export default function CameraSave() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const { state, addCat, saveCapture } = useCatData();
+  const capture = parseMockCapture(params);
+  const result = capture ? detectMockCapture(capture) : null;
+  const [step, setStep] = useState<SaveStep>("select");
+  const [pendingAlbumId, setPendingAlbumId] = useState<string | null>(null);
+  const [addingCat, setAddingCat] = useState(false);
+  const [catSavedNotice, setCatSavedNotice] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saved = useRef(false);
+  const catSubmitted = useRef(false);
+
+  const handleContinue = useCallback(() => router.dismissTo("/camera"), [router]);
+  const handleBack = useCallback(() => {
+    if (saved.current || !capture) handleContinue();
+    else router.replace({ pathname: "/camera-result", params: { ...capture } });
+  }, [capture, handleContinue, router]);
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleBack]));
+
+  const handleConfirmSave = () => {
+    if (saved.current || !capture || result?.outcome !== "normal") return;
+    if (!pendingAlbumId || !selectAlbumById(state, pendingAlbumId)) {
+      setStep("select");
+      setSaveError("That album is no longer available. Please choose another.");
+      return;
+    }
+    // Synchronous latch also blocks a second tap before React renders the success state.
+    saved.current = true;
+    saveCapture({
+      albumId: pendingAlbumId, emotion: result.emotion, confidence: result.confidence,
+      capturedAt: capture.capturedAt, imageUri: capture.imageUri,
+    });
+    setStep("saved");
+  };
+
+  const openAddCat = () => {
+    catSubmitted.current = false;
+    setAddingCat(true);
+  };
+  const handleAddCatSave = async (
+    cat: Cat
+  ) => {
+    if (catSubmitted.current) {
+      return;
+    }
+
+    catSubmitted.current = true;
+
+    try {
+      await addCat(cat);
+
+      setAddingCat(false);
+      setCatSavedNotice(true);
+    } catch (error) {
+      catSubmitted.current = false;
+      throw error;
+    }
+  };
+
+  if (!capture || result?.outcome !== "normal") {
+    return (
+      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+        <DetailScreenHeader title="Save" onBack={handleContinue} />
+        <EmptyState icon="camera-outline" title="No result to save"
+          message="Capture or select another image to get a result eligible for saving."
+          actionLabel="Back to Camera" onAction={handleContinue} />
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title="Save" onBack={handleBack} rightElement={
+        <TouchableOpacity style={styles.addButton} onPress={openAddCat} accessibilityRole="button" accessibilityLabel="New Cat Profile">
+          <Ionicons name="add" size={dimensions.icon} color={colors.textPrimary} />
+        </TouchableOpacity>
+      } />
+      <FlatList
+        data={state.albums}
+        keyExtractor={(album) => album.id}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.intro}>
+            <Text style={styles.question} accessibilityRole="header">Which cat should this image be saved to?</Text>
+            <View style={styles.preview}>
+              <View style={styles.thumbnail}><MockPhoto imageUri={capture.imageUri} size={dimensions.iconLarge} label="Captured or selected cat image" /></View>
+              <Text style={styles.note}>Image and simulated result saved for this session only.</Text>
+            </View>
+            {saveError ? <Text style={styles.error} accessibilityRole="alert">{saveError}</Text> : null}
+          </View>
+        }
+        renderItem={({ item: album }) => (
+          <TouchableOpacity style={styles.row} accessibilityRole="button"
+            accessibilityLabel={`Save to ${selectAlbumName(state, album.id)}`}
+            onPress={() => { setSaveError(null); setPendingAlbumId(album.id); setStep("confirmSave"); }}>
+            <View style={styles.avatar}><Ionicons name="paw" size={dimensions.icon} color={colors.textSecondary} /></View>
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>{selectAlbumName(state, album.id)}</Text>
+              {album.kind === "unknown" ? <Text style={styles.note}>For cats without a profile</Text> : null}
+            </View>
+            <Ionicons name="chevron-forward" size={dimensions.iconSmall} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+        ListFooterComponent={<Button label="New Cat Profile" variant="outline" onPress={openAddCat} style={styles.newCat} />}
+      />
+      <ConfirmModal visible={step === "confirmSave"}
+        title={`Save image in ${pendingAlbumId ? selectAlbumName(state, pendingAlbumId) : "this album"}?`}
+        message="The image and its simulated result will be kept for this session."
+        confirmLabel="Save" onConfirm={handleConfirmSave} onCancel={() => setStep("select")} />
+      <AddCatForm visible={addingCat} onCancel={() => setAddingCat(false)} onSave={handleAddCatSave} />
+      <ConfirmModal visible={catSavedNotice} title="Cat Profile Saved!"
+        message="Your new cat is ready in the list. Choose it to save this image."
+        confirmLabel="Continue" hideCancel onConfirm={() => setCatSavedNotice(false)} onCancel={() => setCatSavedNotice(false)} />
+      <ConfirmModal visible={step === "saved"} title="Image Saved!"
+        message="Your image and simulated result are in the selected album. Reloading restores the initial mock data."
+        confirmLabel="Continue" hideCancel onConfirm={handleContinue} onCancel={handleContinue} />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  addButton: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center" },
+  listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  intro: { paddingVertical: spacing.md },
+  question: { ...typography.bodyMedium, color: colors.textPrimary },
+  thumbnail: { width: dimensions.capture, height: dimensions.capture, overflow: "hidden", borderRadius: radii.md },
+  preview: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
+  note: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
+  error: { ...typography.body, color: colors.dangerStrong, marginTop: spacing.sm },
+  row: { flexDirection: "row", alignItems: "center", padding: spacing.md, gap: spacing.sm,
+    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  avatar: { width: dimensions.touchTarget, height: dimensions.touchTarget, borderRadius: radii.md,
+    backgroundColor: colors.placeholder, alignItems: "center", justifyContent: "center" },
+  rowText: { flex: 1 },
+  rowLabel: { ...typography.subheading, color: colors.textPrimary },
+  newCat: { marginTop: spacing.lg },
+});
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import CatCoverCard from "@/components/cats/CatCoverCard";
+import RenameCatModal from "@/components/cats/RenameCatModal";
+import ConfirmModal from "@/components/common/ConfirmModal";
+import EmptyState from "@/components/common/EmptyState";
+import { useCatData } from "@/context/CatDataContext";
+import type { Album as AlbumModel } from "@/types/models";
+import { selectAlbumById, selectAlbumName, selectAlbumCoverImage } from "@/context/catDataSelectors";
+import { colors, dimensions, fonts, getTabBarClearance, shadows, spacing, typography } from "@/constants/theme";
+
+// Folder contents and photo detail now live in app/(screens)/album-folder.tsx
+// and album-photo.tsx (siblings of (tabs), so the tab bar hides on them).
+export default function Album() {
+  const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const { state, renameAlbum, deleteCat } = useCatData();
+
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const [renamingAlbum, setRenamingAlbum] = useState<AlbumModel | null>(null);
+  const [deletingAlbum, setDeletingAlbum] = useState<AlbumModel | null>(null);
+
+  const albumFolders = state.albums;
+  const selectedAlbum = selectAlbumById(state, selectedAlbumId ?? "");
+  // Only regular cat albums are selectable — Unknown Cats never has onLongPress wired up.
+  const selectionActive = selectedAlbum?.kind === "cat";
+
+  // Established app pattern (see status.tsx) for hiding the floating tab bar
+  // while a temporary in-screen action bar takes its place.
+  useLayoutEffect(() => {
+    navigation.setOptions({ tabBarStyle: selectionActive ? { display: "none" } : undefined });
+  }, [navigation, selectionActive]);
+
+  useFocusEffect(useCallback(() => {
+    if (!selectionActive) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      setSelectedAlbumId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [selectionActive]));
+
+  const clearSelection = () => setSelectedAlbumId(null);
+
+  const openFolder = (albumId: string) => {
+    router.push({ pathname: "/album-folder", params: { albumId } });
+  };
+
+  const handleAlbumPress = (albumId: string) => {
+    // Tapping any album while one is selected counts as "tapping outside"
+    // the selected card — dismiss selection rather than navigate.
+    if (selectionActive) { clearSelection(); return; }
+    openFolder(albumId);
+  };
+
+  const handleRenamePress = () => {
+    if (selectedAlbum?.kind === "cat") setRenamingAlbum(selectedAlbum);
+    setSelectedAlbumId(null);
+  };
+
+  const handleDeletePress = () => {
+    if (selectedAlbum?.kind === "cat") setDeletingAlbum(selectedAlbum);
+    setSelectedAlbumId(null);
+  };
+
+  const handleRenameSave = async (
+    newName: string
+  ) => {
+    if (
+      renamingAlbum?.kind !== "cat"
+    ) {
+      return;
+    }
+
+    try {
+      await renameAlbum(
+        renamingAlbum.id,
+        newName.trim()
+      );
+
+      setRenamingAlbum(null);
+    } catch (error) {
+      console.error(
+        "Rename cat failed:",
+        error
+      );
+    }
+  };
+
+  const handleDeleteConfirm =
+    async () => {
+      if (
+        deletingAlbum?.kind !==
+          "cat" ||
+        !deletingAlbum.catId
+      ) {
+        return;
+      }
+
+      try {
+        await deleteCat(
+          deletingAlbum.catId
+        );
+
+        setDeletingAlbum(null);
+      } catch (error) {
+        console.error(
+          "Delete cat failed:",
+          error
+        );
+      }
+    };
+
+  return (
+    <ScreenContainer padded={false}>
+      <ScrollView style={styles.scrollFlex} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity activeOpacity={1} disabled={!selectionActive} onPress={clearSelection} style={styles.contentWrap}>
+          <Text style={styles.title} accessibilityRole="header">Cat Album</Text>
+          <Text style={styles.hint}>Long-press an album to rename or delete it.</Text>
+
+          <View style={styles.grid}>
+            {albumFolders.map((album) => (
+              <CatCoverCard
+                key={album.id}
+                name={selectAlbumName(state, album.id)}
+                coverUri={selectAlbumCoverImage(state, album.id)?.imageUri ?? null}
+                variant="tile"
+                selected={selectionActive && album.id === selectedAlbumId}
+                faded={selectionActive && album.id !== selectedAlbumId}
+                onPress={() => handleAlbumPress(album.id)}
+                onLongPress={album.kind === "unknown" ? undefined : () => setSelectedAlbumId(album.id)}
+                style={album.kind === "unknown" ? styles.systemTile : styles.tile}
+              />
+            ))}
+          </View>
+        </TouchableOpacity>
+        {albumFolders.length === 0 ? <EmptyState title="No albums available" icon="images-outline"
+          message="Add a cat profile to create an album for this mock session."
+          actionLabel="Open My Cats" onAction={() => router.navigate("/status")} /> : null}
+      </ScrollView>
+
+      {selectionActive ? (
+        <View style={[styles.actionBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleRenamePress} accessibilityRole="button" accessibilityLabel="Rename album">
+            <Ionicons name="pencil-outline" size={dimensions.icon} color={colors.textPrimary} />
+            <Text style={styles.actionLabel}>Rename</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={handleDeletePress} accessibilityRole="button" accessibilityLabel="Delete album">
+            <Ionicons name="trash-outline" size={dimensions.icon} color={colors.dangerStrong} />
+            <Text style={[styles.actionLabel, styles.actionLabelDanger]}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <RenameCatModal
+        visible={!!renamingAlbum}
+        initialName={selectAlbumName(state, renamingAlbum?.id ?? "")}
+        onCancel={() => setRenamingAlbum(null)}
+        onSave={handleRenameSave}
+      />
+
+      <ConfirmModal
+        visible={!!deletingAlbum}
+        title="Delete this album?"
+        message="This also deletes the connected Cat Profile, its saved mock photos, and their detection records."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeletingAlbum(null)}
+      />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollFlex: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: getTabBarClearance(0) },
+  contentWrap: { flex: 1 },
+  title: { ...typography.heading, fontFamily: fonts.albumHeading, color: colors.textPrimary, marginTop: spacing.lg },
+  hint: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  tile: { width: "48%", marginBottom: spacing.md },
+  systemTile: { width: "100%", aspectRatio: 2.2, marginBottom: spacing.md },
+  actionBar: {
+    flexDirection: "row",
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingTop: spacing.sm,
+    ...shadows.floating,
+  },
+  actionButton: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
+  actionLabel: { ...typography.label, fontFamily: fonts.albumLabel, color: colors.textPrimary },
+  actionLabelDanger: { color: colors.dangerStrong },
+});import React, { useEffect, useMemo, useRef, useState } from "react";
+import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import CalendarHeader from "@/components/calendar/CalendarHeader";
+import CalendarDay from "@/components/calendar/CalendarDay";
+import CompactWeekStrip from "@/components/calendar/CompactWeekStrip";
+import DetectionListRow from "@/components/calendar/DetectionListRow";
+import CatFilterModal from "@/components/calendar/CatFilterModal";
+import EmptyState from "@/components/common/EmptyState";
+import { useCatData } from "@/context/CatDataContext";
+import { selectCalendarRecordsForDate, selectCalendarRecords, selectCalendarFilterOptions,
+  selectBirthdayCatsForDate, selectCatForDetection } from "@/context/catDataSelectors";
+import { formatFullDate, formatTime, getMonthMatrix, getWeekDates, isSameDay, monthLabel } from "@/utils/date";
+import { colors, getTabBarClearance, radii, shadows, spacing, typography } from "@/constants/theme";
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export default function Calendar() {
+  const router = useRouter();
+  const { state } = useCatData();
+  const filterOptions = selectCalendarFilterOptions(state);
+  const [monthDate, setMonthDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [calendarHeight, setCalendarHeight] = useState(500);
+  const [viewportHeight, setViewportHeight] = useState(600);
+  const [stripHeight, setStripHeight] = useState(170);
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Derive the fallback immediately, including the render before the effect runs.
+  const filterId = filterOptions.some((option) => option.id === selectedCatId) ? selectedCatId : null;
+  useEffect(() => { if (selectedCatId !== filterId) setSelectedCatId(filterId); }, [selectedCatId, filterId]);
+  const selectedCatName = filterOptions.find((option) => option.id === filterId)?.name ?? "All Cats";
+  const cells = useMemo(() => getMonthMatrix(monthDate), [monthDate]);
+  const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
+  const records = selectCalendarRecordsForDate(state, selectedDate, filterId);
+  const birthdays = selectBirthdayCatsForDate(state, selectedDate, filterId);
+  const hasHistory = selectCalendarRecords(state, filterId).length > 0;
+  const activityForDate = (date: Date) => {
+    const daily = selectCalendarRecordsForDate(state, date, filterId);
+    return { emotion: daily[daily.length - 1]?.emotion, recordCount: daily.length,
+      birthdayCount: selectBirthdayCatsForDate(state, date, filterId).length };
+  };
+  const handleExpand = () => {
+    setCollapsed(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+  const selectDate = (date: Date) => {
+    setSelectedDate(date);
+    setMonthDate(new Date(date.getFullYear(), date.getMonth(), 1));
+    if (collapsed) scrollRef.current?.scrollTo({ y: Math.max(0, calendarHeight - stripHeight), animated: false });
+  };
+  const moveMonth = (offset: number) => {
+    selectDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + offset, 1));
+    handleExpand();
+  };
+  const goToToday = () => { selectDate(new Date()); handleExpand(); };
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // Keep the full grid's height stable; the overlay takes over as the grid leaves view.
+    // A small hysteresis avoids flicker around the transition on native scroll bounce.
+    const threshold = Math.max(60, calendarHeight - stripHeight);
+    const y = event.nativeEvent.contentOffset.y;
+    if (!collapsed && y >= threshold) setCollapsed(true);
+    else if (collapsed && y < threshold - 24) setCollapsed(false);
+  };
+  const dateHeading = isSameDay(selectedDate, new Date()) ? "TODAY" : formatFullDate(selectedDate.toISOString()).toUpperCase();
+
+  return (
+    <ScreenContainer padded={false}>
+      <View style={styles.root} onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}>
+        <ScrollView ref={scrollRef} onScroll={handleScroll} scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: getTabBarClearance(0) }}>
+          <View style={styles.calendarSection} onLayout={(event) => setCalendarHeight(event.nativeEvent.layout.height)}
+            aria-hidden={collapsed}
+            accessibilityElementsHidden={collapsed} importantForAccessibility={collapsed ? "no-hide-descendants" : "auto"}>
+            <View style={styles.headerPadding}>
+              <CalendarHeader label={monthLabel(monthDate)} onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} onToday={goToToday} />
+            </View>
+            <View style={styles.weekdayRow}>
+              {WEEKDAYS.map((day) => <Text key={day} style={styles.weekdayLabel}>{day}</Text>)}
+            </View>
+            <View style={styles.grid}>
+              {cells.map(({ date, inCurrentMonth }) => (
+                <CalendarDay key={date.toISOString()} day={date.getDate()}
+                  disabled={collapsed}
+                  dateLabel={date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                  inCurrentMonth={inCurrentMonth} isSelected={isSameDay(date, selectedDate)} isToday={isSameDay(date, new Date())}
+                  {...activityForDate(date)} onPress={() => selectDate(date)} />
+              ))}
+            </View>
+          </View>
+          <View style={[styles.recordsSheet, { minHeight: Math.max(200, viewportHeight - stripHeight) }]}>
+            <View style={styles.recordsHeader}>
+              <Text style={styles.recordsHeading}>{dateHeading}</Text>
+              <TouchableOpacity style={styles.filterChip} onPress={() => setFilterVisible(true)} accessibilityRole="button"
+                accessibilityLabel={`Filter calendar: ${selectedCatName}`} accessibilityState={{ expanded: filterVisible }}>
+                <Text style={styles.filterChipLabel}>{selectedCatName}</Text>
+                <Ionicons name="chevron-down" size={16} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            {birthdays.map((cat) => (
+              <View key={cat.id} style={styles.birthday} accessible accessibilityLabel={`${cat.name}, Birthday, All Day`}>
+                <Ionicons name="gift-outline" size={22} color={colors.textPrimary} />
+                <View style={styles.birthdayText}><Text style={styles.birthdayName}>{cat.name}</Text><Text style={styles.birthdayLabel}>Birthday</Text></View>
+                <Text style={styles.allDay}>All Day</Text>
+              </View>
+            ))}
+            {records.map((record) => (
+              <DetectionListRow key={record.id} catName={selectCatForDetection(state, record)?.name ?? "Unknown Cats"}
+                emotion={record.emotion} time={formatTime(record.recordedAt)}
+                onPress={() => router.push({ pathname: "/album-photo", params: { imageId: record.imageId, from: "calendar" } })} />
+            ))}
+            {records.length === 0 && birthdays.length === 0 ? <EmptyState icon="calendar-clear-outline"
+              title={hasHistory ? "No events for this date" : "No detections yet"}
+              message={hasHistory ? "Choose another date to view saved detections." : `Saved mock detections${filterId ? ` for ${selectedCatName}` : ""} will appear here.`} /> : null}
+          </View>
+        </ScrollView>
+        {collapsed && <View style={styles.stickyOverlay} onLayout={(event) => setStripHeight(event.nativeEvent.layout.height)}>
+          <CompactWeekStrip weekDates={weekDates} selectedDate={selectedDate} monthLabel={monthLabel(monthDate)}
+            activityForDate={activityForDate} onSelectDate={selectDate} onExpand={handleExpand} />
+        </View>}
+      </View>
+      <CatFilterModal visible={filterVisible} options={filterOptions} selectedCatId={filterId}
+        onSelect={setSelectedCatId} onClose={() => setFilterVisible(false)} />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  calendarSection: { paddingHorizontal: spacing.xxs },
+  headerPadding: { paddingHorizontal: spacing.md },
+  weekdayRow: { flexDirection: "row" },
+  weekdayLabel: { ...typography.caption, color: colors.textSecondary, width: `${100 / 7}%`, textAlign: "center" },
+  grid: { flexDirection: "row", flexWrap: "wrap", marginTop: spacing.sm },
+  recordsSheet: { backgroundColor: colors.white, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
+    padding: spacing.lg, marginTop: spacing.md, ...shadows.floating },
+  recordsHeader: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
+  recordsHeading: { ...typography.label, color: colors.textPrimary, letterSpacing: 1, flexShrink: 1 },
+  filterChip: { flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "100%", minHeight: 44,
+    backgroundColor: colors.background, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  filterChipLabel: { ...typography.label, color: colors.textPrimary, flexShrink: 1 },
+  birthday: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.sm },
+  birthdayText: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+  birthdayName: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
+  birthdayLabel: { ...typography.bodyMedium, color: colors.textPrimary },
+  allDay: { ...typography.caption, color: colors.textSecondary },
+  stickyOverlay: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
+});
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import CatCoverCard from "@/components/cats/CatCoverCard";
+import CatProfileHeader from "@/components/cats/CatProfileHeader";
+import EmotionBadge from "@/components/common/EmotionBadge";
+import EmptyState from "@/components/common/EmptyState";
+import Button from "@/components/common/Button";
+import ConfirmModal from "@/components/common/ConfirmModal";
+import AddCatForm from "@/components/cats/AddCatForm";
+import { useCatData } from "@/context/CatDataContext";
+import { selectAlbumForCat, selectCatById, selectLatestDetectionForCat } from "@/context/catDataSelectors";
+import { EMOTIONS } from "@/types/models";
+import type { Cat } from "@/types/models";
+import { getAgeYears, formatShortDate } from "@/utils/date";
+import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
+
+export default function Status() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [createdNotice, setCreatedNotice] = useState(false);
+  const { state, addCat } = useCatData();
+  const { cats } = state;
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [addingCat, setAddingCat] = useState(false);
+
+  const selectedCat = selectCatById(state, selectedCatId ?? "");
+  const navigation = useNavigation();
+  const showingProfile = !!selectedCat;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ tabBarStyle: showingProfile ? { display: "none" } : undefined });
+  }, [navigation, showingProfile]);
+
+  useFocusEffect(useCallback(() => {
+    if (!showingProfile) return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      setSelectedCatId(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [showingProfile]));
+
+  const latestRecordFor = (catId: string) => selectLatestDetectionForCat(state, catId);
+
+  const handleSaveCat = async (
+    cat: Cat
+  ) => {
+    await addCat(cat);
+
+    setAddingCat(false);
+    setCreatedNotice(true);
+  };
+
+  if (selectedCat) {
+    const latest = latestRecordFor(selectedCat.id);
+    const album = selectAlbumForCat(state, selectedCat.id);
+
+    return (
+      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: spacing.lg + insets.bottom }}>
+          <CatProfileHeader name={selectedCat.name} photoUri={selectedCat.photoUri} coverUri={selectedCat.coverUri} />
+
+          <View style={styles.profileBody}>
+            <Text style={styles.catName}>{selectedCat.name}</Text>
+
+            <View style={styles.card}>
+              {latest ? (
+                <>
+                  <EmotionBadge emotion={latest.emotion} size={56} />
+                  <Text style={styles.emotionLabel}>{EMOTIONS[latest.emotion].label.toUpperCase()}</Text>
+                  <Text style={styles.cardCaption}>Latest Detected Emotion</Text>
+                  <Text style={styles.cardCaption}>Mock observable cues, not a diagnosis.</Text>
+                  <View style={styles.statRow}>
+                    <View style={styles.statCol}>
+                      <Text style={styles.statValue}>{formatShortDate(latest.recordedAt)}</Text>
+                      <Text style={styles.statCaption}>Last Checked</Text>
+                    </View>
+                    <View style={styles.statCol}>
+                      <Text style={styles.statValue}>{latest.confidence}%</Text>
+                      <Text style={styles.statCaption}>Confidence Percentage</Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.noDataText}>No detections yet for {selectedCat.name}.</Text>
+              )}
+            </View>
+
+            <Text style={styles.sectionTitle}>Cats Info</Text>
+            <View style={styles.card}>
+              <View style={styles.infoRow}>
+                <Ionicons name="male-female-outline" size={22} color={colors.accent} />
+                <Text style={styles.infoValue}>{selectedCat.gender}</Text>
+              </View>
+              <Text style={styles.cardCaption}>Gender</Text>
+              <View style={styles.statRow}>
+                <View style={styles.statCol}>
+                  <Text style={styles.statValue}>{formatShortDate(selectedCat.birthdate)}</Text>
+                  <Text style={styles.statCaption}>Birthdate</Text>
+                </View>
+                <View style={styles.statCol}>
+                  <Text style={styles.statValue}>{getAgeYears(selectedCat.birthdate)} Yrs. Old</Text>
+                  <Text style={styles.statCaption}>Age</Text>
+                </View>
+              </View>
+            </View>
+            {album ? <Button label="Open Album" variant="outline"
+              onPress={() => router.push({ pathname: "/album-folder", params: { albumId: album.id } })} /> : null}
+          </View>
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + spacing.sm }]}
+          onPress={() => setSelectedCatId(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Back to My Cats"
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.white} />
+        </TouchableOpacity>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer tabBar>
+      <View style={styles.header}>
+        <Text style={styles.title} accessibilityRole="header">My Cats</Text>
+        <TouchableOpacity style={styles.addButton} accessibilityRole="button" onPress={() => setAddingCat(true)} accessibilityLabel="Add cat">
+          <Ionicons name="add" size={28} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      {cats.length === 0 ? (
+        <EmptyState
+          icon="paw-outline"
+          title="No cats added yet"
+          message="Add a cat profile to organize your mock photos and emotion-cue results."
+          actionLabel="Add your first cat"
+          onAction={() => setAddingCat(true)}
+        />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {cats.map((cat) => (
+            <CatCoverCard key={cat.id} name={cat.name} coverUri={cat.coverUri ?? cat.photoUri} subtitle={`${cat.gender} / ${getAgeYears(cat.birthdate)} years old`} variant="bar" onPress={() => setSelectedCatId(cat.id)} />
+          ))}
+        </ScrollView>
+      )}
+
+      <AddCatForm visible={addingCat} onCancel={() => setAddingCat(false)} onSave={handleSaveCat} />
+      <ConfirmModal visible={createdNotice} title="Cat Profile Saved!" message="Your cat and its album are ready for this mock session."
+        hideCancel confirmLabel="Continue" onConfirm={() => setCreatedNotice(false)} onCancel={() => setCreatedNotice(false)} />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.md },
+  title: { ...typography.heading, color: colors.textPrimary },
+  addButton: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center" },
+  backButton: {
+    position: "absolute",
+    left: spacing.md,
+    width: dimensions.touchTarget,
+    height: dimensions.touchTarget,
+    borderRadius: radii.pill,
+    backgroundColor: colors.photoControl,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileBody: { paddingHorizontal: spacing.lg, marginTop: 52, alignItems: "center" },
+  catName: { ...typography.heading, color: colors.textPrimary, marginBottom: spacing.lg, textAlign: "center" },
+  card: {
+    width: "100%",
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    alignItems: "center",
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+  emotionLabel: { ...typography.subheading, color: colors.textPrimary, marginTop: spacing.xs, letterSpacing: 1 },
+  cardCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  statRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, width: "100%", justifyContent: "space-around", marginTop: spacing.md },
+  statCol: { flexGrow: 1, flexBasis: 110, alignItems: "center" },
+  statValue: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
+  statCaption: { ...typography.caption, color: colors.textMuted, marginTop: 2, textAlign: "center" },
+  noDataText: { ...typography.body, color: colors.textMuted, textAlign: "center" },
+  sectionTitle: { ...typography.subheading, color: colors.textPrimary, alignSelf: "flex-start", marginBottom: spacing.sm },
+  infoRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  infoValue: { ...typography.subheading, color: colors.textPrimary },
+});

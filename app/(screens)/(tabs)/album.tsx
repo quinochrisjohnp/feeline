@@ -68,15 +68,53 @@ export default function Album() {
     setSelectedAlbumId(null);
   };
 
-  const handleRenameSave = (newName: string) => {
-    if (renamingAlbum?.kind === "cat") renameAlbum(renamingAlbum.id, newName.trim());
-    setRenamingAlbum(null);
+  const handleRenameSave = async (
+    newName: string
+  ) => {
+    if (
+      renamingAlbum?.kind !== "cat"
+    ) {
+      return;
+    }
+
+    try {
+      await renameAlbum(
+        renamingAlbum.id,
+        newName.trim()
+      );
+
+      setRenamingAlbum(null);
+    } catch (error) {
+      console.error(
+        "Rename cat failed:",
+        error
+      );
+    }
   };
 
-  const handleDeleteConfirm = () => {
-    if (deletingAlbum?.kind === "cat" && deletingAlbum.catId) deleteCat(deletingAlbum.catId);
-    setDeletingAlbum(null);
-  };
+  const handleDeleteConfirm =
+    async () => {
+      if (
+        deletingAlbum?.kind !==
+          "cat" ||
+        !deletingAlbum.catId
+      ) {
+        return;
+      }
+
+      try {
+        await deleteCat(
+          deletingAlbum.catId
+        );
+
+        setDeletingAlbum(null);
+      } catch (error) {
+        console.error(
+          "Delete cat failed:",
+          error
+        );
+      }
+    };
 
   return (
     <ScreenContainer padded={false}>
