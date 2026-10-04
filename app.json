@@ -4,7 +4,6 @@
     "slug": "feeline",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icons/bluecircle.png",
     "scheme": "feeline",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,24 +13,23 @@
     },
     "android": {
       "package": "com.feeline.app",
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/splash.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
           "backgroundColor": "#FFF7E9",
           "dark": {
             "backgroundColor": "#FFF7E9"
@@ -54,12 +52,19 @@
           "photosPermission": "Allow FeELINE to access a photo selected by you for observable emotional-cue interpretation.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#FFF7E9"
+    "backgroundColor": "#FFF7E9",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "41df5527-c8b4-4d80-8b39-d2de3d7051ce"
+      }
+    }
   }
 }

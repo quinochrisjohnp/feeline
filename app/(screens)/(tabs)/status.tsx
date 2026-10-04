@@ -46,8 +46,11 @@ export default function Status() {
 
   const latestRecordFor = (catId: string) => selectLatestDetectionForCat(state, catId);
 
-  const handleSaveCat = (cat: Cat) => {
-    addCat(cat);
+  const handleSaveCat = async (
+    cat: Cat
+  ) => {
+    await addCat(cat);
+
     setAddingCat(false);
     setCreatedNotice(true);
   };

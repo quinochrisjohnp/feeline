@@ -1,0 +1,730 @@
+import { Router } from 'express';
+import upload from '../middleware/upload.middleware.js';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { detectEmotion } from '../controllers/detection.controller.js';
+
+const router = Router();
+
+router.post('/', authenticate, upload.single('image'), detectEmotion);
+
+export default router;import type { Response } from 'express';
+import type { AuthRequest } from '../middleware/auth.middleware.js';
+import { uploadImageToCloudinary } from '../services/cloudinary.service.js';
+import { UNKNOWN_ALBUM_NAME } from '../utils/constants.js';
+import { isUuid } from '../utils/validators.js';
+import prisma from '../config/db.config.js';
+
+export const detectEmotion = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    // ========================================================
+    // AUTHENTICATION CHECK
+    // ========================================================
+
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+      });
+    }
+
+    // ========================================================
+    // IMAGE CHECK
+    // ========================================================
+
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'No image file provided',
+      });
+    }
+
+    const { catId } = req.body;
+
+    // catId is optional.
+    // If provided, it must be a valid UUID.
+    if (
+      catId !== undefined &&
+      catId !== '' &&
+      !isUuid(catId)
+    ) {
+      return res.status(400).json({
+        error: 'Invalid catId',
+      });
+    }
+
+    let targetCatId: string;
+
+    // ========================================================
+    // DETERMINE CAT
+    // ========================================================
+
+    if (catId) {
+      // ------------------------------------------------------
+      // EXISTING CAT
+      // ------------------------------------------------------
+      // If the mobile app/Postman sends a catId,
+      // verify that the cat belongs to the logged-in user.
+
+      const cat = await prisma.cats.findFirst({
+        where: {
+          cat_id: catId,
+          profile_id: req.profileId,
+        },
+      });
+
+      if (!cat) {
+        return res.status(404).json({
+          error: 'Cat not found',
+        });
+      }
+
+      targetCatId = cat.cat_id;
+    } else {
+      // ------------------------------------------------------
+      // NO CAT SELECTED
+      // ------------------------------------------------------
+      // Create a NEW Unknown Cats record for every detection.
+      //
+      // We intentionally DO NOT use findFirst() here.
+      // This guarantees a new cat_id for every detection
+      // that does not provide an existing catId.
+
+      const unknownCat = await prisma.cats.create({
+        data: {
+          profile_id: req.profileId,
+          name: UNKNOWN_ALBUM_NAME,
+        },
+      });
+
+      targetCatId = unknownCat.cat_id;
+    }
+
+    // ========================================================
+    // UPLOAD IMAGE TO CLOUDINARY
+    // ========================================================
+
+    const imageUrl = await uploadImageToCloudinary(
+      req.file.buffer,
+      `feeline/${req.profileId}`
+    );
+
+    // ========================================================
+    // TEMPORARY DETECTION RESULT
+    // ========================================================
+    // Keep this for now until the Python/FastAPI AI
+    // service is connected.
+
+    const detectionResult = {
+      emotion: 'Angry',
+      confidence: 0.9,
+      recommendations: [
+        'Avoid physical interaction for now, as your cat may react defensively.',
+        'Give your cat space and allow them time to calm down.',
+        'Identify and remove possible triggers such as loud noise, sudden movements, or overstimulation.',
+      ],
+    };
+
+    // ========================================================
+    // SAVE TO DATABASE
+    // ========================================================
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Find the emotion category.
+      let emotionCategory =
+        await tx.emotion_categories.findUnique({
+          where: {
+            emotion_name: detectionResult.emotion,
+          },
+        });
+
+      // Create it if it doesn't exist.
+      if (!emotionCategory) {
+        emotionCategory =
+          await tx.emotion_categories.create({
+            data: {
+              emotion_name: detectionResult.emotion,
+            },
+          });
+      }
+
+      // Save the Cloudinary image URL.
+      const catImage = await tx.cat_images.create({
+        data: {
+          cat_id: targetCatId,
+          image_url: imageUrl,
+        },
+      });
+
+      // Save the emotion detection.
+      const detection =
+        await tx.emotion_detections.create({
+          data: {
+            cat_id: targetCatId,
+            image_id: catImage.image_id,
+            emotion_id: emotionCategory.emotion_id,
+            confidence_score: detectionResult.confidence,
+          },
+        });
+
+      return {
+        catImage,
+        detection,
+      };
+    });
+
+    // ========================================================
+    // RESPONSE
+    // ========================================================
+
+    return res.status(201).json({
+      catId: targetCatId,
+      imageId: result.catImage.image_id,
+      imageUrl,
+      emotion: detectionResult.emotion,
+      confidence: detectionResult.confidence,
+      recommendations: detectionResult.recommendations,
+      detectionId: result.detection.detection_id,
+    });
+  } catch (error) {
+    console.error('Emotion detection error:', error);
+
+    return res.status(500).json({
+      error: 'Failed to process image',
+    });
+  }
+};import type { EmotionKey } from "../types/models";
+import { isDeviceImageUri } from "../utils/mediaUri";
+
+export type MockDetection =
+  | { outcome: "normal" | "low"; emotion: EmotionKey; confidence: number }
+  | { outcome: "error"; message: string };
+
+/** Fixed demonstration samples. No image analysis, network, or random outcomes. */
+export const MOCK_SAMPLES = [
+  { id: "angry", label: "Angry cues", result: { outcome: "normal", emotion: "angry", confidence: 90 } },
+  { id: "happy", label: "Happy cues", result: { outcome: "normal", emotion: "happy", confidence: 94 } },
+  { id: "neutral", label: "Neutral cues", result: { outcome: "normal", emotion: "neutral", confidence: 85 } },
+  { id: "fear", label: "Fearful cues", result: { outcome: "normal", emotion: "fear", confidence: 88 } },
+  { id: "low", label: "Unclear cues", result: { outcome: "low", emotion: "angry", confidence: 20 } },
+  { id: "no-cat", label: "Not a cat", result: { outcome: "error", message: "No cat could be identified in this mock image." } },
+  { id: "blurry", label: "Blurry image", result: { outcome: "error", message: "This mock image appears too blurry. Try a clearer photo." } },
+  { id: "dark", label: "Dark image", result: { outcome: "error", message: "This mock image appears too dark. Try a well-lit photo." } },
+  { id: "cropped", label: "Cropped image", result: { outcome: "error", message: "Please try a clearer photo with the full cat visible." } },
+  { id: "error", label: "Detection error", result: { outcome: "error", message: "Please try again." } },
+] as const satisfies readonly { id: string; label: string; result: MockDetection }[];
+
+export type MockSampleId = typeof MOCK_SAMPLES[number]["id"];
+export interface MockCapture {
+  sampleId: MockSampleId;
+  imageUri: string;
+  capturedAt: string;
+  source: "camera" | "gallery";
+}
+
+export function createMockCapture(sampleId: MockSampleId, capturedAt: string, imageUri: string, source: MockCapture["source"]): MockCapture {
+  return { sampleId, imageUri, capturedAt, source };
+}
+
+export function detectMockCapture(capture: MockCapture): MockDetection {
+  return { ...MOCK_SAMPLES.find((sample) => sample.id === capture.sampleId)!.result };
+}
+
+/** Reject incomplete, repeated, or forged route values instead of silently saving defaults. */
+export function parseMockCapture(params: Record<string, string | string[] | undefined>): MockCapture | null {
+  const sample = MOCK_SAMPLES.find((item) => item.id === params.sampleId);
+  const { imageUri, capturedAt, source } = params;
+  if (!sample || !isDeviceImageUri(imageUri) || (source !== "camera" && source !== "gallery") || typeof capturedAt !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(capturedAt) ||
+      !Number.isFinite(Date.parse(capturedAt)) || new Date(capturedAt).toISOString() !== capturedAt) return null;
+  return { sampleId: sample.id, imageUri, capturedAt, source };
+}
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, AppState, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FullBleedScreen from "@/components/common/FullBleedScreen";
+import MockPhoto from "@/components/common/MockPhoto";
+import Button from "@/components/common/Button";
+import CaptureButton from "@/components/camera/CaptureButton";
+import WhatToAvoidModal from "@/components/camera/WhatToAvoidModal";
+import MockSampleModal from "@/components/camera/MockSampleModal";
+import { createMockCapture, parseMockCapture, MOCK_SAMPLES, type MockSampleId, type MockCapture } from "@/services/mockDetection";
+import { colors, dimensions, getTabBarClearance, interaction, radii, spacing, typography } from "@/constants/theme";
+
+export default function Camera() {
+  const router = useRouter();
+  const focused = useIsFocused();
+  const insets = useSafeAreaInsets();
+  const [permission, requestPermission, refreshPermission] = useCameraPermissions();
+  const camera = useRef<CameraView | null>(null);
+  const [ready, setReady] = useState(false);
+  const [mountError, setMountError] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
+  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  const [avoidVisible, setAvoidVisible] = useState(false);
+  const [samplesVisible, setSamplesVisible] = useState(false);
+  const [sampleId, setSampleId] = useState<MockSampleId>("angry");
+  const [reviewing, setReviewing] = useState(false);
+  const [lastImage, setLastImage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [gallerySettings, setGallerySettings] = useState(false);
+  const [guideWidth, setGuideWidth] = useState<number | undefined>();
+  const lock = useRef(false);
+  const active = useRef(false);
+  const generation = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    active.current = true;
+    lock.current = false;
+    setReviewing(false);
+    setReady(false);
+    setMountError(false);
+    void refreshPermission().catch(() => setError("Camera permission could not be checked. Please try again."));
+    return () => {
+      active.current = false;
+      generation.current += 1;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      lock.current = false;
+      setReady(false);
+      setReviewing(false);
+      setAvoidVisible(false);
+      setSamplesVisible(false);
+    };
+  }, [refreshPermission]));
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      setAppActive(state === "active");
+      if (state !== "active") setReady(false);
+      else if (active.current) void refreshPermission().catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [refreshPermission]);
+
+  const current = (ticket: number) => active.current && generation.current === ticket;
+  const unlock = (ticket: number) => {
+    if (!current(ticket)) return;
+    lock.current = false;
+    setReviewing(false);
+  };
+  const begin = () => {
+    if (!active.current || lock.current) return null;
+    lock.current = true;
+    setReviewing(true);
+    setError(null);
+    setGallerySettings(false);
+    return generation.current;
+  };
+  const prepare = (uri: string, source: MockCapture["source"], scenario: MockSampleId, ticket: number) => {
+    if (!current(ticket)) return;
+    const capture = createMockCapture(scenario, new Date().toISOString(), uri, source);
+    if (!parseMockCapture({ ...capture })) throw new Error("Unavailable image");
+    setLastImage(uri);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      if (!current(ticket)) return;
+      // Invalidate this operation before navigating, including an already queued callback.
+      generation.current += 1;
+      active.current = false;
+      try {
+        router.push({ pathname: "/camera-result", params: { ...capture } });
+      } catch {
+        active.current = true;
+        setError("The result could not be opened. Please try again.");
+      } finally {
+        lock.current = false;
+        setReviewing(false);
+      }
+    }, 450);
+  };
+
+  const handleCapture = async () => {
+    if (!permission?.granted || !ready || !camera.current) return;
+    const ticket = begin();
+    if (ticket === null) return;
+    const scenario = sampleId;
+    try {
+      const photo = await camera.current.takePictureAsync({ quality: 0.9 });
+      if (!current(ticket)) return;
+      if (!photo?.uri) throw new Error("No photo");
+      prepare(photo.uri, "camera", scenario, ticket);
+    } catch {
+      if (current(ticket)) setError("We couldn't capture that photo. Please try again or choose one from your gallery.");
+      unlock(ticket);
+    }
+  };
+
+  const handleGallery = async () => {
+    const ticket = begin();
+    if (ticket === null) return;
+    const scenario = sampleId;
+    try {
+      // The system photo picker grants access only to the chosen image; no broad library permission request.
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"], allowsMultipleSelection: false, allowsEditing: false, quality: 1,
+      });
+      if (!current(ticket)) return;
+      if (result.canceled) { unlock(ticket); return; }
+      const uri = result.assets?.[0]?.uri;
+      if (!uri) throw new Error("No selected image");
+      prepare(uri, "gallery", scenario, ticket);
+    } catch {
+      if (!current(ticket)) return;
+      setError("We couldn't open that photo. Try the gallery again, or check photo access in device settings.");
+      setGallerySettings(Platform.OS !== "web");
+      unlock(ticket);
+    }
+  };
+
+  const handlePermission = async () => {
+    if (lock.current) return;
+    lock.current = true;
+    try { await requestPermission(); }
+    catch { setError("Camera access could not be requested. Please try again or use your gallery."); }
+    finally { lock.current = false; }
+  };
+  const openSettings = async () => {
+    try { await Linking.openSettings(); }
+    catch { setError("Open your device settings and allow camera or photo access for FeELINE."); }
+  };
+  const sample = MOCK_SAMPLES.find((item) => item.id === sampleId)!;
+  const resultLabel = sample.result.outcome === "error"
+    ? ({ "no-cat": "No cat", blurry: "Blurry", dark: "Dark", cropped: "Cropped", error: "Error" } as Record<string, string>)[sampleId]
+    : `${sampleId === "low" ? "Low confidence" : sample.label.replace(" cues", "")} ${sample.result.confidence}%`;
+  const unavailable = !permission?.granted || mountError;
+  const bottom = getTabBarClearance(insets.bottom);
+  const top = insets.top + spacing.sm;
+
+  return (
+    <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
+      {focused && appActive && permission?.granted && !mountError ? (
+        <CameraView key={cameraKey} ref={camera} style={StyleSheet.absoluteFill} facing="back" mode="picture"
+          onCameraReady={() => { if (active.current) setReady(true); }}
+          onMountError={() => { setReady(false); setMountError(true); }} />
+      ) : null}
+      {!unavailable ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
+          <View style={[styles.scrim, { height: top + dimensions.button + spacing.md }]} />
+          <View style={styles.guideRow} onLayout={({ nativeEvent: { layout } }) => {
+            setGuideWidth(Math.min(layout.width * 0.84, layout.height * 0.82));
+          }}>
+            <View style={[styles.scrim, styles.side]} />
+            <View style={[styles.guide, { width: guideWidth ?? "84%" }]}><Text style={styles.guideLabel}>Position your cat inside the guide</Text></View>
+            <View style={[styles.scrim, styles.side]} />
+          </View>
+          <View style={[styles.scrim, { height: bottom + dimensions.capture + spacing.lg }]} />
+        </View>
+      ) : null}
+      <View style={[styles.topRow, { top, left: Math.max(insets.left, spacing.md), right: Math.max(insets.right, spacing.md) }]}>
+        <TouchableOpacity style={styles.scenario} onPress={() => { if (!lock.current) setSamplesVisible(true); }}
+          disabled={reviewing} accessibilityState={{ disabled: reviewing }} accessibilityRole="button"
+          accessibilityLabel={`Change simulated detection result. Mock result: ${resultLabel}`} activeOpacity={interaction.pressedOpacity}>
+          <Text style={styles.lightCaption}>Mock result: {resultLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.roundButton} onPress={() => { if (!lock.current) setAvoidVisible(true); }}
+          disabled={reviewing} accessibilityState={{ disabled: reviewing }} accessibilityRole="button" accessibilityLabel="What to Avoid">
+          <Ionicons name="help-circle-outline" size={dimensions.icon} color={colors.textInverse} />
+        </TouchableOpacity>
+      </View>
+      {unavailable ? (
+        <ScrollView style={[styles.stateArea, { top: top + dimensions.button + spacing.md, bottom: bottom + dimensions.capture + spacing.md }]}
+          contentContainerStyle={styles.stateContent}>
+          {!permission ? <ActivityIndicator accessibilityLabel="Checking camera permission" color={colors.textInverse} /> : <>
+            <Text style={styles.stateTitle} accessibilityRole="header">{mountError ? "Camera unavailable" : "Camera access"}</Text>
+            <Text style={styles.stateText}>{mountError ? "We couldn't start the camera. Try again or choose an existing photo."
+              : permission.canAskAgain ? "Allow FeELINE to capture cat images for this research prototype. Results remain simulated."
+              : "Camera access is disabled. Enable it in settings, or choose an existing photo."}</Text>
+            <Button label={mountError ? "Retry Camera" : permission.canAskAgain ? "Allow Camera Access" : "Open Settings"}
+              disabled={reviewing} onPress={mountError ? () => { setReady(false); setMountError(false); setCameraKey((key) => key + 1); }
+                : permission.canAskAgain ? handlePermission : openSettings} fullWidth />
+            <Button label="Choose from Gallery" disabled={reviewing} onPress={handleGallery} fullWidth />
+          </>}
+        </ScrollView>
+      ) : null}
+      {error ? <View style={[styles.error, { bottom: bottom + dimensions.capture + spacing.sm }]} accessibilityLiveRegion="polite">
+        <Text style={styles.lightCaption} accessibilityRole="alert">{error}</Text>
+        {gallerySettings ? <Button label="Open Settings" size="sm" onPress={openSettings} /> : null}
+      </View> : null}
+      <View style={[styles.controls, { bottom, paddingLeft: Math.max(insets.left, spacing.lg), paddingRight: Math.max(insets.right, spacing.lg) }]}>
+        <TouchableOpacity style={styles.roundButton} disabled={reviewing} accessibilityState={{ disabled: reviewing }}
+          onPress={handleGallery} accessibilityRole="button" accessibilityLabel="Choose image from gallery">
+          {lastImage ? <MockPhoto imageUri={lastImage} size={dimensions.icon} label="Most recent camera or gallery image" />
+            : <Ionicons name="images-outline" size={dimensions.icon} color={colors.textInverse} />}
+        </TouchableOpacity>
+        <CaptureButton onPress={handleCapture} disabled={reviewing || !ready || !permission?.granted || mountError || !focused || !appActive} />
+        <View style={styles.spacer} />
+      </View>
+      {reviewing ? <View style={styles.processing} accessibilityLiveRegion="polite" accessibilityViewIsModal>
+        <ActivityIndicator color={colors.textInverse} />
+        <Text style={styles.stateText}>Reviewing observable cues…</Text>
+        <Text style={styles.lightCaption}>Using the selected mock result for this prototype.</Text>
+      </View> : null}
+      <WhatToAvoidModal visible={avoidVisible} onClose={() => setAvoidVisible(false)} />
+      <MockSampleModal visible={samplesVisible} selected={sampleId} onSelect={(id) => { if (!lock.current) setSampleId(id); }}
+        onClose={() => setSamplesVisible(false)} />
+    </FullBleedScreen>
+  );
+}
+
+const styles = StyleSheet.create({
+  topRow: { position: "absolute", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  scenario: { flexShrink: 1, minHeight: dimensions.touchTarget, justifyContent: "center", paddingHorizontal: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.cameraControl },
+  roundButton: { width: dimensions.button, height: dimensions.button, borderRadius: radii.pill, overflow: "hidden", backgroundColor: colors.cameraControl, alignItems: "center", justifyContent: "center" },
+  lightCaption: { ...typography.caption, color: colors.textInverse, textAlign: "center" },
+  scrim: { backgroundColor: colors.cameraScrim },
+  guideRow: { flex: 1, flexDirection: "row" },
+  side: { flex: 1 },
+  guide: { borderWidth: 1, borderColor: colors.cameraGuide, borderRadius: radii.xl, justifyContent: "flex-end", alignItems: "center", padding: spacing.sm },
+  guideLabel: { ...typography.caption, color: colors.textInverse, backgroundColor: colors.cameraControl, borderRadius: radii.sm, padding: spacing.xs, textAlign: "center" },
+  controls: { position: "absolute", left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-around" },
+  spacer: { width: dimensions.button },
+  stateArea: { position: "absolute", left: spacing.lg, right: spacing.lg },
+  stateContent: { flexGrow: 1, justifyContent: "center", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  stateTitle: { ...typography.subheading, color: colors.textInverse, textAlign: "center" },
+  stateText: { ...typography.body, color: colors.textInverse, textAlign: "center" },
+  error: { position: "absolute", left: spacing.md, right: spacing.md, padding: spacing.sm, gap: spacing.xs, borderRadius: radii.md, backgroundColor: colors.cameraControl },
+  processing: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.cameraControl, alignItems: "center", justifyContent: "center", padding: spacing.lg, gap: spacing.sm },
+});
+import React, { useRef } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import FullBleedScreen from "@/components/common/FullBleedScreen";
+import DetailScreenHeader from "@/components/common/DetailScreenHeader";
+import Button from "@/components/common/Button";
+import MockCapturePhoto from "@/components/camera/MockCapturePhoto";
+import EmotionResultCard from "@/components/camera/EmotionResultCard";
+import { detectMockCapture, parseMockCapture } from "@/services/mockDetection";
+import { colors, dimensions, radii, shadows, spacing, typography } from "@/constants/theme";
+
+export default function CameraResult() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const capture = parseMockCapture(params);
+  const result = capture ? detectMockCapture(capture) : null;
+  const leaving = useRef(false);
+  const handleRetake = () => router.dismissTo("/camera");
+  const handleSave = () => {
+    if (leaving.current || !capture || result?.outcome !== "normal") return;
+    leaving.current = true;
+    // Only one pending deep screen: completed saves cannot reveal an old result on Back.
+    router.replace({ pathname: "/camera-save", params: { ...capture } });
+  };
+
+  if (!result || result.outcome === "error") {
+    return (
+      <FullBleedScreen statusBarStyle="dark">
+        <ScreenContainer edges={["left", "right", "bottom"]} padded={false} backgroundColor={colors.black}>
+          <DetailScreenHeader title="Emotion Result" onBack={handleRetake} />
+          <ScrollView contentContainerStyle={styles.errorContent}>
+            {capture ? <MockCapturePhoto imageUri={capture.imageUri} /> : null}
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle} accessibilityRole="header">Emotion Detection Error.</Text>
+              <Text style={styles.message}>{result?.outcome === "error" ? result.message : "This image is unavailable. Please try again."}</Text>
+              <Text style={styles.mockNote}>Simulated prototype result - no AI image analysis was performed.</Text>
+              <Button label="Try Again" onPress={handleRetake} fullWidth />
+            </View>
+          </ScrollView>
+        </ScreenContainer>
+      </FullBleedScreen>
+    );
+  }
+
+  return (
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title="Emotion Result" onBack={handleRetake}
+        rightElement={result.outcome === "normal" ? <Button label="Save" size="sm" variant="outline" onPress={handleSave} /> : undefined} />
+      <ScrollView contentContainerStyle={styles.resultContent}>
+        <View style={styles.photo}>
+          <MockCapturePhoto imageUri={capture!.imageUri} />
+        </View>
+        <Text style={styles.mockNote}>Simulated prototype result - no AI image analysis was performed.</Text>
+        <EmotionResultCard emotionKey={result.emotion} confidence={result.confidence}
+          variant={result.outcome === "low" ? "lowConfidence" : "normal"} onRetry={handleRetake} />
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  resultContent: { flexGrow: 1, paddingBottom: spacing.md },
+  photo: { flexGrow: 1, minHeight: 240, margin: spacing.lg },
+  errorContent: { flexGrow: 1, justifyContent: "center", padding: spacing.lg, gap: spacing.lg },
+  errorCard: { width: "100%", maxWidth: dimensions.dialogMaxWidth, alignSelf: "center",
+    backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing.lg, ...shadows.floating },
+  errorTitle: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
+  message: { ...typography.body, color: colors.textSecondary, marginVertical: spacing.sm, textAlign: "center" },
+  mockNote: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: "center" },
+});
+import React, { useCallback, useRef, useState } from "react";
+import { BackHandler, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import ScreenContainer from "@/components/common/ScreenContainer";
+import DetailScreenHeader from "@/components/common/DetailScreenHeader";
+import ConfirmModal from "@/components/common/ConfirmModal";
+import Button from "@/components/common/Button";
+import EmptyState from "@/components/common/EmptyState";
+import MockPhoto from "@/components/common/MockPhoto";
+import AddCatForm from "@/components/cats/AddCatForm";
+import { useCatData } from "@/context/CatDataContext";
+import { selectAlbumById, selectAlbumName } from "@/context/catDataSelectors";
+import { detectMockCapture, parseMockCapture } from "@/services/mockDetection";
+import type { Cat } from "@/types/models";
+import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
+
+type SaveStep = "select" | "confirmSave" | "saved";
+
+export default function CameraSave() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const { state, addCat, saveCapture } = useCatData();
+  const capture = parseMockCapture(params);
+  const result = capture ? detectMockCapture(capture) : null;
+  const [step, setStep] = useState<SaveStep>("select");
+  const [pendingAlbumId, setPendingAlbumId] = useState<string | null>(null);
+  const [addingCat, setAddingCat] = useState(false);
+  const [catSavedNotice, setCatSavedNotice] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saved = useRef(false);
+  const catSubmitted = useRef(false);
+
+  const handleContinue = useCallback(() => router.dismissTo("/camera"), [router]);
+  const handleBack = useCallback(() => {
+    if (saved.current || !capture) handleContinue();
+    else router.replace({ pathname: "/camera-result", params: { ...capture } });
+  }, [capture, handleContinue, router]);
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleBack]));
+
+  const handleConfirmSave = () => {
+    if (saved.current || !capture || result?.outcome !== "normal") return;
+    if (!pendingAlbumId || !selectAlbumById(state, pendingAlbumId)) {
+      setStep("select");
+      setSaveError("That album is no longer available. Please choose another.");
+      return;
+    }
+    // Synchronous latch also blocks a second tap before React renders the success state.
+    saved.current = true;
+    saveCapture({
+      albumId: pendingAlbumId, emotion: result.emotion, confidence: result.confidence,
+      capturedAt: capture.capturedAt, imageUri: capture.imageUri,
+    });
+    setStep("saved");
+  };
+
+  const openAddCat = () => {
+    catSubmitted.current = false;
+    setAddingCat(true);
+  };
+  const handleAddCatSave = async (
+    cat: Cat
+  ) => {
+    if (catSubmitted.current) {
+      return;
+    }
+
+    catSubmitted.current = true;
+
+    try {
+      await addCat(cat);
+
+      setAddingCat(false);
+      setCatSavedNotice(true);
+    } catch (error) {
+      catSubmitted.current = false;
+      throw error;
+    }
+  };
+
+  if (!capture || result?.outcome !== "normal") {
+    return (
+      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+        <DetailScreenHeader title="Save" onBack={handleContinue} />
+        <EmptyState icon="camera-outline" title="No result to save"
+          message="Capture or select another image to get a result eligible for saving."
+          actionLabel="Back to Camera" onAction={handleContinue} />
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader title="Save" onBack={handleBack} rightElement={
+        <TouchableOpacity style={styles.addButton} onPress={openAddCat} accessibilityRole="button" accessibilityLabel="New Cat Profile">
+          <Ionicons name="add" size={dimensions.icon} color={colors.textPrimary} />
+        </TouchableOpacity>
+      } />
+      <FlatList
+        data={state.albums}
+        keyExtractor={(album) => album.id}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.intro}>
+            <Text style={styles.question} accessibilityRole="header">Which cat should this image be saved to?</Text>
+            <View style={styles.preview}>
+              <View style={styles.thumbnail}><MockPhoto imageUri={capture.imageUri} size={dimensions.iconLarge} label="Captured or selected cat image" /></View>
+              <Text style={styles.note}>Image and simulated result saved for this session only.</Text>
+            </View>
+            {saveError ? <Text style={styles.error} accessibilityRole="alert">{saveError}</Text> : null}
+          </View>
+        }
+        renderItem={({ item: album }) => (
+          <TouchableOpacity style={styles.row} accessibilityRole="button"
+            accessibilityLabel={`Save to ${selectAlbumName(state, album.id)}`}
+            onPress={() => { setSaveError(null); setPendingAlbumId(album.id); setStep("confirmSave"); }}>
+            <View style={styles.avatar}><Ionicons name="paw" size={dimensions.icon} color={colors.textSecondary} /></View>
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>{selectAlbumName(state, album.id)}</Text>
+              {album.kind === "unknown" ? <Text style={styles.note}>For cats without a profile</Text> : null}
+            </View>
+            <Ionicons name="chevron-forward" size={dimensions.iconSmall} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+        ListFooterComponent={<Button label="New Cat Profile" variant="outline" onPress={openAddCat} style={styles.newCat} />}
+      />
+      <ConfirmModal visible={step === "confirmSave"}
+        title={`Save image in ${pendingAlbumId ? selectAlbumName(state, pendingAlbumId) : "this album"}?`}
+        message="The image and its simulated result will be kept for this session."
+        confirmLabel="Save" onConfirm={handleConfirmSave} onCancel={() => setStep("select")} />
+      <AddCatForm visible={addingCat} onCancel={() => setAddingCat(false)} onSave={handleAddCatSave} />
+      <ConfirmModal visible={catSavedNotice} title="Cat Profile Saved!"
+        message="Your new cat is ready in the list. Choose it to save this image."
+        confirmLabel="Continue" hideCancel onConfirm={() => setCatSavedNotice(false)} onCancel={() => setCatSavedNotice(false)} />
+      <ConfirmModal visible={step === "saved"} title="Image Saved!"
+        message="Your image and simulated result are in the selected album. Reloading restores the initial mock data."
+        confirmLabel="Continue" hideCancel onConfirm={handleContinue} onCancel={handleContinue} />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  addButton: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center" },
+  listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  intro: { paddingVertical: spacing.md },
+  question: { ...typography.bodyMedium, color: colors.textPrimary },
+  thumbnail: { width: dimensions.capture, height: dimensions.capture, overflow: "hidden", borderRadius: radii.md },
+  preview: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
+  note: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
+  error: { ...typography.body, color: colors.dangerStrong, marginTop: spacing.sm },
+  row: { flexDirection: "row", alignItems: "center", padding: spacing.md, gap: spacing.sm,
+    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  avatar: { width: dimensions.touchTarget, height: dimensions.touchTarget, borderRadius: radii.md,
+    backgroundColor: colors.placeholder, alignItems: "center", justifyContent: "center" },
+  rowText: { flex: 1 },
+  rowLabel: { ...typography.subheading, color: colors.textPrimary },
+  newCat: { marginTop: spacing.lg },
+});
