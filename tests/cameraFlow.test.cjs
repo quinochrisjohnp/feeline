@@ -293,3 +293,89 @@ test("permission states do not auto-request and keep gallery available; mount er
   nodes(camera.render()).find((n) => n.props?.label === "Retry Camera").props.onPress();
   assert.ok(find(camera.render(), "CameraView"));
 });
+
+test("capture dimensions survive result/save routes and malformed dimensions are rejected", () => {
+  const capture = detector.createMockCapture("angry", capturedAt, "file:///cache/portrait.jpg", "camera", { width: 1080, height: 1920 });
+  assert.equal(capture.width, "1080");
+  assert.equal(capture.height, "1920");
+  assert.deepEqual(detector.parseMockCapture(capture), capture);
+  for (const dimensions of [{ width: ["1080"] }, { height: "0" }, { width: "NaN" }, { height: undefined }]) {
+    assert.equal(detector.parseMockCapture({ ...capture, ...dimensions }), null);
+  }
+  const routes = [];
+  const result = mount("app/(screens)/camera-result.tsx", { params: capture, router: { replace: (route) => routes.push(route) } });
+  find(result.render(), "/DetailScreenHeader").props.rightElement.props.onPress();
+  assert.equal(routes[0].params.width, "1080");
+  assert.equal(routes[0].params.height, "1920");
+});
+
+test("returning from Result creates a fresh measured preview and allows a second capture", async () => {
+  const camera = cameraHarness({ capture: async () => ({ uri: "file:///cache/portrait.jpg", width: 1080, height: 1920 }) });
+  let tree = camera.render();
+  const host = nodes(tree).find((n) => n.props?.collapsable === false);
+  host.props.onLayout({ nativeEvent: { layout: { width: 360, height: 800 } } });
+  const first = find(camera.render(), "CameraView");
+  assert.equal(first.props.style[1].height, 800);
+  camera.makeReady();
+  await camera.pressCapture();
+  camera.flush();
+  assert.equal(camera.routes[0].params.height, "1920");
+  camera.blur();
+  camera.focus();
+  const second = find(camera.render(), "CameraView");
+  assert.notEqual(second.key, first.key);
+  assert.equal(second.props.style[1].height, 800);
+  camera.makeReady();
+  await camera.pressCapture();
+  camera.flush();
+  assert.equal(camera.routes.length, 2);
+});
+
+test("result uses one scroll area for the photo and complete card with a fixed header", () => {
+  const result = mount("app/(screens)/camera-result.tsx", { params: detector.createMockCapture("happy", capturedAt, "file:///cache/landscape.jpg", "gallery") });
+  const tree = result.render();
+  assert.ok(find(tree, "/DetailScreenHeader"));
+  const panel = find(tree, "ScrollView");
+  assert.ok(find(panel, "/EmotionResultCard"));
+  assert.ok(find(panel, "/MockCapturePhoto"));
+  assert.equal(nodes(tree).filter((n) => n.type === "ScrollView").length, 1);
+  assert.equal(find(panel, "/DetailScreenHeader"), undefined);
+  assert.deepEqual(Array.from(tree.props.edges), ["left", "right", "bottom"]);
+});
+
+test("What to Avoid uses all five assets in three rows and closes through Continue", () => {
+  let closed = 0;
+  const assets = Object.fromEntries(["cat_blurred", "cat_dark", "dog", "cat_cropped", "cat_deformaties"].map((name) => [`../images/${name}.png`, name]));
+  const screen = mount("components/camera/WhatToAvoidModal.tsx", {
+    props: { visible: true, onClose: () => closed++ },
+    dependencies: { ...assets, "react-native": { StyleSheet: { create: (s) => s }, View: "View", Text: "Text", Image: "Image" } },
+  });
+  const tree = screen.render();
+  assert.equal(tree.props.compact, true);
+  assert.equal(tree.props.visible, true);
+  const images = nodes(tree).filter((n) => n.type === "Image");
+  assert.deepEqual(images.map((n) => n.props.source), ["cat_blurred", "cat_dark", "dog", "cat_cropped", "cat_deformaties"]);
+  assert.ok(images.every((n) => n.props.resizeMode === "cover"));
+  find(tree, "/Button").props.onPress();
+  assert.equal(closed, 1);
+});
+
+
+test("result photo shape follows portrait, landscape, square and decoder dimensions without a colored frame", () => {
+  for (const [width, height] of [[1080, 1920], [1920, 1080], [600, 600]]) {
+    const uri = "file:///cache/photo.jpg";
+    const photo = mount("components/camera/MockCapturePhoto.tsx", {
+      props: { imageUri: uri, imageWidth: width, imageHeight: height },
+      dependencies: { "expo-image": { Image: "ExpoImage" }, "@/data/bundledCatImages": { getBundledCatImage: () => undefined } },
+    });
+    const tree = photo.render();
+    assert.equal(tree.props.style[1].aspectRatio, width / height);
+    assert.equal(tree.props.style[0].backgroundColor, undefined);
+    assert.equal(tree.props.style[0].width, "100%");
+    const image = find(tree, "ExpoImage");
+    assert.equal(image.props.source.uri, uri);
+    assert.equal(image.props.contentFit, "contain");
+    image.props.onLoad({ source: { width: 900, height: 1600 } });
+    assert.equal(photo.render().props.style[1].aspectRatio, 900 / 1600);
+  }
+});

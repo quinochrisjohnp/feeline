@@ -3,16 +3,15 @@ export type EmotionKey = "happy" | "neutral" | "fear" | "angry";
 export interface EmotionMeta {
   key: EmotionKey;
   label: string;
-  emoji: string;
 }
 
 // The four FeELINE emotion categories. Do not add more without updating
 // the design (constants/theme.ts colors.emotion) to match.
 export const EMOTIONS: Record<EmotionKey, EmotionMeta> = {
-  happy: { key: "happy", label: "Happy", emoji: "😻" },
-  neutral: { key: "neutral", label: "Neutral", emoji: "😑" },
-  fear: { key: "fear", label: "Fearful", emoji: "😰" },
-  angry: { key: "angry", label: "Angry", emoji: "😾" },
+  happy: { key: "happy", label: "Happy" },
+  neutral: { key: "neutral", label: "Neutral" },
+  fear: { key: "fear", label: "Fearful" },
+  angry: { key: "angry", label: "Angry" },
 };
 
 export type CatGender = "Male" | "Female";

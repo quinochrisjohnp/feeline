@@ -401,18 +401,14 @@ export default function CameraSave() {
   ) {
     return (
       <ScreenContainer
-        edges={[
-          "left",
-          "right",
-          "bottom",
-        ]}
+        module="camera"
+        edges={["left", "right", "bottom"]}
         padded={false}
       >
         <DetailScreenHeader
+          transparent
           title="Save"
-          onBack={
-            handleContinue
-          }
+          onBack={handleContinue}
         />
 
         <EmptyState
@@ -420,9 +416,7 @@ export default function CameraSave() {
           title="No result to save"
           message="Capture or select another image first."
           actionLabel="Back to Camera"
-          onAction={
-            handleContinue
-          }
+          onAction={handleContinue}
         />
       </ScreenContainer>
     );
@@ -430,46 +424,30 @@ export default function CameraSave() {
 
   return (
     <ScreenContainer
-      edges={[
-        "left",
-        "right",
-        "bottom",
-      ]}
+      module="camera"
+      edges={["left", "right", "bottom"]}
       padded={false}
     >
       <DetailScreenHeader
+        transparent
         title="Save"
-        onBack={
-          handleBack
-        }
+        onBack={handleBack}
         rightElement={
           <TouchableOpacity
-            style={
-              styles.addButton
-            }
-            onPress={
-              openAddCat
-            }
-            disabled={
-              step ===
-              "saving"
-            }
+            style={styles.addButton}
+            onPress={openAddCat}
+            disabled={step === "saving"}
             accessibilityRole="button"
             accessibilityLabel="New Cat Profile"
           >
             <Ionicons
               name="add"
-              size={
-                dimensions.icon
-              }
-              color={
-                colors.textPrimary
-              }
+              size={dimensions.icon}
+              color={colors.textPrimary}
             />
           </TouchableOpacity>
         }
       />
-
       <FlatList
         data={
           state.albums

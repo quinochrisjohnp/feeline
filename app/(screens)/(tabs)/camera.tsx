@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ActivityIndicator,
@@ -17,35 +12,23 @@ import {
   View,
 } from "react-native";
 
-import {
-  useFocusEffect,
-  useRouter,
-} from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 
-import {
-  useIsFocused,
-} from "@react-navigation/native";
+import { useIsFocused } from "@react-navigation/native";
 
-import {
-  CameraView,
-  useCameraPermissions,
-} from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 
 import * as ImagePicker from "expo-image-picker";
 
-import {
-  Ionicons,
-} from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
-import {
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import FullBleedScreen from "@/components/common/FullBleedScreen";
-import MockPhoto from "@/components/common/MockPhoto";
-import Button from "@/components/common/Button";
 import CaptureButton from "@/components/camera/CaptureButton";
 import WhatToAvoidModal from "@/components/camera/WhatToAvoidModal";
+import Button from "@/components/common/Button";
+import FullBleedScreen from "@/components/common/FullBleedScreen";
+import MockPhoto from "@/components/common/MockPhoto";
 
 import {
   normalizeConfidence,
@@ -57,102 +40,52 @@ import {
   colors,
   dimensions,
   getTabBarClearance,
-  interaction,
   radii,
   spacing,
   typography,
 } from "@/constants/theme";
 
-type CaptureSource =
-  | "camera"
-  | "gallery";
+type CaptureSource = "camera" | "gallery";
 
 export default function Camera() {
-  const router =
-    useRouter();
+  const router = useRouter();
 
-  const focused =
-    useIsFocused();
+  const focused = useIsFocused();
 
-  const insets =
-    useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
 
-  const [
-    permission,
-    requestPermission,
-    refreshPermission,
-  ] = useCameraPermissions();
+  const [permission, requestPermission, refreshPermission] =
+    useCameraPermissions();
 
-  const camera =
-    useRef<CameraView | null>(
-      null
-    );
+  const camera = useRef<CameraView | null>(null);
 
-  const [ready, setReady] =
-    useState(false);
+  const [ready, setReady] = useState(false);
 
-  const [
-    mountError,
-    setMountError,
-  ] = useState(false);
+  const [mountError, setMountError] = useState(false);
 
-  const [
-    cameraKey,
-    setCameraKey,
-  ] = useState(0);
+  const [cameraKey, setCameraKey] = useState(0);
 
-  const [
-    appActive,
-    setAppActive,
-  ] = useState(
-    AppState.currentState ===
-      "active"
+  const [appActive, setAppActive] = useState(
+    AppState.currentState === "active",
   );
 
-  const [
-    avoidVisible,
-    setAvoidVisible,
-  ] = useState(false);
+  const [avoidVisible, setAvoidVisible] = useState(false);
 
-  const [
-    reviewing,
-    setReviewing,
-  ] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
-  const [
-    lastImage,
-    setLastImage,
-  ] = useState<string | null>(
-    null
-  );
+  const [lastImage, setLastImage] = useState<string | null>(null);
 
-  const [
-    error,
-    setError,
-  ] = useState<string | null>(
-    null
-  );
+  const [error, setError] = useState<string | null>(null);
 
-  const [
-    gallerySettings,
-    setGallerySettings,
-  ] = useState(false);
+  const [gallerySettings, setGallerySettings] = useState(false);
 
-  const [
-    guideWidth,
-    setGuideWidth,
-  ] = useState<
-    number | undefined
-  >();
+  const [guideWidth, setGuideWidth] = useState<number | undefined>();
 
-  const lock =
-    useRef(false);
+  const lock = useRef(false);
 
-  const active =
-    useRef(false);
+  const active = useRef(false);
 
-  const generation =
-    useRef(0);
+  const generation = useRef(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -163,11 +96,8 @@ export default function Camera() {
       setReady(false);
       setMountError(false);
 
-      void refreshPermission().catch(
-        () =>
-          setError(
-            "Camera permission could not be checked. Please try again."
-          )
+      void refreshPermission().catch(() =>
+        setError("Camera permission could not be checked. Please try again."),
       );
 
       return () => {
@@ -181,46 +111,27 @@ export default function Camera() {
         setReviewing(false);
         setAvoidVisible(false);
       };
-    }, [refreshPermission])
+    }, [refreshPermission]),
   );
 
   useEffect(() => {
-    const subscription =
-      AppState.addEventListener(
-        "change",
-        (state) => {
-          setAppActive(
-            state === "active"
-          );
+    const subscription = AppState.addEventListener("change", (state) => {
+      setAppActive(state === "active");
 
-          if (
-            state !== "active"
-          ) {
-            setReady(false);
-          } else if (
-            active.current
-          ) {
-            void refreshPermission().catch(
-              () => {}
-            );
-          }
-        }
-      );
+      if (state !== "active") {
+        setReady(false);
+      } else if (active.current) {
+        void refreshPermission().catch(() => {});
+      }
+    });
 
-    return () =>
-      subscription.remove();
+    return () => subscription.remove();
   }, [refreshPermission]);
 
-  const current = (
-    ticket: number
-  ) =>
-    active.current &&
-    generation.current ===
-      ticket;
+  const current = (ticket: number) =>
+    active.current && generation.current === ticket;
 
-  const unlock = (
-    ticket: number
-  ) => {
+  const unlock = (ticket: number) => {
     if (!current(ticket)) {
       return;
     }
@@ -231,10 +142,7 @@ export default function Camera() {
   };
 
   const begin = () => {
-    if (
-      !active.current ||
-      lock.current
-    ) {
+    if (!active.current || lock.current) {
       return null;
     }
 
@@ -251,307 +159,208 @@ export default function Camera() {
   // Upload + DB save happens HERE automatically.
   // ==========================================================
 
-  const processImage =
-    async (
-      uri: string,
-      source: CaptureSource,
-      ticket: number
-    ) => {
+  const processImage = async (
+    uri: string,
+    source: CaptureSource,
+    ticket: number,
+  ) => {
+    if (!current(ticket)) {
+      return;
+    }
+
+    setLastImage(uri);
+
+    try {
+      const detection = await uploadDetection(uri);
+
       if (!current(ticket)) {
         return;
       }
 
-      setLastImage(uri);
+      const emotion = normalizeEmotion(detection.emotion);
 
-      try {
-        const detection =
-          await uploadDetection(
-            uri
-          );
+      const confidence = normalizeConfidence(detection.confidence);
 
-        if (!current(ticket)) {
-          return;
-        }
+      generation.current += 1;
+      active.current = false;
 
-        const emotion =
-          normalizeEmotion(
-            detection.emotion
-          );
+      router.push({
+        pathname: "/camera-result",
 
-        const confidence =
-          normalizeConfidence(
-            detection.confidence
-          );
+        params: {
+          imageUri: detection.imageUrl,
 
-        generation.current += 1;
-        active.current = false;
+          capturedAt: new Date().toISOString(),
 
-        router.push({
-          pathname:
-            "/camera-result",
+          source,
 
-          params: {
-            imageUri:
-              detection.imageUrl,
+          catId: detection.catId,
 
-            capturedAt:
-              new Date().toISOString(),
+          imageId: detection.imageId,
 
-            source,
+          detectionId: detection.detectionId,
 
-            catId:
-              detection.catId,
+          emotion,
 
-            imageId:
-              detection.imageId,
+          confidence: String(confidence),
 
-            detectionId:
-              detection.detectionId,
+          recommendations: JSON.stringify(detection.recommendations ?? []),
+        },
+      });
+    } catch (uploadError) {
+      console.error("Detection upload failed:", uploadError);
 
-            emotion,
-
-            confidence:
-              String(confidence),
-
-            recommendations:
-              JSON.stringify(
-                detection.recommendations ??
-                  []
-              ),
-          },
-        });
-      } catch (uploadError) {
-        console.error(
-          "Detection upload failed:",
-          uploadError
-        );
-
-        if (
-          current(ticket)
-        ) {
-          setError(
-            uploadError instanceof
-              Error
-              ? uploadError.message
-              : "The image could not be processed. Please try again."
-          );
-
-          unlock(ticket);
-        }
-      } finally {
-        lock.current = false;
-
-        setReviewing(false);
-      }
-    };
-
-  const handleCapture =
-    async () => {
-      if (
-        !permission?.granted ||
-        !ready ||
-        !camera.current
-      ) {
-        return;
-      }
-
-      const ticket =
-        begin();
-
-      if (ticket === null) {
-        return;
-      }
-
-      try {
-        const photo =
-          await camera.current.takePictureAsync(
-            {
-              quality: 0.9,
-            }
-          );
-
-        if (
-          !current(ticket)
-        ) {
-          return;
-        }
-
-        if (!photo?.uri) {
-          throw new Error(
-            "No photo"
-          );
-        }
-
-        await processImage(
-          photo.uri,
-          "camera",
-          ticket
-        );
-      } catch (captureError) {
-        console.error(
-          "Camera capture failed:",
-          captureError
-        );
-
-        if (
-          current(ticket)
-        ) {
-          setError(
-            "We couldn't capture that photo. Please try again or choose one from your gallery."
-          );
-
-          unlock(ticket);
-        }
-      }
-    };
-
-  const handleGallery =
-    async () => {
-      const ticket =
-        begin();
-
-      if (ticket === null) {
-        return;
-      }
-
-      try {
-        const result =
-          await ImagePicker.launchImageLibraryAsync(
-            {
-              mediaTypes: [
-                "images",
-              ],
-
-              allowsMultipleSelection:
-                false,
-
-              allowsEditing:
-                false,
-
-              quality: 1,
-            }
-          );
-
-        if (
-          !current(ticket)
-        ) {
-          return;
-        }
-
-        if (
-          result.canceled
-        ) {
-          unlock(ticket);
-
-          return;
-        }
-
-        const uri =
-          result.assets?.[0]
-            ?.uri;
-
-        if (!uri) {
-          throw new Error(
-            "No selected image"
-          );
-        }
-
-        await processImage(
-          uri,
-          "gallery",
-          ticket
-        );
-      } catch (galleryError) {
-        console.error(
-          "Gallery error:",
-          galleryError
-        );
-
-        if (
-          !current(ticket)
-        ) {
-          return;
-        }
-
+      if (current(ticket)) {
         setError(
-          "We couldn't open or process that photo. Try the gallery again, or check photo access in device settings."
-        );
-
-        setGallerySettings(
-          Platform.OS !== "web"
+          uploadError instanceof Error
+            ? uploadError.message
+            : "The image could not be processed. Please try again.",
         );
 
         unlock(ticket);
       }
-    };
+    } finally {
+      lock.current = false;
 
-  const handlePermission =
-    async () => {
-      if (lock.current) {
+      setReviewing(false);
+    }
+  };
+
+  const handleCapture = async () => {
+    if (!permission?.granted || !ready || !camera.current) {
+      return;
+    }
+
+    const ticket = begin();
+
+    if (ticket === null) {
+      return;
+    }
+
+    try {
+      const photo = await camera.current.takePictureAsync({
+        quality: 0.9,
+      });
+
+      if (!current(ticket)) {
         return;
       }
 
-      lock.current = true;
-
-      try {
-        await requestPermission();
-      } catch {
-        setError(
-          "Camera access could not be requested. Please try again or use your gallery."
-        );
-      } finally {
-        lock.current = false;
+      if (!photo?.uri) {
+        throw new Error("No photo");
       }
-    };
 
-  const openSettings =
-    async () => {
-      try {
-        await Linking.openSettings();
-      } catch {
+      await processImage(photo.uri, "camera", ticket);
+    } catch (captureError) {
+      console.error("Camera capture failed:", captureError);
+
+      if (current(ticket)) {
         setError(
-          "Open your device settings and allow camera or photo access for FeELINE."
+          "We couldn't capture that photo. Please try again or choose one from your gallery.",
         );
+
+        unlock(ticket);
       }
-    };
+    }
+  };
 
-  const unavailable =
-    !permission?.granted ||
-    mountError;
+  const handleGallery = async () => {
+    const ticket = begin();
 
-  const bottom =
-    getTabBarClearance(
-      insets.bottom
-    );
+    if (ticket === null) {
+      return;
+    }
 
-  const top =
-    insets.top +
-    spacing.sm;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+
+        allowsMultipleSelection: false,
+
+        allowsEditing: false,
+
+        quality: 1,
+      });
+
+      if (!current(ticket)) {
+        return;
+      }
+
+      if (result.canceled) {
+        unlock(ticket);
+
+        return;
+      }
+
+      const uri = result.assets?.[0]?.uri;
+
+      if (!uri) {
+        throw new Error("No selected image");
+      }
+
+      await processImage(uri, "gallery", ticket);
+    } catch (galleryError) {
+      console.error("Gallery error:", galleryError);
+
+      if (!current(ticket)) {
+        return;
+      }
+
+      setError(
+        "We couldn't open or process that photo. Try the gallery again, or check photo access in device settings.",
+      );
+
+      setGallerySettings(Platform.OS !== "web");
+
+      unlock(ticket);
+    }
+  };
+
+  const handlePermission = async () => {
+    if (lock.current) {
+      return;
+    }
+
+    lock.current = true;
+
+    try {
+      await requestPermission();
+    } catch {
+      setError(
+        "Camera access could not be requested. Please try again or use your gallery.",
+      );
+    } finally {
+      lock.current = false;
+    }
+  };
+
+  const openSettings = async () => {
+    try {
+      await Linking.openSettings();
+    } catch {
+      setError(
+        "Open your device settings and allow camera or photo access for FeELINE.",
+      );
+    }
+  };
+
+  const unavailable = !permission?.granted || mountError;
+
+  const bottom = getTabBarClearance(insets.bottom);
+
+  const top = insets.top + spacing.sm;
 
   return (
-    <FullBleedScreen
-      statusBarStyle={
-        focused
-          ? "light"
-          : "auto"
-      }
-    >
-      {focused &&
-      appActive &&
-      permission?.granted &&
-      !mountError ? (
+    <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
+      {focused && appActive && permission?.granted && !mountError ? (
         <CameraView
           key={cameraKey}
           ref={camera}
-          style={
-            StyleSheet.absoluteFill
-          }
+          style={StyleSheet.absoluteFill}
           facing="back"
           mode="picture"
           onCameraReady={() => {
-            if (
-              active.current
-            ) {
+            if (active.current) {
               setReady(true);
             }
           }}
@@ -565,86 +374,53 @@ export default function Camera() {
       {!unavailable ? (
         <View
           pointerEvents="none"
-          style={
-            StyleSheet.absoluteFill
-          }
+          style={StyleSheet.absoluteFill}
           accessible={false}
         >
           <View
             style={[
               styles.scrim,
               {
-                height:
-                  top +
-                  dimensions.button +
-                  spacing.md,
+                height: top + dimensions.button + spacing.md,
               },
             ]}
           />
 
           <View
-            style={
-              styles.guideRow
-            }
-            onLayout={({
-              nativeEvent: {
-                layout,
-              },
-            }) => {
+            style={styles.guideRow}
+            onLayout={({ nativeEvent: { layout } }) => {
               setGuideWidth(
                 Math.min(
-                  layout.width *
-                    0.84,
+                  layout.width * 0.84,
 
-                  layout.height *
-                    0.82
-                )
+                  layout.height * 0.82,
+                ),
               );
             }}
           >
-            <View
-              style={[
-                styles.scrim,
-                styles.side,
-              ]}
-            />
+            <View style={[styles.scrim, styles.side]} />
 
             <View
               style={[
                 styles.guide,
                 {
-                  width:
-                    guideWidth ??
-                    "84%",
+                  width: guideWidth ?? "84%",
                 },
               ]}
             >
-              <Text
-                style={
-                  styles.guideLabel
-                }
-              >
-                Position your cat
-                inside the guide
+              <Text style={styles.guideLabel}>
+                Position your cat inside the guide
               </Text>
             </View>
 
-            <View
-              style={[
-                styles.scrim,
-                styles.side,
-              ]}
-            />
+            <View style={[styles.scrim, styles.side]} />
           </View>
 
           <View
             style={[
               styles.scrim,
               {
-                height:
-                  bottom +
-                  dimensions.capture +
-                  spacing.lg,
+                height: bottom + dimensions.capture + spacing.lg,
               },
             ]}
           />
@@ -657,49 +433,32 @@ export default function Camera() {
           {
             top,
 
-            left: Math.max(
-              insets.left,
-              spacing.md
-            ),
+            left: Math.max(insets.left, spacing.md),
 
-            right: Math.max(
-              insets.right,
-              spacing.md
-            ),
+            right: Math.max(insets.right, spacing.md),
           },
         ]}
       >
         <View />
 
         <TouchableOpacity
-          style={
-            styles.roundButton
-          }
+          style={styles.roundButton}
           onPress={() => {
-            if (
-              !lock.current
-            ) {
-              setAvoidVisible(
-                true
-              );
+            if (!lock.current) {
+              setAvoidVisible(true);
             }
           }}
           disabled={reviewing}
           accessibilityState={{
-            disabled:
-              reviewing,
+            disabled: reviewing,
           }}
           accessibilityRole="button"
           accessibilityLabel="What to Avoid"
         >
           <Ionicons
             name="help-circle-outline"
-            size={
-              dimensions.icon
-            }
-            color={
-              colors.textInverse
-            }
+            size={dimensions.icon}
+            color={colors.textInverse}
           />
         </TouchableOpacity>
       </View>
@@ -709,46 +468,25 @@ export default function Camera() {
           style={[
             styles.stateArea,
             {
-              top:
-                top +
-                dimensions.button +
-                spacing.md,
+              top: top + dimensions.button + spacing.md,
 
-              bottom:
-                bottom +
-                dimensions.capture +
-                spacing.md,
+              bottom: bottom + dimensions.capture + spacing.md,
             },
           ]}
-          contentContainerStyle={
-            styles.stateContent
-          }
+          contentContainerStyle={styles.stateContent}
         >
           {!permission ? (
             <ActivityIndicator
               accessibilityLabel="Checking camera permission"
-              color={
-                colors.textInverse
-              }
+              color={colors.textInverse}
             />
           ) : (
             <>
-              <Text
-                style={
-                  styles.stateTitle
-                }
-                accessibilityRole="header"
-              >
-                {mountError
-                  ? "Camera unavailable"
-                  : "Camera access"}
+              <Text style={styles.stateTitle} accessibilityRole="header">
+                {mountError ? "Camera unavailable" : "Camera access"}
               </Text>
 
-              <Text
-                style={
-                  styles.stateText
-                }
-              >
+              <Text style={styles.stateText}>
                 {mountError
                   ? "We couldn't start the camera. Try again or choose an existing photo."
                   : permission.canAskAgain
@@ -764,25 +502,15 @@ export default function Camera() {
                       ? "Allow Camera Access"
                       : "Open Settings"
                 }
-                disabled={
-                  reviewing
-                }
+                disabled={reviewing}
                 onPress={
                   mountError
                     ? () => {
-                        setReady(
-                          false
-                        );
+                        setReady(false);
 
-                        setMountError(
-                          false
-                        );
+                        setMountError(false);
 
-                        setCameraKey(
-                          (key) =>
-                            key +
-                            1
-                        );
+                        setCameraKey((key) => key + 1);
                       }
                     : permission.canAskAgain
                       ? handlePermission
@@ -793,12 +521,8 @@ export default function Camera() {
 
               <Button
                 label="Choose from Gallery"
-                disabled={
-                  reviewing
-                }
-                onPress={
-                  handleGallery
-                }
+                disabled={reviewing}
+                onPress={handleGallery}
                 fullWidth
               />
             </>
@@ -811,31 +535,17 @@ export default function Camera() {
           style={[
             styles.error,
             {
-              bottom:
-                bottom +
-                dimensions.capture +
-                spacing.sm,
+              bottom: bottom + dimensions.capture + spacing.sm,
             },
           ]}
           accessibilityLiveRegion="polite"
         >
-          <Text
-            style={
-              styles.lightCaption
-            }
-            accessibilityRole="alert"
-          >
+          <Text style={styles.lightCaption} accessibilityRole="alert">
             {error}
           </Text>
 
           {gallerySettings ? (
-            <Button
-              label="Open Settings"
-              size="sm"
-              onPress={
-                openSettings
-              }
-            />
+            <Button label="Open Settings" size="sm" onPress={openSettings} />
           ) : null}
         </View>
       ) : null}
@@ -846,62 +556,39 @@ export default function Camera() {
           {
             bottom,
 
-            paddingLeft:
-              Math.max(
-                insets.left,
-                spacing.lg
-              ),
+            paddingLeft: Math.max(insets.left, spacing.lg),
 
-            paddingRight:
-              Math.max(
-                insets.right,
-                spacing.lg
-              ),
+            paddingRight: Math.max(insets.right, spacing.lg),
           },
         ]}
       >
         <TouchableOpacity
-          style={
-            styles.roundButton
-          }
+          style={styles.roundButton}
           disabled={reviewing}
           accessibilityState={{
-            disabled:
-              reviewing,
+            disabled: reviewing,
           }}
-          onPress={
-            handleGallery
-          }
+          onPress={handleGallery}
           accessibilityRole="button"
           accessibilityLabel="Choose image from gallery"
         >
           {lastImage ? (
             <MockPhoto
-              imageUri={
-                lastImage
-              }
-              size={
-                dimensions.icon
-              }
+              imageUri={lastImage}
+              size={dimensions.icon}
               label="Most recent camera or gallery image"
             />
           ) : (
             <Ionicons
               name="images-outline"
-              size={
-                dimensions.icon
-              }
-              color={
-                colors.textInverse
-              }
+              size={dimensions.icon}
+              color={colors.textInverse}
             />
           )}
         </TouchableOpacity>
 
         <CaptureButton
-          onPress={
-            handleCapture
-          }
+          onPress={handleCapture}
           disabled={
             reviewing ||
             !ready ||
@@ -912,196 +599,144 @@ export default function Camera() {
           }
         />
 
-        <View
-          style={
-            styles.spacer
-          }
-        />
+        <View style={styles.spacer} />
       </View>
 
       {reviewing ? (
         <View
-          style={
-            styles.processing
-          }
+          style={styles.processing}
           accessibilityLiveRegion="polite"
           accessibilityViewIsModal
         >
-          <ActivityIndicator
-            color={
-              colors.textInverse
-            }
-          />
+          <ActivityIndicator color={colors.textInverse} />
 
-          <Text
-            style={
-              styles.stateText
-            }
-          >
-            Processing image…
-          </Text>
+          <Text style={styles.stateText}>Processing image…</Text>
 
-          <Text
-            style={
-              styles.lightCaption
-            }
-          >
-            Uploading and saving
-            detection…
+          <Text style={styles.lightCaption}>
+            Uploading and saving detection…
           </Text>
         </View>
       ) : null}
 
       <WhatToAvoidModal
-        visible={
-          avoidVisible
-        }
-        onClose={() =>
-          setAvoidVisible(
-            false
-          )
-        }
+        visible={avoidVisible}
+        onClose={() => setAvoidVisible(false)}
       />
     </FullBleedScreen>
   );
 }
 
-const styles =
-  StyleSheet.create({
-    topRow: {
-      position: "absolute",
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent:
-        "space-between",
-      gap: spacing.sm,
-    },
+const styles = StyleSheet.create({
+  topRow: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
 
-    roundButton: {
-      width:
-        dimensions.button,
-      height:
-        dimensions.button,
-      borderRadius:
-        radii.pill,
-      overflow: "hidden",
-      backgroundColor:
-        colors.cameraControl,
-      alignItems: "center",
-      justifyContent:
-        "center",
-    },
+  roundButton: {
+    width: dimensions.button,
+    height: dimensions.button,
+    borderRadius: radii.pill,
+    overflow: "hidden",
+    backgroundColor: colors.cameraControl,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-    lightCaption: {
-      ...typography.caption,
-      color:
-        colors.textInverse,
-      textAlign: "center",
-    },
+  lightCaption: {
+    ...typography.caption,
+    color: colors.textInverse,
+    textAlign: "center",
+  },
 
-    scrim: {
-      backgroundColor:
-        colors.cameraScrim,
-    },
+  scrim: {
+    backgroundColor: colors.cameraScrim,
+  },
 
-    guideRow: {
-      flex: 1,
-      flexDirection: "row",
-    },
+  guideRow: {
+    flex: 1,
+    flexDirection: "row",
+  },
 
-    side: {
-      flex: 1,
-    },
+  side: {
+    flex: 1,
+  },
 
-    guide: {
-      borderWidth: 1,
-      borderColor:
-        colors.cameraGuide,
-      borderRadius:
-        radii.xl,
-      justifyContent:
-        "flex-end",
-      alignItems: "center",
-      padding: spacing.sm,
-    },
+  guide: {
+    borderWidth: 1,
+    borderColor: colors.cameraGuide,
+    borderRadius: radii.xl,
+    justifyContent: "flex-end",
+    alignItems: "center",
+    padding: spacing.sm,
+  },
 
-    guideLabel: {
-      ...typography.caption,
-      color:
-        colors.textInverse,
-      backgroundColor:
-        colors.cameraControl,
-      borderRadius:
-        radii.sm,
-      padding: spacing.xs,
-      textAlign: "center",
-    },
+  guideLabel: {
+    ...typography.caption,
+    color: colors.textInverse,
+    backgroundColor: colors.cameraControl,
+    borderRadius: radii.sm,
+    padding: spacing.xs,
+    textAlign: "center",
+  },
 
-    controls: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent:
-        "space-around",
-    },
+  controls: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
 
-    spacer: {
-      width:
-        dimensions.button,
-    },
+  spacer: {
+    width: dimensions.button,
+  },
 
-    stateArea: {
-      position: "absolute",
-      left: spacing.lg,
-      right: spacing.lg,
-    },
+  stateArea: {
+    position: "absolute",
+    left: spacing.lg,
+    right: spacing.lg,
+  },
 
-    stateContent: {
-      flexGrow: 1,
-      justifyContent:
-        "center",
-      alignItems: "center",
-      gap: spacing.md,
-      paddingVertical:
-        spacing.md,
-    },
+  stateContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
 
-    stateTitle: {
-      ...typography.subheading,
-      color:
-        colors.textInverse,
-      textAlign: "center",
-    },
+  stateTitle: {
+    ...typography.subheading,
+    color: colors.textInverse,
+    textAlign: "center",
+  },
 
-    stateText: {
-      ...typography.body,
-      color:
-        colors.textInverse,
-      textAlign: "center",
-    },
+  stateText: {
+    ...typography.body,
+    color: colors.textInverse,
+    textAlign: "center",
+  },
 
-    error: {
-      position: "absolute",
-      left: spacing.md,
-      right: spacing.md,
-      padding: spacing.sm,
-      gap: spacing.xs,
-      borderRadius:
-        radii.md,
-      backgroundColor:
-        colors.cameraControl,
-    },
+  error: {
+    position: "absolute",
+    left: spacing.md,
+    right: spacing.md,
+    padding: spacing.sm,
+    gap: spacing.xs,
+    borderRadius: radii.md,
+    backgroundColor: colors.cameraControl,
+  },
 
-    processing: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor:
-        colors.cameraControl,
-      alignItems: "center",
-      justifyContent:
-        "center",
-      padding: spacing.lg,
-      gap: spacing.sm,
-    },
-  });
+  processing: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.cameraControl,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+});

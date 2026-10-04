@@ -97,11 +97,11 @@ test("no protected screen is mounted while the session is restoring", () => {
 test("login calls the existing mock sign-in and each legal link has its own internal destination", () => {
   const pushed = [];
   const signIn = () => {};
-  const Login = loadScreen("app/(screens)/(auth)/login.tsx", {
-    "@/context/AuthContext": { useAuth: () => ({ signIn, isSigningIn: true, error: null }) },
-    "expo-router": { useRouter: () => ({ push: (route) => pushed.push(route) }) },
+  const Login = require("./helpers/frontendHarness.cjs").mount("app/(screens)/(auth)/login.tsx", {
+    router: { push: (route) => pushed.push(route) },
+    dependencies: { "@/context/AuthContext": { useAuth: () => ({ signIn, isSigningIn: true, error: null }) } },
   });
-  const tree = descendants(Login());
+  const tree = descendants(Login.render());
   const button = tree.find((node) => node.type === "@/components/common/GoogleButton");
   assert.equal(button.props.onPress, signIn);
   assert.equal(button.props.loading, true);

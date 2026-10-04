@@ -1,5 +1,5 @@
 import React, { useCallback, useLayoutEffect, useState } from "react";
-import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { BackHandler, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,10 +11,8 @@ import EmptyState from "@/components/common/EmptyState";
 import { useCatData } from "@/context/CatDataContext";
 import type { Album as AlbumModel } from "@/types/models";
 import { selectAlbumById, selectAlbumName, selectAlbumCoverImage } from "@/context/catDataSelectors";
-import { colors, dimensions, fonts, getTabBarClearance, shadows, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, getTabBarClearance, shadows, spacing, typography } from "@/constants/theme";
 
-// Folder contents and photo detail now live in app/(screens)/album-folder.tsx
-// and album-photo.tsx (siblings of (tabs), so the tab bar hides on them).
 export default function Album() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -27,11 +25,8 @@ export default function Album() {
 
   const albumFolders = state.albums;
   const selectedAlbum = selectAlbumById(state, selectedAlbumId ?? "");
-  // Only regular cat albums are selectable — Unknown Cats never has onLongPress wired up.
   const selectionActive = selectedAlbum?.kind === "cat";
 
-  // Established app pattern (see status.tsx) for hiding the floating tab bar
-  // while a temporary in-screen action bar takes its place.
   useLayoutEffect(() => {
     navigation.setOptions({ tabBarStyle: selectionActive ? { display: "none" } : undefined });
   }, [navigation, selectionActive]);
@@ -52,8 +47,6 @@ export default function Album() {
   };
 
   const handleAlbumPress = (albumId: string) => {
-    // Tapping any album while one is selected counts as "tapping outside"
-    // the selected card — dismiss selection rather than navigate.
     if (selectionActive) { clearSelection(); return; }
     openFolder(albumId);
   };
@@ -117,9 +110,9 @@ export default function Album() {
     };
 
   return (
-    <ScreenContainer padded={false}>
+    <ScreenContainer module="album" padded={false}>
       <ScrollView style={styles.scrollFlex} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity activeOpacity={1} disabled={!selectionActive} onPress={clearSelection} style={styles.contentWrap}>
+        <Pressable disabled={!selectionActive} onPress={clearSelection} style={styles.contentWrap}>
           <Text style={styles.title} accessibilityRole="header">Cat Album</Text>
           <Text style={styles.hint}>Long-press an album to rename or delete it.</Text>
 
@@ -138,7 +131,7 @@ export default function Album() {
               />
             ))}
           </View>
-        </TouchableOpacity>
+        </Pressable>
         {albumFolders.length === 0 ? <EmptyState title="No albums available" icon="images-outline"
           message="Add a cat profile to create an album for this mock session."
           actionLabel="Open My Cats" onAction={() => router.navigate("/status")} /> : null}
@@ -181,8 +174,8 @@ const styles = StyleSheet.create({
   scrollFlex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: getTabBarClearance(0) },
   contentWrap: { flex: 1 },
-  title: { ...typography.heading, fontFamily: fonts.albumHeading, color: colors.textPrimary, marginTop: spacing.lg },
-  hint: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
+  title: { ...typography.heading, fontFamily: fontFamily.heading, color: colors.textPrimary, marginTop: spacing.lg },
+  hint: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textMuted, marginTop: 2, marginBottom: spacing.lg },
   grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   tile: { width: "48%", marginBottom: spacing.md },
   systemTile: { width: "100%", aspectRatio: 2.2, marginBottom: spacing.md },
@@ -195,6 +188,6 @@ const styles = StyleSheet.create({
     ...shadows.floating,
   },
   actionButton: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
-  actionLabel: { ...typography.label, fontFamily: fonts.albumLabel, color: colors.textPrimary },
+  actionLabel: { ...typography.label, fontFamily: fontFamily.semibold, color: colors.textPrimary },
   actionLabelDanger: { color: colors.dangerStrong },
 });

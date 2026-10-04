@@ -60,7 +60,7 @@ export default function Status() {
     const album = selectAlbumForCat(state, selectedCat.id);
 
     return (
-      <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
+      <ScreenContainer module="catProfile" edges={["left", "right", "bottom"]} padded={false}>
         <ScrollView contentContainerStyle={{ paddingBottom: spacing.lg + insets.bottom }}>
           <CatProfileHeader name={selectedCat.name} photoUri={selectedCat.photoUri} coverUri={selectedCat.coverUri} />
 
@@ -126,7 +126,7 @@ export default function Status() {
   }
 
   return (
-    <ScreenContainer tabBar>
+    <ScreenContainer module="catProfile" tabBar>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">My Cats</Text>
         <TouchableOpacity style={styles.addButton} accessibilityRole="button" onPress={() => setAddingCat(true)} accessibilityLabel="Add cat">

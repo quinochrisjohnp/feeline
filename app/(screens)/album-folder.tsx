@@ -11,7 +11,7 @@ import { useCatData } from "@/context/CatDataContext";
 import { selectAlbumById, selectAlbumName, selectImagesForAlbum, selectDetectionForImage } from "@/context/catDataSelectors";
 import MockPhoto from "@/components/common/MockPhoto";
 import { formatFullDate, formatTime } from "@/utils/date";
-import { colors, dimensions, fonts, radii, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, radii, spacing, typography } from "@/constants/theme";
 
 // Small, consistent gap between thumbnails; Album-module only.
 const ALBUM_GRID_GAP = 4;
@@ -66,10 +66,10 @@ export default function AlbumFolder() {
   const dismissNotice = () => { setDeletedNotice(false); exitSelectionMode(); };
 
   return (
-    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title={album ? albumName : "Album unavailable"}
+    <ScreenContainer module="album" edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title={album ? albumName : "Album unavailable"}
         subtitle={selectionMode ? `${selectedIds.length} selected` : undefined}
-        titleFontFamily={fonts.albumHeading}
+        titleFontFamily={fontFamily.heading}
         onBack={selectionMode ? exitSelectionMode : () => {
           if (router.canGoBack()) router.back();
           else backToAlbums();
@@ -150,7 +150,7 @@ export default function AlbumFolder() {
 
 const styles = StyleSheet.create({
   gridContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg },
-  hint: { ...typography.caption, fontFamily: fonts.albumBody, color: colors.textSecondary, marginVertical: spacing.sm },
+  hint: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textSecondary, marginVertical: spacing.sm },
   photoGrid: { flexDirection: "row", flexWrap: "wrap" },
   photoTile: { marginBottom: ALBUM_GRID_GAP, borderWidth: 0,
     backgroundColor: colors.placeholder,
@@ -161,5 +161,5 @@ const styles = StyleSheet.create({
   selectionBar: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.xs },
   action: { flexGrow: 1, flexBasis: 80, minHeight: dimensions.touchTarget, alignItems: "center", gap: spacing.xxs, padding: spacing.xs },
   disabled: { opacity: 0.5 },
-  actionLabel: { ...typography.caption, color: colors.textPrimary, textAlign: "center" },
+  actionLabel: { ...typography.caption, fontFamily: fontFamily.semibold, color: colors.textPrimary, textAlign: "center" }, /// FONT STYLE
 });

@@ -54,17 +54,19 @@ export const typography: Record<string, TextStyle> = {
   caption: { fontSize: 13, fontWeight: "400", lineHeight: 18 },
   label: { fontSize: 14, fontWeight: "500", lineHeight: 18 },
   button: { fontSize: 16, fontWeight: "700", lineHeight: 20 },
-  emoji: { fontSize: 22 },
-  logoEmoji: { fontSize: 26 },
 };
 
-// Album-module-only font families (Comfortaa headers / Poppins body text).
-// Kept separate from `typography` so unrelated screens keep the system font.
-export const fonts = {
-  albumHeading: "Comfortaa_700Bold",
-  albumBody: "Poppins_400Regular",
-  albumBodyMedium: "Poppins_500Medium",
-  albumLabel: "Poppins_600SemiBold",
+// Centralized font-family tokens. Kept separate from `typography` (which
+// holds size/weight/line-height presets typed as TextStyle) since these
+// are plain fontFamily strings. Only these 4 weights are currently loaded
+// in app/_layout.tsx's useFonts call — add more there before referencing
+// a new weight here. Currently applied to the Album module only; other
+// screens still use the system default font.
+export const fontFamily = {
+  heading: "Comfortaa_700Bold",     // Comfortaa_600SemiBold not yet loaded — add to useFonts first if needed
+  body: "Poppins_400Regular",
+  medium: "Poppins_500Medium",
+  semibold: "Poppins_600SemiBold",
 } as const;
 
 export const dimensions = {
@@ -78,10 +80,11 @@ export const dimensions = {
   compactWidth: 360,
   actionMinWidth: 120,
   icon: 24,
+  nav_icon: 45,
   iconSmall: 18,
   iconLarge: 32,
   emotionBadge: 44,
-  logo: 110,
+  logo: 200,
   emptyStateIcon: 64,
   settingIcon: 36,
   settingRow: 64,
@@ -95,7 +98,7 @@ export const interaction = { pressedOpacity: 0.8, disabledOpacity: 0.65 } as con
 
 export const navigation = {
   maxWidth: 360,
-  iconCircle: dimensions.touchTarget,
+  iconCircle: 50,
   itemPadding: 4,
   barPadding: 8,
   gap: 4,

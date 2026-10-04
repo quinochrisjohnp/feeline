@@ -25,8 +25,8 @@ export default function LegalScreen({ title, children }: { title: string; childr
   }, [goBack, router]));
 
   return (
-    <ScreenContainer edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title={title} onBack={goBack} />
+    <ScreenContainer module="settings" edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title={title} onBack={goBack} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.body}>{children}</View>
       </ScrollView>

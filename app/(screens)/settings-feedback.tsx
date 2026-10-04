@@ -44,8 +44,8 @@ export default function GiveFeedback() {
   };
 
   return (
-    <ScreenContainer keyboardAware edges={["left", "right", "bottom"]} padded={false}>
-      <DetailScreenHeader title="Give us Feedback" onBack={goBack} />
+    <ScreenContainer module="settings" keyboardAware edges={["left", "right", "bottom"]} padded={false}>
+      <DetailScreenHeader transparent title="Give us Feedback" onBack={goBack} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.body}>
           <Text style={styles.heading} accessibilityRole="header">Feedback Form</Text>
