@@ -9,7 +9,15 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "developmentClient": false,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://feeline-backend.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "170859184301-rrcceip6li586ij485afrdmpknpo0s0f.apps.googleusercontent.com"
+      }
     },
     "production": {
       "autoIncrement": true

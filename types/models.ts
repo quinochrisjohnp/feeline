@@ -52,10 +52,21 @@ export interface DetectionRecord {
   id: string;
   imageId: string;
   emotion: EmotionKey;
+
   /** Integer from 0 through 100. */
   confidence: number;
+
   /** ISO datetime string. */
   recordedAt: string;
+
+  /** Cloudinary URL of the original detection image. */
+  imageUri?: string;
+
+  /** Whether the image is currently saved to an Album. */
+  isSavedToAlbum?: boolean;
+
+  /** Associated cat ID, or null for Unknown Cats. */
+  catId?: string | null;
 }
 
 export interface CatDataState {

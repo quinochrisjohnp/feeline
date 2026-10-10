@@ -1,8 +1,7 @@
 import { initialCatDataState } from "../data/initialAppData";
-import {
-  EMOTIONS,
-  UNKNOWN_ALBUM_ID,
-} from "../types/models";
+
+import { EMOTIONS, UNKNOWN_ALBUM_ID } from "../types/models";
+
 import type {
   Cat,
   CatChanges,
@@ -10,12 +9,18 @@ import type {
   DetectionRecord,
   SavedImage,
 } from "../types/models";
+
 import { isValidBirthdate } from "../utils/date";
 
 export type CatDataAction =
   | {
       type: "SET_CATS";
       cats: Cat[];
+    }
+  | {
+      type: "SET_DETECTION_HISTORY";
+      images: SavedImage[];
+      detectionRecords: DetectionRecord[];
     }
   | {
       type: "ADD_CAT";
@@ -56,63 +61,77 @@ function removeImages(
   state: CatDataState,
   ids: Set<string>
 ): CatDataState {
-  if (
-    !state.images.some((image) =>
-      ids.has(image.id)
-    )
-  ) {
+  if (!state.images.some((image) => ids.has(image.id))) {
     return state;
   }
 
   return {
     ...state,
+
+    // Remove the images from Albums only.
     images: state.images.filter(
       (image) => !ids.has(image.id)
     ),
-    detectionRecords:
-      state.detectionRecords.filter(
-        (record) =>
-          !ids.has(record.imageId)
-      ),
+
+    // Preserve all detection records.
+    detectionRecords: state.detectionRecords.map(
+      (record) =>
+        ids.has(record.imageId)
+          ? {
+              ...record,
+              isSavedToAlbum: false,
+            }
+          : record
+    ),
   };
 }
 
 export function catDataReducer(
   state: CatDataState,
-  action: CatDataAction
+  action: CatDataAction,
 ): CatDataState {
   switch (action.type) {
     case "SET_CATS": {
-      const catAlbums = action.cats.map(
-        (cat) => ({
-          id: `album-${cat.id}`,
-          kind: "cat" as const,
-          catId: cat.id,
-        })
-      );
+      const catAlbums = action.cats.map((cat) => ({
+        id: `album-${cat.id}`,
+        kind: "cat" as const,
+        catId: cat.id,
+      }));
 
-      const unknownAlbum =
-        state.albums.find(
-          (album) =>
-            album.id === UNKNOWN_ALBUM_ID
-        ) ?? {
-          id: UNKNOWN_ALBUM_ID,
-          kind: "unknown" as const,
-          catId: null,
-        };
+      const unknownAlbum = state.albums.find(
+        (album) => album.id === UNKNOWN_ALBUM_ID,
+      ) ?? {
+        id: UNKNOWN_ALBUM_ID,
+        kind: "unknown" as const,
+        catId: null,
+      };
 
       return {
         ...state,
+
         cats: action.cats,
-        albums: [
-          ...catAlbums,
-          unknownAlbum,
-        ],
+
+        albums: [...catAlbums, unknownAlbum],
+      };
+    }
+
+    case "SET_DETECTION_HISTORY": {
+      return {
+        ...state,
+
+        images: action.images.map((image) => ({
+          ...image,
+        })),
+
+        detectionRecords: action.detectionRecords.map((record) => ({
+          ...record,
+        })),
       };
     }
 
     case "ADD_CAT": {
       const { cat } = action;
+
       const albumId = `album-${cat.id}`;
 
       if (
@@ -120,14 +139,9 @@ export function catDataReducer(
         cat.id === UNKNOWN_ALBUM_ID ||
         !cat.name.trim() ||
         !isValidBirthdate(cat.birthdate) ||
-        state.cats.some(
-          (existing) =>
-            existing.id === cat.id
-        ) ||
+        state.cats.some((existing) => existing.id === cat.id) ||
         state.albums.some(
-          (album) =>
-            album.id === albumId ||
-            album.catId === cat.id
+          (album) => album.id === albumId || album.catId === cat.id,
         )
       ) {
         return state;
@@ -135,6 +149,7 @@ export function catDataReducer(
 
       return {
         ...state,
+
         cats: [
           {
             ...cat,
@@ -142,6 +157,7 @@ export function catDataReducer(
           },
           ...state.cats,
         ],
+
         albums: [
           {
             id: albumId,
@@ -158,15 +174,10 @@ export function catDataReducer(
 
       if (
         catId === UNKNOWN_ALBUM_ID ||
-        !state.cats.some(
-          (cat) => cat.id === catId
-        ) ||
-        (changes.name !== undefined &&
-          !changes.name.trim()) ||
+        !state.cats.some((cat) => cat.id === catId) ||
+        (changes.name !== undefined && !changes.name.trim()) ||
         (changes.birthdate !== undefined &&
-          !isValidBirthdate(
-            changes.birthdate
-          ))
+          !isValidBirthdate(changes.birthdate))
       ) {
         return state;
       }
@@ -174,54 +185,41 @@ export function catDataReducer(
       const updates: CatChanges = {};
 
       if (changes.name !== undefined) {
-        updates.name =
-          changes.name.trim();
+        updates.name = changes.name.trim();
       }
 
       if (changes.gender !== undefined) {
-        updates.gender =
-          changes.gender;
+        updates.gender = changes.gender;
       }
 
-      if (
-        changes.birthdate !== undefined
-      ) {
-        updates.birthdate =
-          changes.birthdate;
+      if (changes.birthdate !== undefined) {
+        updates.birthdate = changes.birthdate;
       }
 
-      if (
-        changes.photoUri !== undefined
-      ) {
-        updates.photoUri =
-          changes.photoUri;
+      if (changes.photoUri !== undefined) {
+        updates.photoUri = changes.photoUri;
       }
 
-      if (
-        changes.coverUri !== undefined
-      ) {
-        updates.coverUri =
-          changes.coverUri;
+      if (changes.coverUri !== undefined) {
+        updates.coverUri = changes.coverUri;
       }
 
       return {
         ...state,
+
         cats: state.cats.map((cat) =>
           cat.id === catId
             ? {
                 ...cat,
                 ...updates,
               }
-            : cat
+            : cat,
         ),
       };
     }
 
     case "RENAME_ALBUM": {
-      const album = state.albums.find(
-        (item) =>
-          item.id === action.albumId
-      );
+      const album = state.albums.find((item) => item.id === action.albumId);
 
       if (
         !album ||
@@ -243,12 +241,8 @@ export function catDataReducer(
 
     case "DELETE_CAT": {
       if (
-        action.catId ===
-          UNKNOWN_ALBUM_ID ||
-        !state.cats.some(
-          (cat) =>
-            cat.id === action.catId
-        )
+        action.catId === UNKNOWN_ALBUM_ID ||
+        !state.cats.some((cat) => cat.id === action.catId)
       ) {
         return state;
       }
@@ -258,125 +252,95 @@ export function catDataReducer(
           .filter(
             (album) =>
               album.kind === "cat" &&
-              album.id !==
-                UNKNOWN_ALBUM_ID &&
-              album.catId ===
-                action.catId
+              album.id !== UNKNOWN_ALBUM_ID &&
+              album.catId === action.catId,
           )
-          .map((album) => album.id)
+          .map((album) => album.id),
       );
 
       const imageIds = new Set(
         state.images
-          .filter((image) =>
-            albumIds.has(image.albumId)
-          )
-          .map((image) => image.id)
+          .filter((image) => albumIds.has(image.albumId))
+          .map((image) => image.id),
       );
 
       return {
-        ...removeImages(
-          state,
-          imageIds
-        ),
-        cats: state.cats.filter(
-          (cat) =>
-            cat.id !== action.catId
-        ),
-        albums: state.albums.filter(
-          (album) =>
-            !albumIds.has(album.id)
-        ),
+        ...removeImages(state, imageIds),
+
+        cats: state.cats.filter((cat) => cat.id !== action.catId),
+
+        albums: state.albums.filter((album) => !albumIds.has(album.id)),
       };
     }
 
     case "SAVE_CAPTURE": {
-      const { image, detection } =
-        action;
+      const { image, detection } = action;
 
       if (
-        !state.albums.some(
-          (album) =>
-            album.id === image.albumId
-        ) ||
+        !state.albums.some((album) => album.id === image.albumId) ||
         !image.id ||
         !detection.id ||
         !image.imageUri.trim() ||
         detection.imageId !== image.id ||
-        !Object.hasOwn(
-          EMOTIONS,
-          detection.emotion
-        ) ||
-        !Number.isInteger(
-          detection.confidence
-        ) ||
+        !Object.hasOwn(EMOTIONS, detection.emotion) ||
+        !Number.isInteger(detection.confidence) ||
         detection.confidence < 0 ||
         detection.confidence > 100 ||
-        !Number.isFinite(
-          Date.parse(image.capturedAt)
-        ) ||
-        !Number.isFinite(
-          Date.parse(
-            detection.recordedAt
-          )
-        ) ||
-        state.images.some(
-          (existing) =>
-            existing.id === image.id
-        ) ||
-        state.detectionRecords.some(
-          (existing) =>
-            existing.id ===
-            detection.id
-        )
+        !Number.isFinite(Date.parse(image.capturedAt)) ||
+        !Number.isFinite(Date.parse(detection.recordedAt)) ||
+        state.images.some((existing) => existing.id === image.id) ||
+        state.detectionRecords.some((existing) => existing.id === detection.id)
       ) {
         return state;
       }
 
       return {
         ...state,
+
         images: [
-          { ...image },
+          {
+            ...image,
+          },
           ...state.images,
         ],
+
         detectionRecords: [
-          { ...detection },
+          {
+            ...detection,
+          },
           ...state.detectionRecords,
         ],
       };
     }
 
     case "DELETE_IMAGE":
-      return removeImages(
-        state,
-        new Set([action.imageId])
-      );
+      return removeImages(state, new Set([action.imageId]));
 
     case "DELETE_IMAGES":
-      return removeImages(
-        state,
-        new Set(action.imageIds)
-      );
+      return removeImages(state, new Set(action.imageIds));
 
     case "RESET_MOCK_DATA":
       return {
-        cats: initialCatDataState.cats.map(
-          (cat) => ({ ...cat })
+        cats: initialCatDataState.cats.map((cat) => ({
+          ...cat,
+        })),
+
+        albums: initialCatDataState.albums.map((album) => ({
+          ...album,
+        })),
+
+        images: initialCatDataState.images.map((image) => ({
+          ...image,
+        })),
+
+        detectionRecords: initialCatDataState.detectionRecords.map(
+          (record) => ({
+            ...record,
+          }),
         ),
-        albums:
-          initialCatDataState.albums.map(
-            (album) => ({ ...album })
-          ),
-        images:
-          initialCatDataState.images.map(
-            (image) => ({ ...image })
-          ),
-        detectionRecords:
-          initialCatDataState.detectionRecords.map(
-            (record) => ({
-              ...record,
-            })
-          ),
       };
+
+    default:
+      return state;
   }
 }
