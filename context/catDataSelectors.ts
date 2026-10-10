@@ -52,18 +52,51 @@ export function selectCatForDetection(state: CatDataState, record: DetectionReco
 }
 
 /** Calendar history only includes complete, valid ownership chains. No state is repaired here. */
-export function selectCalendarRecords(state: CatDataState, catId: string | null = null) {
-  return state.detectionRecords.filter((record) => {
-    if (!Number.isFinite(Date.parse(record.recordedAt)) || !Object.hasOwn(EMOTIONS, record.emotion)) return false;
-    const image = selectImageById(state, record.imageId);
-    const album = image ? selectAlbumById(state, image.albumId) : null;
-    if (!album) return false;
-    if (album.kind === "unknown") {
-      return album.id === UNKNOWN_ALBUM_ID && album.catId === null && (catId === null || catId === UNKNOWN_ALBUM_ID);
-    }
-    return album.kind === "cat" && album.id !== UNKNOWN_ALBUM_ID && !!album.catId &&
-      !!selectCatById(state, album.catId) && (catId === null || catId === album.catId);
-  }).sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt) || a.id.localeCompare(b.id));
+/** Calendar includes all valid detections, even those not saved to Albums. */
+export function selectCalendarRecords(
+  state: CatDataState,
+  catId: string | null = null
+): DetectionRecord[] {
+  return state.detectionRecords
+    .filter((record) => {
+      // Validate detection information.
+      if (
+        !Number.isFinite(Date.parse(record.recordedAt)) ||
+        !Object.hasOwn(EMOTIONS, record.emotion)
+      ) {
+        return false;
+      }
+
+      // Use the detection's cat association when available.
+      // Fall back to the saved Album for older records.
+      const image = selectImageById(state, record.imageId);
+      const album = image
+        ? selectAlbumById(state, image.albumId)
+        : null;
+
+      const associatedCatId =
+        record.catId !== undefined
+          ? record.catId
+          : album?.catId ?? null;
+
+      // All Cats filter: include every valid detection.
+      if (catId === null) {
+        return true;
+      }
+
+      // Unknown Cats filter.
+      if (catId === UNKNOWN_ALBUM_ID) {
+        return associatedCatId === null;
+      }
+
+      // Personal Cat filter.
+      return associatedCatId === catId;
+    })
+    .sort(
+      (a, b) =>
+        Date.parse(a.recordedAt) - Date.parse(b.recordedAt) ||
+        a.id.localeCompare(b.id)
+    );
 }
 
 /** Filter is a real Cat ID, the Unknown Cats album ID, or null for all. Dates use local time. */

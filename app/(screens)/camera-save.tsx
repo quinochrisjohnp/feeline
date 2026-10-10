@@ -1,9 +1,5 @@
-import React, {
-  useCallback,
-  useRef,
-  useState,
-} from "react";
 
+import React, { useCallback, useRef, useState } from "react";
 import {
   BackHandler,
   FlatList,
@@ -12,16 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import {
   useFocusEffect,
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-
-import {
-  Ionicons,
-} from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
@@ -31,10 +23,7 @@ import EmptyState from "@/components/common/EmptyState";
 import MockPhoto from "@/components/common/MockPhoto";
 import AddCatForm from "@/components/cats/AddCatForm";
 
-import {
-  useCatData,
-} from "@/context/CatDataContext";
-
+import { useCatData } from "@/context/CatDataContext";
 import {
   selectAlbumById,
   selectAlbumName,
@@ -42,12 +31,10 @@ import {
 
 import {
   assignDetectionToCat,
+  saveDetectionToUnknown,
 } from "@/services/detection";
 
-import type {
-  Cat,
-  EmotionKey,
-} from "@/types/models";
+import type { Cat, EmotionKey } from "@/types/models";
 
 import {
   colors,
@@ -57,30 +44,15 @@ import {
   typography,
 } from "@/constants/theme";
 
-type SaveStep =
-  | "select"
-  | "confirmSave"
-  | "saving"
-  | "saved";
+type SaveStep = "select" | "confirmSave" | "saving" | "saved";
 
 function firstParam(
-  value:
-    | string
-    | string[]
-    | undefined
+  value: string | string[] | undefined
 ): string | undefined {
-  if (
-    Array.isArray(value)
-  ) {
-    return value[0];
-  }
-
-  return value;
+  return Array.isArray(value) ? value[0] : value;
 }
 
-function isEmotionKey(
-  value: string
-): value is EmotionKey {
+function isEmotionKey(value: string): value is EmotionKey {
   return (
     value === "happy" ||
     value === "neutral" ||
@@ -90,11 +62,8 @@ function isEmotionKey(
 }
 
 export default function CameraSave() {
-  const router =
-    useRouter();
-
-  const params =
-    useLocalSearchParams();
+  const router = useRouter();
+  const params = useLocalSearchParams();
 
   const {
     state,
@@ -102,290 +71,184 @@ export default function CameraSave() {
     refreshDetections,
   } = useCatData();
 
-  const imageUri =
-    firstParam(
-      params.imageUri
-    );
+  const imageUri = firstParam(params.imageUri);
+  const capturedAt = firstParam(params.capturedAt);
+  const detectionId = firstParam(params.detectionId);
+  const emotionParam = firstParam(params.emotion);
 
-  const capturedAt =
-    firstParam(
-      params.capturedAt
-    );
-
-  const detectionId =
-    firstParam(
-      params.detectionId
-    );
-
-  const emotionParam =
-    firstParam(
-      params.emotion
-    );
-
-  const confidence =
-    Number(
-      firstParam(
-        params.confidence
-      )
-    );
+  const confidence = Number(firstParam(params.confidence));
 
   const valid =
     !!imageUri &&
     !!capturedAt &&
     !!detectionId &&
     !!emotionParam &&
-    isEmotionKey(
-      emotionParam
-    ) &&
-    Number.isFinite(
-      confidence
-    );
+    isEmotionKey(emotionParam) &&
+    Number.isFinite(confidence);
 
-  const [
-    step,
-    setStep,
-  ] = useState<SaveStep>(
-    "select"
+  const [step, setStep] = useState<SaveStep>("select");
+
+  const [pendingAlbumId, setPendingAlbumId] = useState<
+    string | null
+  >(null);
+
+  const [addingCat, setAddingCat] = useState(false);
+  const [catSavedNotice, setCatSavedNotice] = useState(false);
+
+  const [saveError, setSaveError] = useState<string | null>(
+    null
   );
 
-  const [
-    pendingAlbumId,
-    setPendingAlbumId,
-  ] = useState<
-    string | null
-  >(null);
+  const saved = useRef(false);
+  const catSubmitted = useRef(false);
 
-  const [
-    addingCat,
-    setAddingCat,
-  ] = useState(false);
+  const handleContinue = useCallback(() => {
+    router.dismissTo("/camera");
+  }, [router]);
 
-  const [
-    catSavedNotice,
-    setCatSavedNotice,
-  ] = useState(false);
+  const handleBack = useCallback(() => {
+    if (step === "saving") {
+      return;
+    }
 
-  const [
-    saveError,
-    setSaveError,
-  ] = useState<
-    string | null
-  >(null);
+    if (saved.current || !valid) {
+      handleContinue();
+      return;
+    }
 
-  const saved =
-    useRef(false);
-
-  const catSubmitted =
-    useRef(false);
-
-  const handleContinue =
-    useCallback(() => {
-      router.dismissTo(
-        "/camera"
-      );
-    }, [router]);
-
-  const handleBack =
-    useCallback(() => {
-      if (
-        step === "saving"
-      ) {
-        return;
-      }
-
-      if (
-        saved.current ||
-        !valid
-      ) {
-        handleContinue();
-
-        return;
-      }
-
-      router.back();
-    }, [
-      handleContinue,
-      router,
-      step,
-      valid,
-    ]);
+    router.back();
+  }, [handleContinue, router, step, valid]);
 
   useFocusEffect(
     useCallback(() => {
-      const subscription =
-        BackHandler.addEventListener(
-          "hardwareBackPress",
-          () => {
-            if (
-              step ===
-              "saving"
-            ) {
-              return true;
-            }
-
-            handleBack();
-
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          if (step === "saving") {
             return true;
           }
-        );
 
-      return () =>
-        subscription.remove();
-    }, [
-      handleBack,
-      step,
-    ])
+          handleBack();
+          return true;
+        }
+      );
+
+      return () => subscription.remove();
+    }, [handleBack, step])
   );
 
-  const handleConfirmSave =
-    async () => {
-      if (
-        saved.current ||
-        step === "saving" ||
-        !valid ||
-        !imageUri ||
-        !capturedAt ||
-        !detectionId ||
-        !emotionParam ||
-        !isEmotionKey(
-          emotionParam
-        )
+  const handleConfirmSave = async () => {
+    if (
+      saved.current ||
+      step === "saving" ||
+      !valid ||
+      !imageUri ||
+      !capturedAt ||
+      !detectionId ||
+      !emotionParam ||
+      !isEmotionKey(emotionParam)
+    ) {
+      return;
+    }
+
+    if (!pendingAlbumId) {
+      setStep("select");
+      setSaveError("Please choose an album.");
+      return;
+    }
+
+    const selectedAlbum = selectAlbumById(
+      state,
+      pendingAlbumId
+    );
+
+    if (!selectedAlbum) {
+      setStep("select");
+      setSaveError(
+        "That album is no longer available. Please choose another."
+      );
+      return;
+    }
+
+    saved.current = true;
+    setSaveError(null);
+    setStep("saving");
+
+    try {
+      // Save to Unknown Album.
+      if (selectedAlbum.kind === "unknown") {
+        await saveDetectionToUnknown(detectionId);
+      }
+
+      // Save to a personal Cat Album.
+      else if (
+        selectedAlbum.kind === "cat" &&
+        selectedAlbum.catId
       ) {
-        return;
-      }
-
-      if (
-        !pendingAlbumId
-      ) {
-        setStep("select");
-
-        setSaveError(
-          "Please choose an album."
-        );
-
-        return;
-      }
-
-      const selectedAlbum =
-        selectAlbumById(
-          state,
-          pendingAlbumId
-        );
-
-      if (!selectedAlbum) {
-        setStep("select");
-
-        setSaveError(
-          "That album is no longer available. Please choose another."
-        );
-
-        return;
-      }
-
-      saved.current = true;
-
-      setSaveError(null);
-      setStep("saving");
-
-      try {
-        // ----------------------------------------------------
-        // REAL CAT
-        //
-        // Move the existing Prisma image + detection from
-        // temporary Unknown Cats to the selected cat.
-        // ----------------------------------------------------
-
-        if (
-          selectedAlbum.kind ===
-            "cat" &&
+        await assignDetectionToCat(
+          detectionId,
           selectedAlbum.catId
-        ) {
-          await assignDetectionToCat(
-            detectionId,
-            selectedAlbum.catId
-          );
-        }
-
-        // ----------------------------------------------------
-        // UNKNOWN CATS
-        //
-        // Do nothing on backend.
-        // The initial POST already saved the detection under
-        // its generated Unknown Cats record.
-        // ----------------------------------------------------
-
-        await refreshDetections();
-
-        setStep("saved");
-      } catch (error) {
-        console.error(
-          "Assign detection failed:",
-          error
         );
+      }
 
-        saved.current = false;
-
-        setSaveError(
-          error instanceof
-            Error
-            ? error.message
-            : "Failed to save image to the selected album."
+      // Invalid album selection.
+      else {
+        throw new Error(
+          "Invalid album selection. Please choose another album."
         );
-
-        setStep("select");
-      }
-    };
-
-  const openAddCat =
-    () => {
-      if (
-        step === "saving"
-      ) {
-        return;
       }
 
-      catSubmitted.current =
-        false;
+      // Refresh album images and detection records.
+      await refreshDetections();
 
-      setAddingCat(true);
-    };
+      setStep("saved");
+    } catch (error) {
+      console.error("Assign detection failed:", error);
 
-  const handleAddCatSave =
-    async (
-      cat: Cat
-    ) => {
-      if (
-        catSubmitted.current
-      ) {
-        return;
-      }
+      saved.current = false;
 
-      catSubmitted.current =
-        true;
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "Failed to save image to the selected album."
+      );
 
-      try {
-        await addCat(cat);
+      setStep("select");
+    }
+  };
 
-        setAddingCat(false);
+  const openAddCat = () => {
+    if (step === "saving") {
+      return;
+    }
 
-        setCatSavedNotice(
-          true
-        );
-      } catch (error) {
-        catSubmitted.current =
-          false;
+    catSubmitted.current = false;
+    setAddingCat(true);
+  };
 
-        throw error;
-      }
-    };
+  const handleAddCatSave = async (cat: Cat) => {
+    if (catSubmitted.current) {
+      return;
+    }
+
+    catSubmitted.current = true;
+
+    try {
+      await addCat(cat);
+
+      setAddingCat(false);
+      setCatSavedNotice(true);
+    } catch (error) {
+      catSubmitted.current = false;
+      throw error;
+    }
+  };
 
   if (
     !valid ||
     !imageUri ||
     !emotionParam ||
-    !isEmotionKey(
-      emotionParam
-    )
+    !isEmotionKey(emotionParam)
   ) {
     return (
       <ScreenContainer
@@ -436,72 +299,38 @@ export default function CameraSave() {
           </TouchableOpacity>
         }
       />
+
       <FlatList
-        data={
-          state.albums
-        }
-        keyExtractor={(
-          album
-        ) => album.id}
-        contentContainerStyle={
-          styles.listContent
-        }
+        data={state.albums}
+        keyExtractor={(album) => album.id}
+        contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          <View
-            style={
-              styles.intro
-            }
-          >
+          <View style={styles.intro}>
             <Text
-              style={
-                styles.question
-              }
+              style={styles.question}
               accessibilityRole="header"
             >
-              Which cat should
-              this image be
-              saved to?
+              Which cat should this image be saved to?
             </Text>
 
-            <View
-              style={
-                styles.preview
-              }
-            >
-              <View
-                style={
-                  styles.thumbnail
-                }
-              >
+            <View style={styles.preview}>
+              <View style={styles.thumbnail}>
                 <MockPhoto
-                  imageUri={
-                    imageUri
-                  }
-                  size={
-                    dimensions.iconLarge
-                  }
+                  imageUri={imageUri}
+                  size={dimensions.iconLarge}
                   label="Detected cat image"
                 />
               </View>
 
-              <Text
-                style={
-                  styles.note
-                }
-              >
-                Image and
-                detection are
-                already saved.
-                Choose the album
-                it belongs to.
+              <Text style={styles.note}>
+                Image and detection are already stored.
+                Choose an album to save this image to.
               </Text>
             </View>
 
             {saveError ? (
               <Text
-                style={
-                  styles.error
-                }
+                style={styles.error}
                 accessibilityRole="alert"
               >
                 {saveError}
@@ -509,97 +338,49 @@ export default function CameraSave() {
             ) : null}
           </View>
         }
-        renderItem={({
-          item: album,
-        }) => (
+        renderItem={({ item: album }) => (
           <TouchableOpacity
-            style={
-              styles.row
-            }
-            disabled={
-              step ===
-              "saving"
-            }
+            style={styles.row}
+            disabled={step === "saving"}
             accessibilityRole="button"
             accessibilityLabel={`Save to ${selectAlbumName(
               state,
               album.id
             )}`}
             onPress={() => {
-              if (
-                step ===
-                "saving"
-              ) {
+              if (step === "saving") {
                 return;
               }
 
-              setSaveError(
-                null
-              );
-
-              setPendingAlbumId(
-                album.id
-              );
-
-              setStep(
-                "confirmSave"
-              );
+              setSaveError(null);
+              setPendingAlbumId(album.id);
+              setStep("confirmSave");
             }}
           >
-            <View
-              style={
-                styles.avatar
-              }
-            >
+            <View style={styles.avatar}>
               <Ionicons
                 name="paw"
-                size={
-                  dimensions.icon
-                }
-                color={
-                  colors.textSecondary
-                }
+                size={dimensions.icon}
+                color={colors.textSecondary}
               />
             </View>
 
-            <View
-              style={
-                styles.rowText
-              }
-            >
-              <Text
-                style={
-                  styles.rowLabel
-                }
-              >
-                {selectAlbumName(
-                  state,
-                  album.id
-                )}
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>
+                {selectAlbumName(state, album.id)}
               </Text>
 
-              {album.kind ===
-              "unknown" ? (
-                <Text
-                  style={
-                    styles.note
-                  }
-                >
-                  For cats
-                  without a
-                  profile
+              {album.kind === "unknown" ? (
+                <Text style={styles.note}>
+                  For cats without a profile
                 </Text>
               ) : null}
             </View>
 
             <Ionicons
               name="chevron-forward"
-              size={
-                dimensions.iconSmall
-              }
-              color={
-                colors.textSecondary
-              }
+              size={dimensions.iconSmall}
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
         )}
@@ -607,198 +388,132 @@ export default function CameraSave() {
           <Button
             label="New Cat Profile"
             variant="outline"
-            onPress={
-              openAddCat
-            }
-            disabled={
-              step ===
-              "saving"
-            }
-            style={
-              styles.newCat
-            }
+            onPress={openAddCat}
+            disabled={step === "saving"}
+            style={styles.newCat}
           />
         }
       />
 
       <ConfirmModal
-        visible={
-          step ===
-          "confirmSave"
-        }
+        visible={step === "confirmSave"}
         title={`Save image in ${
           pendingAlbumId
-            ? selectAlbumName(
-                state,
-                pendingAlbumId
-              )
+            ? selectAlbumName(state, pendingAlbumId)
             : "this album"
         }?`}
-        message="The image and detection are already stored. This will assign them to the selected album."
+        message="The image and detection are already stored. This will save the image to the selected album."
         confirmLabel="Save"
-        onConfirm={
-          handleConfirmSave
-        }
-        onCancel={() =>
-          setStep("select")
-        }
+        onConfirm={handleConfirmSave}
+        onCancel={() => setStep("select")}
       />
 
       <AddCatForm
-        visible={
-          addingCat
-        }
-        onCancel={() =>
-          setAddingCat(
-            false
-          )
-        }
-        onSave={
-          handleAddCatSave
-        }
+        visible={addingCat}
+        onCancel={() => setAddingCat(false)}
+        onSave={handleAddCatSave}
       />
 
       <ConfirmModal
-        visible={
-          catSavedNotice
-        }
+        visible={catSavedNotice}
         title="Cat Profile Saved!"
         message="Your new cat is ready. Choose it to assign this image."
         confirmLabel="Continue"
         hideCancel
-        onConfirm={() =>
-          setCatSavedNotice(
-            false
-          )
-        }
-        onCancel={() =>
-          setCatSavedNotice(
-            false
-          )
-        }
+        onConfirm={() => setCatSavedNotice(false)}
+        onCancel={() => setCatSavedNotice(false)}
       />
 
       <ConfirmModal
-        visible={
-          step === "saved"
-        }
+        visible={step === "saved"}
         title="Image Saved!"
-        message="The detection has been assigned to the selected album."
+        message="The image has been saved to the selected album."
         confirmLabel="Continue"
         hideCancel
-        onConfirm={
-          handleContinue
-        }
-        onCancel={
-          handleContinue
-        }
+        onConfirm={handleContinue}
+        onCancel={handleContinue}
       />
     </ScreenContainer>
   );
 }
 
-const styles =
-  StyleSheet.create({
-    addButton: {
-      minWidth:
-        dimensions.touchTarget,
-      minHeight:
-        dimensions.touchTarget,
-      alignItems: "center",
-      justifyContent:
-        "center",
-    },
+const styles = StyleSheet.create({
+  addButton: {
+    minWidth: dimensions.touchTarget,
+    minHeight: dimensions.touchTarget,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-    listContent: {
-      paddingHorizontal:
-        spacing.lg,
-      paddingBottom:
-        spacing.xl,
-    },
+  listContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
 
-    intro: {
-      paddingVertical:
-        spacing.md,
-    },
+  intro: {
+    paddingVertical: spacing.md,
+  },
 
-    question: {
-      ...typography.bodyMedium,
-      color:
-        colors.textPrimary,
-    },
+  question: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
 
-    thumbnail: {
-      width:
-        dimensions.capture,
-      height:
-        dimensions.capture,
-      overflow: "hidden",
-      borderRadius:
-        radii.md,
-    },
+  thumbnail: {
+    width: dimensions.capture,
+    height: dimensions.capture,
+    overflow: "hidden",
+    borderRadius: radii.md,
+  },
 
-    preview: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.sm,
-      marginTop:
-        spacing.md,
-    },
+  preview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
 
-    note: {
-      ...typography.caption,
-      color:
-        colors.textSecondary,
-      flexShrink: 1,
-    },
+  note: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
 
-    error: {
-      ...typography.body,
-      color:
-        colors.dangerStrong,
-      marginTop:
-        spacing.sm,
-    },
+  error: {
+    ...typography.body,
+    color: colors.dangerStrong,
+    marginTop: spacing.sm,
+  },
 
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      padding:
-        spacing.md,
-      gap: spacing.sm,
-      backgroundColor:
-        colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor:
-        colors.divider,
-    },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
 
-    avatar: {
-      width:
-        dimensions.touchTarget,
-      height:
-        dimensions.touchTarget,
-      borderRadius:
-        radii.md,
-      backgroundColor:
-        colors.placeholder,
-      alignItems: "center",
-      justifyContent:
-        "center",
-    },
+  avatar: {
+    width: dimensions.touchTarget,
+    height: dimensions.touchTarget,
+    borderRadius: radii.md,
+    backgroundColor: colors.placeholder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-    rowText: {
-      flex: 1,
-    },
+  rowText: {
+    flex: 1,
+  },
 
-    rowLabel: {
-      ...typography.subheading,
-      color:
-        colors.textPrimary,
-    },
+  rowLabel: {
+    ...typography.subheading,
+    color: colors.textPrimary,
+  },
 
-    newCat: {
-      marginTop:
-        spacing.lg,
-    },
-  });
+  newCat: {
+    marginTop: spacing.lg,
+  },
+});

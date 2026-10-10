@@ -34,6 +34,7 @@ import {
 
 import {
   fetchDetectionHistory,
+  removeDetectionFromAlbum,
 } from "@/services/detection";
 
 import {
@@ -90,14 +91,14 @@ export interface CatDataContextValue {
 
   deleteImage(
     imageId: string
-  ): void;
+  ): Promise<void>;
 
   deleteImages(
     imageIds: string[]
-  ): void;
+  ): Promise<void>;
 
-  resetMockData(): void;
-}
+    resetMockData(): void;
+  }
 
 const CatDataContext =
   createContext<
@@ -459,33 +460,58 @@ export function CatDataProvider({
       []
     );
 
-  const deleteImage =
-    useCallback(
-      (
-        imageId: string
-      ) => {
-        dispatch({
-          type:
-            "DELETE_IMAGE",
-          imageId,
-        });
-      },
-      []
-    );
+  const deleteImage = useCallback(
+    async (imageId: string): Promise<void> => {
+      const detection = state.detectionRecords.find(
+        (record) => record.imageId === imageId
+      );
 
-  const deleteImages =
-    useCallback(
-      (
-        imageIds: string[]
-      ) => {
-        dispatch({
-          type:
-            "DELETE_IMAGES",
-          imageIds,
-        });
-      },
-      []
-    );
+      if (!detection) {
+        throw new Error("Detection record not found.");
+      }
+
+      // Update PostgreSQL first.
+      await removeDetectionFromAlbum(detection.id);
+
+      // Update the frontend only after the API succeeds.
+      dispatch({
+        type: "DELETE_IMAGE",
+        imageId,
+      });
+    },
+    [state.detectionRecords]
+  );
+
+  const deleteImages = useCallback(
+    async (imageIds: string[]): Promise<void> => {
+      const detections = imageIds.map((imageId) => {
+        const detection = state.detectionRecords.find(
+          (record) => record.imageId === imageId
+        );
+
+        if (!detection) {
+          throw new Error(
+            `Detection record not found for image ${imageId}.`
+          );
+        }
+
+        return detection;
+      });
+
+      // Update PostgreSQL before changing the frontend.
+      await Promise.all(
+        detections.map((detection) =>
+          removeDetectionFromAlbum(detection.id)
+        )
+      );
+
+      dispatch({
+        type: "DELETE_IMAGES",
+        imageIds,
+      });
+    },
+    [state.detectionRecords]
+  );
 
   const resetMockData =
     useCallback(() => {

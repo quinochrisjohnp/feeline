@@ -73,6 +73,9 @@ export const getDetectionHistory = async (
           detection.cats.name ===
           UNKNOWN_ALBUM_NAME,
 
+        isSavedToAlbum:
+          detection.cat_images!.is_saved_to_album,
+
         emotion:
           detection.emotion_categories
             .emotion_name,
@@ -234,6 +237,8 @@ export const detectEmotion = async (
 
                 image_url:
                   imageUrl,
+
+                is_saved_to_album: false,
               },
             });
 
@@ -337,231 +342,297 @@ export const detectEmotion = async (
 // Unknown Cats owner to a real cat.
 // ============================================================
 
-export const assignDetectionToAlbum =
-  async (
-    req: AuthRequest,
-    res: Response
-  ) => {
-    try {
-      if (!req.profileId) {
-        return res.status(401).json({
-          error: "Unauthorized",
-        });
-      }
 
-      const detectionId =
-        Array.isArray(
-          req.params.detectionId
-        )
-          ? req.params.detectionId[0]
-          : req.params.detectionId;
+export const assignDetectionToAlbum = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
 
-      const { catId } = req.body;
+    const detectionId = Array.isArray(req.params.detectionId)
+      ? req.params.detectionId[0]
+      : req.params.detectionId;
 
-      if (
-        !detectionId ||
-        !isUuid(detectionId)
-      ) {
+    const { catId, saveToUnknown } = req.body ?? {};
+
+    // Validate detection ID
+    if (!detectionId || !isUuid(detectionId)) {
+      return res.status(400).json({
+        error: "Invalid detectionId",
+      });
+    }
+
+    // Exactly one destination must be provided
+    if (
+      saveToUnknown !== undefined &&
+      typeof saveToUnknown !== "boolean"
+    ) {
+      return res.status(400).json({
+        error: "Invalid saveToUnknown value",
+      });
+    }
+
+    if (saveToUnknown === true) {
+      if (catId !== undefined && catId !== null) {
         return res.status(400).json({
-          error: "Invalid detectionId",
+          error: "Do not provide catId when saving to Unknown Album",
         });
       }
+    } else if (
+      typeof catId !== "string" ||
+      !isUuid(catId)
+    ) {
+      return res.status(400).json({
+        error: "Invalid catId",
+      });
+    }
 
-      if (
-        typeof catId !== "string" ||
-        !isUuid(catId)
-      ) {
+    // Find detection and verify user ownership
+    const detection = await prisma.emotion_detections.findFirst({
+      where: {
+        detection_id: detectionId,
+        cats: {
+          profile_id: req.profileId,
+        },
+      },
+      include: {
+        cats: true,
+        cat_images: true,
+      },
+    });
+
+    if (!detection) {
+      return res.status(404).json({
+        error: "Detection not found",
+      });
+    }
+
+    if (!detection.image_id || !detection.cat_images) {
+      return res.status(400).json({
+        error: "Detection has no image to save",
+      });
+    }
+
+    const currentCat = detection.cats;
+    const oldCatId = detection.cat_id;
+    const imageId = detection.image_id;
+
+    // ==========================================
+    // OPTION 1: SAVE TO UNKNOWN ALBUM
+    // ==========================================
+    if (saveToUnknown === true) {
+      if (currentCat.name !== UNKNOWN_ALBUM_NAME) {
         return res.status(400).json({
-          error: "Invalid catId",
-        });
-      }
-
-      // ------------------------------------------------------
-      // FIND DETECTION
-      // ------------------------------------------------------
-
-      const detection =
-        await prisma.emotion_detections.findUnique(
-          {
-            where: {
-              detection_id:
-                detectionId,
-            },
-          }
-        );
-
-      if (!detection) {
-        return res.status(404).json({
           error:
-            "Detection not found",
+            "Detection belongs to a personal cat album",
         });
       }
 
-      // ------------------------------------------------------
-      // VERIFY CURRENT OWNER
-      // ------------------------------------------------------
+      // No image re-upload or new detection.
+      // Only mark the existing image as saved.
+      await prisma.cat_images.update({
+        where: {
+          image_id: imageId,
+        },
+        data: {
+          is_saved_to_album: true,
+        },
+      });
 
-      const currentCat =
-        await prisma.cats.findFirst({
-          where: {
-            cat_id:
-              detection.cat_id,
-            profile_id:
-              req.profileId,
-          },
-        });
+      return res.json({
+        message: "Image saved to Unknown Album successfully.",
+        catId: oldCatId,
+        detectionId,
+        imageId,
+      });
+    }
 
-      if (!currentCat) {
-        return res.status(404).json({
-          error:
-            "Detection not found",
-        });
-      }
+    // ==========================================
+    // OPTION 2: SAVE TO PERSONAL CAT ALBUM
+    // ==========================================
 
-      // ------------------------------------------------------
-      // VERIFY DESTINATION CAT
-      // ------------------------------------------------------
+    const targetCat = await prisma.cats.findFirst({
+      where: {
+        cat_id: catId,
+        profile_id: req.profileId,
+        NOT: {
+          name: UNKNOWN_ALBUM_NAME,
+        },
+      },
+    });
 
-      const targetCat =
-        await prisma.cats.findFirst({
-          where: {
-            cat_id: catId,
-            profile_id:
-              req.profileId,
-          },
-        });
+    if (!targetCat) {
+      return res.status(404).json({
+        error: "Cat not found",
+      });
+    }
 
-      if (!targetCat) {
-        return res.status(404).json({
-          error: "Cat not found",
-        });
-      }
+    // Already belongs to the selected cat.
+    // Still mark it as explicitly saved.
+    if (oldCatId === targetCat.cat_id) {
+      await prisma.cat_images.update({
+        where: {
+          image_id: imageId,
+        },
+        data: {
+          is_saved_to_album: true,
+        },
+      });
 
-      const oldCatId =
-        detection.cat_id;
+      return res.json({
+        message: "Image saved to album successfully.",
+        catId: targetCat.cat_id,
+        detectionId,
+        imageId,
+      });
+    }
 
-      if (
-        oldCatId ===
-        targetCat.cat_id
-      ) {
-        return res.json({
-          message:
-            "Detection already belongs to this cat.",
+    // ==========================================
+    // MOVE IMAGE AND DETECTION TO PERSONAL CAT
+    // ==========================================
 
-          catId:
-            targetCat.cat_id,
+    await prisma.$transaction(async (tx) => {
+      await tx.emotion_detections.update({
+        where: {
+          detection_id: detectionId,
+        },
+        data: {
+          cat_id: targetCat.cat_id,
+        },
+      });
 
-          detectionId:
-            detection.detection_id,
+      await tx.cat_images.update({
+        where: {
+          image_id: imageId,
+        },
+        data: {
+          cat_id: targetCat.cat_id,
+          is_saved_to_album: true,
+        },
+      });
+    });
 
-          imageId:
-            detection.image_id,
-        });
-      }
+    // ==========================================
+    // CLEAN UP EMPTY TEMPORARY UNKNOWN CAT
+    // ==========================================
 
-      // ------------------------------------------------------
-      // MOVE IMAGE + DETECTION
-      // ------------------------------------------------------
-
-      await prisma.$transaction(
-        async (tx) => {
-          await tx.emotion_detections.update(
-            {
-              where: {
-                detection_id:
-                  detectionId,
-              },
-
-              data: {
-                cat_id:
-                  targetCat.cat_id,
-              },
-            }
-          );
-
-          if (detection.image_id) {
-            await tx.cat_images.update({
-              where: {
-                image_id:
-                  detection.image_id,
-              },
-
-              data: {
-                cat_id:
-                  targetCat.cat_id,
-              },
-            });
-          }
-        }
-      );
-
-      // ------------------------------------------------------
-      // CLEAN EMPTY TEMPORARY UNKNOWN CAT
-      // ------------------------------------------------------
-
-      if (
-        currentCat.name ===
-        UNKNOWN_ALBUM_NAME
-      ) {
-        const [
-          remainingImages,
-          remainingDetections,
-        ] = await Promise.all([
+    if (currentCat.name === UNKNOWN_ALBUM_NAME) {
+      const [remainingImages, remainingDetections] =
+        await Promise.all([
           prisma.cat_images.count({
             where: {
               cat_id: oldCatId,
             },
           }),
-
-          prisma.emotion_detections.count(
-            {
-              where: {
-                cat_id: oldCatId,
-              },
-            }
-          ),
+          prisma.emotion_detections.count({
+            where: {
+              cat_id: oldCatId,
+            },
+          }),
         ]);
 
-        if (
-          remainingImages === 0 &&
-          remainingDetections === 0
-        ) {
-          await prisma.cats.deleteMany(
-            {
-              where: {
-                cat_id: oldCatId,
-                profile_id:
-                  req.profileId,
-                name:
-                  UNKNOWN_ALBUM_NAME,
-              },
-            }
-          );
-        }
+      if (
+        remainingImages === 0 &&
+        remainingDetections === 0
+      ) {
+        await prisma.cats.deleteMany({
+          where: {
+            cat_id: oldCatId,
+            profile_id: req.profileId,
+            name: UNKNOWN_ALBUM_NAME,
+          },
+        });
       }
+    }
 
-      return res.json({
-        message:
-          "Detection assigned successfully.",
+    return res.json({
+      message: "Image saved to album successfully.",
+      catId: targetCat.cat_id,
+      detectionId,
+      imageId,
+    });
+  } catch (error) {
+    console.error("Assign detection error:", error);
 
-        catId:
-          targetCat.cat_id,
+    return res.status(500).json({
+      error: "Failed to save detection to album",
+    });
+  }
+};
 
-        detectionId:
-          detection.detection_id,
-
-        imageId:
-          detection.image_id,
-      });
-    } catch (error) {
-      console.error(
-        "Assign detection error:",
-        error
-      );
-
-      return res.status(500).json({
-        error:
-          "Failed to assign detection to cat",
+export const removeDetectionFromAlbum = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
       });
     }
-  };
+
+    const detectionId = Array.isArray(req.params.detectionId)
+      ? req.params.detectionId[0]
+      : req.params.detectionId;
+
+    if (!detectionId || !isUuid(detectionId)) {
+      return res.status(400).json({
+        error: "Invalid detection ID",
+      });
+    }
+
+    // Find the detection and verify ownership.
+    const detection = await prisma.emotion_detections.findFirst({
+      where: {
+        detection_id: detectionId,
+        cats: {
+          profile_id: req.profileId,
+        },
+      },
+      include: {
+        cat_images: true,
+      },
+    });
+
+    if (!detection) {
+      return res.status(404).json({
+        error: "Detection not found",
+      });
+    }
+
+    if (!detection.image_id || !detection.cat_images) {
+      return res.status(404).json({
+        error: "Detection image not found",
+      });
+    }
+
+    // Remove only the Album association.
+    // Preserve the detection, cat association,
+    // and Cloudinary image.
+    await prisma.cat_images.update({
+      where: {
+        image_id: detection.image_id,
+      },
+      data: {
+        is_saved_to_album: false,
+      },
+    });
+
+    return res.json({
+      message: "Image removed from Album successfully.",
+      detectionId,
+      imageId: detection.image_id,
+    });
+  } catch (error) {
+    console.error("Remove detection from Album error:", error);
+
+    return res.status(500).json({
+      error: "Failed to remove image from Album",
+    });
+  }
+};
