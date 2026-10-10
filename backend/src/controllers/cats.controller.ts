@@ -388,10 +388,12 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
     let profileImageUrl: string | undefined;
 
     if (req.file) {
-      profileImageUrl = await uploadImageToCloudinary(
+      const uploadedImage = await uploadImageToCloudinary(
         req.file.buffer,
-        `feeline/${req.profileId}/profiles`,
+        `feeline/${req.profileId}`
       );
+
+      profileImageUrl = uploadedImage.url;
     }
 
     // ========================================================
