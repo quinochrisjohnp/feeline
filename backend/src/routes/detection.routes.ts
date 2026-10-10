@@ -6,9 +6,16 @@ import { authenticate } from "../middleware/auth.middleware.js";
 import {
   assignDetectionToAlbum,
   detectEmotion,
+  getDetectionHistory,
 } from "../controllers/detection.controller.js";
 
 const router = Router();
+
+router.get(
+  "/",
+  authenticate,
+  getDetectionHistory
+);
 
 router.post(
   "/",

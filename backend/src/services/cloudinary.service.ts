@@ -1,31 +1,70 @@
-import cloudinary from '../config/cloudinary.config.js';
+import cloudinary from "../config/cloudinary.config.js";
 
-// Uploads the image buffer to Cloudinary, while automatically optimizing/
-// reducing its size to help save on the free tier quota
+export interface CloudinaryUploadResult {
+  url: string;
+  publicId: string;
+}
+
+// Upload image to Cloudinary and return BOTH:
+// - URL for storing/displaying
+// - publicId for cleanup if the DB operation fails
 export const uploadImageToCloudinary = (
   fileBuffer: Buffer,
-  folder: string 
-): Promise<string> => {
+  folder: string
+): Promise<CloudinaryUploadResult> => {
   return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        // Resize to max 1000px width (enough for mobile display)
-        // "limit" crop mode = won't upscale small images, only downscales large ones
-        transformation: [
-          { width: 1000, crop: 'limit' },
-          { quality: 'auto:good' }, // automatically optimizes quality/compression
-          { fetch_format: 'auto' }, // picks the most efficient format (e.g. WebP)
-        ],
-      },
-      (error, result) => {
-        if (error || !result) {
-          return reject(error ?? new Error('Upload failed'));
-        }
-        resolve(result.secure_url);
-      }
-    );
+    const uploadStream =
+      cloudinary.uploader.upload_stream(
+        {
+          folder,
 
-    uploadStream.end(fileBuffer);
+          transformation: [
+            {
+              width: 1000,
+              crop: "limit",
+            },
+            {
+              quality: "auto:good",
+            },
+            {
+              fetch_format: "auto",
+            },
+          ],
+        },
+        (error, result) => {
+          if (error || !result) {
+            return reject(
+              error ??
+                new Error(
+                  "Cloudinary upload failed"
+                )
+            );
+          }
+
+          resolve({
+            url: result.secure_url,
+            publicId: result.public_id,
+          });
+        }
+      );
+
+    uploadStream.end(
+      fileBuffer
+    );
   });
+};
+
+// Delete an uploaded image.
+//
+// Used when Cloudinary succeeds but the database operation
+// afterward fails.
+export const deleteImageFromCloudinary = async (
+  publicId: string
+): Promise<void> => {
+  await cloudinary.uploader.destroy(
+    publicId,
+    {
+      resource_type: "image",
+    }
+  );
 };
