@@ -1,7 +1,13 @@
 import { apiFetch } from "./api";
 
 import type {
+  DetectionRecord,
   EmotionKey,
+  SavedImage,
+} from "../types/models";
+
+import {
+  UNKNOWN_ALBUM_ID,
 } from "../types/models";
 
 export interface DetectionResponse {
@@ -19,6 +25,30 @@ export interface AssignDetectionResponse {
   catId: string;
   detectionId: string;
   imageId: string | null;
+}
+
+interface BackendHistoryItem {
+  detectionId: string;
+  imageId: string;
+  imageUrl: string;
+
+  catId: string;
+  isUnknown: boolean;
+
+  emotion: string;
+  confidence: number;
+
+  capturedAt: string;
+  detectedAt: string;
+}
+
+interface DetectionHistoryResponse {
+  detections: BackendHistoryItem[];
+}
+
+export interface DetectionHistory {
+  images: SavedImage[];
+  detectionRecords: DetectionRecord[];
 }
 
 function getImageFileInfo(
@@ -134,20 +164,104 @@ export function normalizeConfidence(
     return 0;
   }
 
-  if (confidence <= 1) {
-    return Math.round(
-      confidence * 100
-    );
-  }
+  const normalized =
+    confidence <= 1
+      ? confidence * 100
+      : confidence;
 
-  return Math.round(
-    confidence
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(normalized)
+    )
   );
 }
 
 // ============================================================
+// GET PERSISTED DETECTION HISTORY
+// ============================================================
+
+export async function fetchDetectionHistory(): Promise<DetectionHistory> {
+  const response =
+    await apiFetch(
+      "/api/detection"
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      await getErrorMessage(
+        response
+      )
+    );
+  }
+
+  const data =
+    (await response.json()) as DetectionHistoryResponse;
+
+  const images: SavedImage[] =
+    [];
+
+  const detectionRecords: DetectionRecord[] =
+    [];
+
+  for (
+    const item of
+    data.detections
+  ) {
+    let emotion: EmotionKey;
+
+    try {
+      emotion =
+        normalizeEmotion(
+          item.emotion
+        );
+    } catch {
+      console.warn(
+        "Skipping unsupported detection emotion:",
+        item.emotion
+      );
+
+      continue;
+    }
+
+    const albumId =
+      item.isUnknown
+        ? UNKNOWN_ALBUM_ID
+        : `album-${item.catId}`;
+
+    images.push({
+      id: item.imageId,
+      albumId,
+      imageUri:
+        item.imageUrl,
+      capturedAt:
+        item.capturedAt,
+    });
+
+    detectionRecords.push({
+      id: item.detectionId,
+      imageId:
+        item.imageId,
+      emotion,
+      confidence:
+        normalizeConfidence(
+          item.confidence
+        ),
+      recordedAt:
+        item.detectedAt,
+    });
+  }
+
+  return {
+    images,
+    detectionRecords,
+  };
+}
+
+// ============================================================
 // Called IMMEDIATELY after taking/selecting an image.
-// This uploads to Cloudinary AND saves to Prisma.
+// Uploads to Cloudinary and saves to Prisma.
 // ============================================================
 
 export async function uploadDetection(
@@ -191,8 +305,8 @@ export async function uploadDetection(
 }
 
 // ============================================================
-// Called AFTER user presses Save and chooses a real cat.
-// Does NOT upload again.
+// Called when user chooses a REAL cat.
+// Does not upload the image again.
 // ============================================================
 
 export async function assignDetectionToCat(

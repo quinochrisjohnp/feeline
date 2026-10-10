@@ -8,7 +8,9 @@ import React, {
   useState,
 } from "react";
 
-import { initialCatDataState } from "@/data/initialAppData";
+import {
+  initialCatDataState,
+} from "@/data/initialAppData";
 
 import type {
   Cat,
@@ -19,7 +21,9 @@ import type {
   SaveCaptureInput,
 } from "@/types/models";
 
-import { generateId } from "@/utils/id";
+import {
+  generateId,
+} from "@/utils/id";
 
 import {
   createCat as createCatApi,
@@ -28,8 +32,20 @@ import {
   updateCat as updateCatApi,
 } from "@/services/cats";
 
-import { useAuth } from "@/context/AuthContext";
-import { catDataReducer } from "./catDataReducer";
+import {
+  fetchDetectionHistory,
+} from "@/services/detection";
+
+import {
+  useAuth,
+} from "@/context/AuthContext";
+
+import {
+  catDataReducer,
+} from "./catDataReducer";
+
+const UNKNOWN_CAT_NAME =
+  "unknown cats";
 
 export interface CatDataContextValue {
   state: CatDataState;
@@ -37,9 +53,19 @@ export interface CatDataContextValue {
   catsLoading: boolean;
   catsError: string | null;
 
+  detectionsLoading: boolean;
+  detectionsError:
+    string | null;
+
   refreshCats(): Promise<void>;
 
-  addCat(cat: Cat): Promise<Cat>;
+  refreshDetections(): Promise<void>;
+
+  refreshData(): Promise<void>;
+
+  addCat(
+    cat: Cat
+  ): Promise<Cat>;
 
   updateCat(
     catId: string,
@@ -62,7 +88,9 @@ export interface CatDataContextValue {
     detection: DetectionRecord;
   };
 
-  deleteImage(imageId: string): void;
+  deleteImage(
+    imageId: string
+  ): void;
 
   deleteImages(
     imageIds: string[]
@@ -81,9 +109,14 @@ export function CatDataProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile } = useAuth();
+  const {
+    profile,
+  } = useAuth();
 
-  const [state, dispatch] = useReducer(
+  const [
+    state,
+    dispatch,
+  ] = useReducer(
     catDataReducer,
     initialCatDataState
   );
@@ -96,7 +129,21 @@ export function CatDataProvider({
   const [
     catsError,
     setCatsError,
-  ] = useState<string | null>(null);
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    detectionsLoading,
+    setDetectionsLoading,
+  ] = useState(false);
+
+  const [
+    detectionsError,
+    setDetectionsError,
+  ] = useState<
+    string | null
+  >(null);
 
   const refreshCats =
     useCallback(async () => {
@@ -116,9 +163,23 @@ export function CatDataProvider({
         const cats =
           await fetchCats();
 
+        // Backend creates temporary
+        // "Unknown Cats" rows for
+        // unassigned detections.
+        //
+        // They are NOT real Cat Profiles.
+        const realCats =
+          cats.filter(
+            (cat) =>
+              cat.name
+                .trim()
+                .toLowerCase() !==
+              UNKNOWN_CAT_NAME
+          );
+
         dispatch({
           type: "SET_CATS",
-          cats,
+          cats: realCats,
         });
       } catch (error) {
         const message =
@@ -131,180 +192,325 @@ export function CatDataProvider({
           error
         );
 
-        setCatsError(message);
+        setCatsError(
+          message
+        );
       } finally {
-        setCatsLoading(false);
+        setCatsLoading(
+          false
+        );
       }
     }, [profile]);
 
-  useEffect(() => {
-    void refreshCats();
-  }, [refreshCats]);
+  const refreshDetections =
+    useCallback(async () => {
+      if (!profile) {
+        dispatch({
+          type:
+            "SET_DETECTION_HISTORY",
+          images: [],
+          detectionRecords: [],
+        });
 
-  const addCat = useCallback(
-    async (
-      cat: Cat
-    ): Promise<Cat> => {
-      const savedCat =
-        await createCatApi(cat);
-
-      dispatch({
-        type: "ADD_CAT",
-        cat: savedCat,
-      });
-
-      return savedCat;
-    },
-    []
-  );
-
-  const updateCat = useCallback(
-    async (
-      catId: string,
-      changes: CatChanges
-    ): Promise<Cat> => {
-      const savedCat =
-        await updateCatApi(
-          catId,
-          changes
-        );
-
-      dispatch({
-        type: "UPDATE_CAT",
-        catId,
-        changes: {
-          name: savedCat.name,
-          gender: savedCat.gender,
-          birthdate:
-            savedCat.birthdate,
-          photoUri:
-            savedCat.photoUri,
-          coverUri:
-            savedCat.coverUri,
-        },
-      });
-
-      return savedCat;
-    },
-    []
-  );
-
-  const renameAlbum = useCallback(
-    async (
-      albumId: string,
-      name: string
-    ): Promise<void> => {
-      const album =
-        state.albums.find(
-          (item) =>
-            item.id === albumId
-        );
-
-      if (
-        !album ||
-        album.kind !== "cat" ||
-        !album.catId
-      ) {
         return;
       }
 
-      await updateCat(
-        album.catId,
-        {
-          name,
+      try {
+        setDetectionsLoading(
+          true
+        );
+
+        setDetectionsError(
+          null
+        );
+
+        const history =
+          await fetchDetectionHistory();
+
+        dispatch({
+          type:
+            "SET_DETECTION_HISTORY",
+
+          images:
+            history.images,
+
+          detectionRecords:
+            history.detectionRecords,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch detection history";
+
+        console.error(
+          "Fetch detection history error:",
+          error
+        );
+
+        setDetectionsError(
+          message
+        );
+      } finally {
+        setDetectionsLoading(
+          false
+        );
+      }
+    }, [profile]);
+
+  const refreshData =
+    useCallback(async () => {
+      if (!profile) {
+        dispatch({
+          type: "SET_CATS",
+          cats: [],
+        });
+
+        dispatch({
+          type:
+            "SET_DETECTION_HISTORY",
+          images: [],
+          detectionRecords: [],
+        });
+
+        return;
+      }
+
+      await refreshCats();
+
+      await refreshDetections();
+    }, [
+      profile,
+      refreshCats,
+      refreshDetections,
+    ]);
+
+  useEffect(() => {
+    void refreshData();
+  }, [refreshData]);
+
+  const addCat =
+    useCallback(
+      async (
+        cat: Cat
+      ): Promise<Cat> => {
+        const savedCat =
+          await createCatApi(
+            cat
+          );
+
+        dispatch({
+          type: "ADD_CAT",
+          cat: savedCat,
+        });
+
+        return savedCat;
+      },
+      []
+    );
+
+  const updateCat =
+    useCallback(
+      async (
+        catId: string,
+        changes: CatChanges
+      ): Promise<Cat> => {
+        const savedCat =
+          await updateCatApi(
+            catId,
+            changes
+          );
+
+        dispatch({
+          type: "UPDATE_CAT",
+          catId,
+
+          changes: {
+            name:
+              savedCat.name,
+
+            gender:
+              savedCat.gender,
+
+            birthdate:
+              savedCat.birthdate,
+
+            photoUri:
+              savedCat.photoUri,
+
+            coverUri:
+              savedCat.coverUri,
+          },
+        });
+
+        return savedCat;
+      },
+      []
+    );
+
+  const renameAlbum =
+    useCallback(
+      async (
+        albumId: string,
+        name: string
+      ): Promise<void> => {
+        const album =
+          state.albums.find(
+            (item) =>
+              item.id ===
+              albumId
+          );
+
+        if (
+          !album ||
+          album.kind !==
+            "cat" ||
+          !album.catId
+        ) {
+          return;
         }
-      );
-    },
-    [state.albums, updateCat]
-  );
 
-  const deleteCat = useCallback(
-    async (
-      catId: string
-    ): Promise<void> => {
-      await deleteCatApi(catId);
+        await updateCat(
+          album.catId,
+          {
+            name,
+          }
+        );
+      },
+      [
+        state.albums,
+        updateCat,
+      ]
+    );
 
-      dispatch({
-        type: "DELETE_CAT",
-        catId,
-      });
-    },
-    []
-  );
+  const deleteCat =
+    useCallback(
+      async (
+        catId: string
+      ): Promise<void> => {
+        await deleteCatApi(
+          catId
+        );
 
-  const saveCapture = useCallback(
-    (
-      input: SaveCaptureInput
-    ) => {
-      const image: SavedImage = {
-        id: generateId("image"),
-        albumId: input.albumId,
-        imageUri: input.imageUri,
-        capturedAt:
-          input.capturedAt,
-      };
+        dispatch({
+          type: "DELETE_CAT",
+          catId,
+        });
+      },
+      []
+    );
 
-      const detection: DetectionRecord =
-        {
-          id: generateId("det"),
-          imageId: image.id,
-          emotion: input.emotion,
-          confidence:
-            input.confidence,
-          recordedAt:
-            input.capturedAt,
+  // Kept temporarily for compatibility
+  // with any remaining local/mock code.
+  //
+  // Camera Save will no longer use
+  // this for persisted detections.
+  const saveCapture =
+    useCallback(
+      (
+        input: SaveCaptureInput
+      ) => {
+        const image: SavedImage =
+          {
+            id: generateId(
+              "image"
+            ),
+
+            albumId:
+              input.albumId,
+
+            imageUri:
+              input.imageUri,
+
+            capturedAt:
+              input.capturedAt,
+          };
+
+        const detection: DetectionRecord =
+          {
+            id: generateId(
+              "det"
+            ),
+
+            imageId:
+              image.id,
+
+            emotion:
+              input.emotion,
+
+            confidence:
+              input.confidence,
+
+            recordedAt:
+              input.capturedAt,
+          };
+
+        dispatch({
+          type: "SAVE_CAPTURE",
+          image,
+          detection,
+        });
+
+        return {
+          image,
+          detection,
         };
+      },
+      []
+    );
 
-      dispatch({
-        type: "SAVE_CAPTURE",
-        image,
-        detection,
-      });
+  const deleteImage =
+    useCallback(
+      (
+        imageId: string
+      ) => {
+        dispatch({
+          type:
+            "DELETE_IMAGE",
+          imageId,
+        });
+      },
+      []
+    );
 
-      return {
-        image,
-        detection,
-      };
-    },
-    []
-  );
-
-  const deleteImage = useCallback(
-    (imageId: string) => {
-      dispatch({
-        type: "DELETE_IMAGE",
-        imageId,
-      });
-    },
-    []
-  );
-
-  const deleteImages = useCallback(
-    (imageIds: string[]) => {
-      dispatch({
-        type: "DELETE_IMAGES",
-        imageIds,
-      });
-    },
-    []
-  );
+  const deleteImages =
+    useCallback(
+      (
+        imageIds: string[]
+      ) => {
+        dispatch({
+          type:
+            "DELETE_IMAGES",
+          imageIds,
+        });
+      },
+      []
+    );
 
   const resetMockData =
     useCallback(() => {
       dispatch({
-        type: "RESET_MOCK_DATA",
+        type:
+          "RESET_MOCK_DATA",
       });
     }, []);
 
   const value =
-    useMemo<CatDataContextValue>(
+    useMemo<
+      CatDataContextValue
+    >(
       () => ({
         state,
 
         catsLoading,
         catsError,
 
+        detectionsLoading,
+        detectionsError,
+
         refreshCats,
+        refreshDetections,
+        refreshData,
 
         addCat,
         updateCat,
@@ -318,13 +524,22 @@ export function CatDataProvider({
       }),
       [
         state,
+
         catsLoading,
         catsError,
+
+        detectionsLoading,
+        detectionsError,
+
         refreshCats,
+        refreshDetections,
+        refreshData,
+
         addCat,
         updateCat,
         renameAlbum,
         deleteCat,
+
         saveCapture,
         deleteImage,
         deleteImages,
@@ -343,7 +558,9 @@ export function CatDataProvider({
 
 export function useCatData(): CatDataContextValue {
   const context =
-    useContext(CatDataContext);
+    useContext(
+      CatDataContext
+    );
 
   if (!context) {
     throw new Error(

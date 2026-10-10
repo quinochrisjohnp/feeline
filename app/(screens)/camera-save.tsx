@@ -99,7 +99,7 @@ export default function CameraSave() {
   const {
     state,
     addCat,
-    saveCapture,
+    refreshDetections,
   } = useCatData();
 
   const imageUri =
@@ -314,19 +314,7 @@ export default function CameraSave() {
         // its generated Unknown Cats record.
         // ----------------------------------------------------
 
-        saveCapture({
-          albumId:
-            pendingAlbumId,
-
-          emotion:
-            emotionParam,
-
-          confidence,
-
-          capturedAt,
-
-          imageUri,
-        });
+        await refreshDetections();
 
         setStep("saved");
       } catch (error) {
