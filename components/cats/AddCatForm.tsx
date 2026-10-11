@@ -34,88 +34,164 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface AddCatFormProps {
   visible: boolean;
+  initialCat?: Cat | null;
   onCancel: () => void;
-  onSave: (cat: Cat) => void;
+  onSave: (cat: Cat) => void | Promise<void>;
 }
 
 const COVER_HEIGHT = 128;
 const AVATAR_SIZE = 84;
 const LABEL_WIDTH = 78;
-const IMAGE_ERROR = "We couldn’t open your photos right now. Please try again.";
+
+const IMAGE_ERROR =
+  "We couldn't open your photos right now. Please try again.";
+
 const PERMISSION_ERROR =
   "Photo access is turned off. You can allow it in your device Settings to choose a picture.";
 
-/** Birthdates are stored as local calendar dates (YYYY-MM-DD), never as Date strings. */
 function isoToDate(iso: string): Date {
   const [year, month, day] = iso.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
+
 function isoToDisplay(iso: string): string {
   const [year, month, day] = iso.split("-");
   return `${month}/${day}/${year}`;
 }
+
 function defaultPickerDate(): Date {
   const now = new Date();
-  return new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
+
+  return new Date(
+    now.getFullYear() - 2,
+    now.getMonth(),
+    now.getDate()
+  );
 }
 
 export default function AddCatForm({
   visible,
+  initialCat,
   onCancel,
   onSave,
 }: AddCatFormProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  // ~92% of the screen, but never closer than 24px to either edge, and capped on tablets.
+
   const cardWidth = Math.min(
     width * 0.92,
     width - spacing.lg * 2,
-    dimensions.dialogMaxWidth,
+    dimensions.dialogMaxWidth
   );
 
   const [name, setName] = useState("");
-  const [gender, setGender] = useState<CatGender>("Male");
-  const [birthdate, setBirthdate] = useState(""); // ISO date-only, or ""
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [coverUri, setCoverUri] = useState<string | null>(null);
-  const [nameTouched, setNameTouched] = useState(false);
-  const [saveAttempted, setSaveAttempted] = useState(false);
+  const [breed, setBreed] = useState("");
+  const [description, setDescription] = useState("");
+
+  const [gender, setGender] =
+    useState<CatGender>("Male");
+
+  const [birthdate, setBirthdate] = useState("");
+
+  const [photoUri, setPhotoUri] =
+    useState<string | null>(null);
+
+  const [coverUri, setCoverUri] =
+    useState<string | null>(null);
+
+  const [nameTouched, setNameTouched] =
+    useState(false);
+
+  const [saveAttempted, setSaveAttempted] =
+    useState(false);
+
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [imageError, setImageError] = useState<string | null>(null);
-  const [iosPickerOpen, setIosPickerOpen] = useState(false);
-  const [iosDraft, setIosDraft] = useState<Date>(defaultPickerDate());
+
+  const [saveError, setSaveError] =
+    useState<string | null>(null);
+
+  const [imageError, setImageError] =
+    useState<string | null>(null);
+
+  const [iosPickerOpen, setIosPickerOpen] =
+    useState(false);
+
+  const [iosDraft, setIosDraft] =
+    useState<Date>(defaultPickerDate());
 
   const submitted = useRef(false);
   const mounted = useRef(true);
+
+  // Track whether the component is mounted.
   useEffect(() => {
     mounted.current = true;
+
     return () => {
       mounted.current = false;
     };
   }, []);
+
+  // Prefill fields when editing an existing cat.
+  // Clear fields when adding a new cat.
   useEffect(() => {
-    if (visible) submitted.current = false;
-  }, [visible]);
+    if (!visible) return;
+
+    submitted.current = false;
+
+    setName(initialCat?.name ?? "");
+    setBreed(initialCat?.breed ?? "");
+    setDescription(initialCat?.description ?? "");
+
+    setGender(initialCat?.gender ?? "Male");
+    setBirthdate(initialCat?.birthdate ?? "");
+
+    setPhotoUri(initialCat?.photoUri ?? null);
+    setCoverUri(initialCat?.coverUri ?? null);
+
+    setNameTouched(false);
+    setSaveAttempted(false);
+    setSaving(false);
+
+    setSaveError(null);
+    setImageError(null);
+    setIosPickerOpen(false);
+  }, [visible, initialCat?.id]);
 
   const todayIso = toDateOnly(new Date());
+
   const validBirthdate =
-    !!birthdate && isValidBirthdate(birthdate) && birthdate <= todayIso;
-  const nameInvalid = !name.trim() && (nameTouched || saveAttempted);
-  const birthdateInvalid = !validBirthdate && saveAttempted;
+    !!birthdate &&
+    isValidBirthdate(birthdate) &&
+    birthdate <= todayIso;
+
+  const nameInvalid =
+    !name.trim() &&
+    (nameTouched || saveAttempted);
+
+  const birthdateInvalid =
+    !validBirthdate && saveAttempted;
 
   const reset = () => {
     setName("");
+    setBreed("");
+    setDescription("");
+
     setGender("Male");
     setBirthdate("");
+
     setPhotoUri(null);
     setCoverUri(null);
+
     setNameTouched(false);
     setSaveAttempted(false);
+
     setImageError(null);
+    setSaveError(null);
+
     setIosPickerOpen(false);
     setSaving(false);
-    setSaveError(null);
+
+    submitted.current = false;
   };
 
   const handleCancel = () => {
@@ -125,45 +201,87 @@ export default function AddCatForm({
     onCancel();
   };
 
-  const pickImage = async (target: "cover" | "profile") => {
+  // Select either a cover image or a profile image.
+  const pickImage = async (
+    target: "cover" | "profile"
+  ) => {
     setImageError(null);
+
     try {
-      let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
-      if (!permission.granted && permission.canAskAgain) {
-        permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      let permission =
+        await ImagePicker.getMediaLibraryPermissionsAsync();
+
+      if (
+        !permission.granted &&
+        permission.canAskAgain
+      ) {
+        permission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
       }
-      // Android's system photo picker works without this permission, so only iOS is blocked here.
-      if (!permission.granted && Platform.OS === "ios") {
-        if (mounted.current) setImageError(PERMISSION_ERROR);
+
+      // Android's system photo picker can work
+      // without media-library permission.
+      if (
+        !permission.granted &&
+        Platform.OS === "ios"
+      ) {
+        if (mounted.current) {
+          setImageError(PERMISSION_ERROR);
+        }
+
         return;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        aspect: target === "cover" ? [16, 9] : [1, 1],
-        quality: 0.8,
-        allowsMultipleSelection: false,
-      });
-      if (!mounted.current || result.canceled) return; // cancelling keeps the previous image
+
+      const result =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect:
+            target === "cover"
+              ? [16, 9]
+              : [1, 1],
+          quality: 0.8,
+          allowsMultipleSelection: false,
+        });
+
+      if (
+        !mounted.current ||
+        result.canceled
+      ) {
+        return;
+      }
+
       const uri = result.assets?.[0]?.uri;
+
       if (!uri) {
         setImageError(IMAGE_ERROR);
         return;
       }
-      if (target === "cover") setCoverUri(uri);
-      else setPhotoUri(uri);
+
+      if (target === "cover") {
+        setCoverUri(uri);
+      } else {
+        setPhotoUri(uri);
+      }
     } catch {
-      if (mounted.current) setImageError(IMAGE_ERROR);
+      if (mounted.current) {
+        setImageError(IMAGE_ERROR);
+      }
     }
   };
 
   const applyDate = (date: Date) => {
     const iso = toDateOnly(date);
-    if (iso > todayIso) return; // future birthdates are rejected
+
+    if (iso > todayIso) return;
+
     setBirthdate(iso);
   };
+
   const pickerValue = () =>
-    birthdate ? isoToDate(birthdate) : defaultPickerDate();
+    birthdate
+      ? isoToDate(birthdate)
+      : defaultPickerDate();
 
   const openBirthdatePicker = () => {
     if (Platform.OS === "android") {
@@ -171,8 +289,17 @@ export default function AddCatForm({
         value: pickerValue(),
         mode: "date",
         maximumDate: new Date(),
-        onChange: (event: DateTimePickerEvent, date?: Date) => {
-          if (event.type === "set" && date) applyDate(date);
+
+        onChange: (
+          event: DateTimePickerEvent,
+          date?: Date
+        ) => {
+          if (
+            event.type === "set" &&
+            date
+          ) {
+            applyDate(date);
+          }
         },
       });
     } else {
@@ -181,44 +308,69 @@ export default function AddCatForm({
     }
   };
 
+  // Save a new cat or update an existing cat.
   const handleSave = async () => {
-    if (submitted.current || saving) return;
+    if (submitted.current || saving) {
+      return;
+    }
 
     setSaveAttempted(true);
 
-    const trimmed = name.trim();
+    const trimmedName = name.trim();
 
-    if (!trimmed || !validBirthdate) return;
+    if (
+      !trimmedName ||
+      !validBirthdate
+    ) {
+      return;
+    }
 
     submitted.current = true;
     setSaving(true);
     setSaveError(null);
 
-    const newCat: Cat = {
-      id: generateId("cat"),
-      name: trimmed,
+    const catData: Cat = {
+      // Keep the existing ID during editing.
+      id:
+        initialCat?.id ??
+        generateId("cat"),
+
+      name: trimmedName,
+      breed: breed.trim() || null,
       gender,
       birthdate,
+      description:
+        description.trim() || null,
+
       photoUri,
       coverUri,
     };
 
     try {
-      await onSave(newCat);
+      await onSave(catData);
 
-      if (!mounted.current) return;
+      if (!mounted.current) {
+        return;
+      }
 
       reset();
     } catch (error) {
-      console.error("Save cat failed:", error);
+      console.error(
+        "Save cat failed:",
+        error
+      );
 
-      if (!mounted.current) return;
+      if (!mounted.current) {
+        return;
+      }
 
       submitted.current = false;
       setSaving(false);
 
       setSaveError(
-        error instanceof Error ? error.message : "Failed to save cat.",
+        error instanceof Error
+          ? error.message
+          : "Failed to save cat."
       );
     }
   };
@@ -232,20 +384,30 @@ export default function AddCatForm({
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={
+          Platform.OS === "ios"
+            ? "padding"
+            : "height"
+        }
       >
         <View
           style={[
             styles.overlay,
             {
-              paddingTop: insets.top + spacing.md,
-              paddingBottom: insets.bottom + spacing.md,
+              paddingTop:
+                insets.top + spacing.md,
+
+              paddingBottom:
+                insets.bottom + spacing.md,
             },
           ]}
         >
           <View
             accessibilityViewIsModal
-            style={[styles.card, { width: cardWidth }]}
+            style={[
+              styles.card,
+              { width: cardWidth },
+            ]}
           >
             <ScrollView
               style={styles.scroll}
@@ -254,16 +416,23 @@ export default function AddCatForm({
               showsVerticalScrollIndicator={false}
               bounces={false}
             >
+              {/* COVER PHOTO */}
               <View style={styles.cover}>
                 {coverUri ? (
                   <Image
-                    source={{ uri: coverUri }}
-                    style={StyleSheet.absoluteFillObject}
+                    source={{
+                      uri: coverUri,
+                    }}
+                    style={
+                      StyleSheet.absoluteFillObject
+                    }
                     resizeMode="cover"
                     accessibilityLabel="Cover photo"
                   />
                 ) : (
-                  <View style={styles.coverEmpty}>
+                  <View
+                    style={styles.coverEmpty}
+                  >
                     <Ionicons
                       name="image-outline"
                       size={34}
@@ -271,10 +440,13 @@ export default function AddCatForm({
                     />
                   </View>
                 )}
+
                 <Pressable
                   style={styles.coverCamera}
                   hitSlop={8}
-                  onPress={() => pickImage("cover")}
+                  onPress={() =>
+                    pickImage("cover")
+                  }
                   accessibilityRole="button"
                   accessibilityLabel="Change cover photo"
                 >
@@ -286,23 +458,35 @@ export default function AddCatForm({
                 </Pressable>
               </View>
 
+              {/* PROFILE PHOTO */}
               <View style={styles.avatarWrap}>
                 <View style={styles.avatar}>
                   {photoUri ? (
                     <Image
-                      source={{ uri: photoUri }}
-                      style={StyleSheet.absoluteFillObject}
+                      source={{
+                        uri: photoUri,
+                      }}
+                      style={
+                        StyleSheet.absoluteFillObject
+                      }
                       resizeMode="cover"
                       accessibilityLabel="Profile photo"
                     />
                   ) : (
-                    <Ionicons name="paw" size={30} color={colors.textMuted} />
+                    <Ionicons
+                      name="paw"
+                      size={30}
+                      color={colors.textMuted}
+                    />
                   )}
                 </View>
+
                 <Pressable
                   style={styles.avatarCamera}
                   hitSlop={8}
-                  onPress={() => pickImage("profile")}
+                  onPress={() =>
+                    pickImage("profile")
+                  }
                   accessibilityRole="button"
                   accessibilityLabel="Change profile photo"
                 >
@@ -314,127 +498,296 @@ export default function AddCatForm({
                 </Pressable>
               </View>
 
+              {/* CAT INFORMATION */}
               <View style={styles.form}>
-                <Text style={styles.title} accessibilityRole="header">
-                  New Cat Profile
+                <Text
+                  style={styles.title}
+                  accessibilityRole="header"
+                >
+                  {initialCat
+                    ? "Edit Cat Profile"
+                    : "New Cat Profile"}
                 </Text>
+
                 {imageError ? (
-                  <Text style={styles.imageError} accessibilityRole="alert">
+                  <Text
+                    style={styles.imageError}
+                    accessibilityRole="alert"
+                  >
                     {imageError}
                   </Text>
                 ) : null}
+
                 {saveError ? (
-                  <Text style={styles.imageError} accessibilityRole="alert">
+                  <Text
+                    style={styles.imageError}
+                    accessibilityRole="alert"
+                  >
                     {saveError}
                   </Text>
                 ) : null}
 
+                {/* NAME */}
                 <View style={styles.row}>
-                  <Text style={styles.label}>Name</Text>
+                  <Text style={styles.label}>
+                    Name
+                  </Text>
+
                   <TextInput
-                    style={[styles.input, nameInvalid && styles.invalid]}
+                    style={[
+                      styles.input,
+                      nameInvalid &&
+                        styles.invalid,
+                    ]}
                     value={name}
                     onChangeText={setName}
-                    onBlur={() => setNameTouched(true)}
+                    onBlur={() =>
+                      setNameTouched(true)
+                    }
                     placeholder="Name"
-                    placeholderTextColor={colors.textMuted}
+                    placeholderTextColor={
+                      colors.textMuted
+                    }
                     accessibilityLabel="Name"
                     returnKeyType="done"
+                    maxLength={100}
                   />
                 </View>
+
                 {nameInvalid ? (
-                  <Text style={styles.error}>Enter a cat name.</Text>
+                  <Text style={styles.error}>
+                    Enter a cat name.
+                  </Text>
                 ) : null}
 
+                {/* BREED */}
                 <View style={styles.row}>
-                  <Text style={styles.label}>Gender</Text>
-                  <View style={styles.genderRow} accessibilityRole="radiogroup">
-                    {(["Male", "Female"] as CatGender[]).map((option) => (
+                  <Text style={styles.label}>
+                    Breed
+                  </Text>
+
+                  <TextInput
+                    style={styles.input}
+                    value={breed}
+                    onChangeText={setBreed}
+                    placeholder="Breed (optional)"
+                    placeholderTextColor={
+                      colors.textMuted
+                    }
+                    accessibilityLabel="Breed"
+                    returnKeyType="done"
+                    maxLength={100}
+                  />
+                </View>
+
+                {/* GENDER */}
+                <View style={styles.row}>
+                  <Text style={styles.label}>
+                    Gender
+                  </Text>
+
+                  <View
+                    style={styles.genderRow}
+                    accessibilityRole="radiogroup"
+                  >
+                    {(
+                      [
+                        "Male",
+                        "Female",
+                      ] as CatGender[]
+                    ).map((option) => (
                       <Pressable
                         key={option}
-                        onPress={() => setGender(option)}
+                        onPress={() =>
+                          setGender(option)
+                        }
                         accessibilityRole="radio"
-                        accessibilityLabel={option}
-                        accessibilityState={{ checked: gender === option }}
+                        accessibilityLabel={
+                          option
+                        }
+                        accessibilityState={{
+                          checked:
+                            gender === option,
+                        }}
                         style={[
                           styles.pill,
-                          gender === option && styles.pillActive,
+                          gender === option &&
+                            styles.pillActive,
                         ]}
                       >
-                        <Text style={styles.pillLabel}>{option}</Text>
+                        <Text
+                          style={
+                            styles.pillLabel
+                          }
+                        >
+                          {option}
+                        </Text>
                       </Pressable>
                     ))}
                   </View>
                 </View>
 
+                {/* BIRTHDATE */}
                 <View style={styles.row}>
-                  <Text style={styles.label}>Birthdate</Text>
+                  <Text style={styles.label}>
+                    Birthdate
+                  </Text>
+
                   <Pressable
                     style={[
                       styles.input,
                       styles.dateField,
-                      birthdateInvalid && styles.invalid,
+                      birthdateInvalid &&
+                        styles.invalid,
                     ]}
-                    onPress={openBirthdatePicker}
+                    onPress={
+                      openBirthdatePicker
+                    }
                     accessibilityRole="button"
                     accessibilityLabel="Birthdate"
                     accessibilityValue={{
                       text: birthdate
-                        ? isoToDisplay(birthdate)
+                        ? isoToDisplay(
+                            birthdate
+                          )
                         : "Not selected",
                     }}
                   >
                     <Text
                       style={[
                         styles.dateText,
-                        !birthdate && styles.datePlaceholder,
+                        !birthdate &&
+                          styles.datePlaceholder,
                       ]}
                     >
-                      {birthdate ? isoToDisplay(birthdate) : "MM/DD/YYYY"}
+                      {birthdate
+                        ? isoToDisplay(
+                            birthdate
+                          )
+                        : "MM/DD/YYYY"}
                     </Text>
+
                     <Ionicons
                       name="calendar-outline"
                       size={18}
-                      color={colors.textSecondary}
+                      color={
+                        colors.textSecondary
+                      }
                     />
                   </Pressable>
                 </View>
+
                 {birthdateInvalid ? (
                   <Text style={styles.error}>
-                    Choose a birthdate that is not in the future.
+                    Choose a birthdate that
+                    is not in the future.
                   </Text>
                 ) : null}
 
+                {/* DESCRIPTION */}
+                <View
+                  style={[
+                    styles.row,
+                    styles.descriptionRow,
+                  ]}
+                >
+                  <Text style={styles.label}>
+                    Description
+                  </Text>
+
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.descriptionInput,
+                    ]}
+                    value={description}
+                    onChangeText={
+                      setDescription
+                    }
+                    placeholder="About your cat (optional)"
+                    placeholderTextColor={
+                      colors.textMuted
+                    }
+                    accessibilityLabel="Description"
+                    multiline
+                    textAlignVertical="top"
+                    maxLength={1000}
+                  />
+                </View>
+
+                {/* IOS DATE PICKER */}
                 {iosPickerOpen ? (
-                  <View style={styles.iosPicker}>
+                  <View
+                    style={styles.iosPicker}
+                  >
                     <DateTimePicker
                       value={iosDraft}
                       mode="date"
                       display="spinner"
-                      maximumDate={new Date()}
-                      onChange={(_event: DateTimePickerEvent, date?: Date) => {
-                        if (date) setIosDraft(date);
+                      maximumDate={
+                        new Date()
+                      }
+                      onChange={(
+                        _event:
+                          DateTimePickerEvent,
+                        date?: Date
+                      ) => {
+                        if (date) {
+                          setIosDraft(
+                            date
+                          );
+                        }
                       }}
                     />
-                    <View style={styles.iosActions}>
+
+                    <View
+                      style={
+                        styles.iosActions
+                      }
+                    >
                       <Pressable
-                        style={styles.iosButton}
-                        onPress={() => setIosPickerOpen(false)}
+                        style={
+                          styles.iosButton
+                        }
+                        onPress={() =>
+                          setIosPickerOpen(
+                            false
+                          )
+                        }
                         accessibilityRole="button"
                         accessibilityLabel="Cancel date"
                       >
-                        <Text style={styles.iosButtonLabel}>Cancel</Text>
+                        <Text
+                          style={
+                            styles.iosButtonLabel
+                          }
+                        >
+                          Cancel
+                        </Text>
                       </Pressable>
+
                       <Pressable
-                        style={styles.iosButton}
+                        style={
+                          styles.iosButton
+                        }
                         onPress={() => {
-                          applyDate(iosDraft);
-                          setIosPickerOpen(false);
+                          applyDate(
+                            iosDraft
+                          );
+
+                          setIosPickerOpen(
+                            false
+                          );
                         }}
                         accessibilityRole="button"
                         accessibilityLabel="Confirm date"
                       >
-                        <Text style={[styles.iosButtonLabel, styles.bold]}>
+                        <Text
+                          style={[
+                            styles.iosButtonLabel,
+                            styles.bold,
+                          ]}
+                        >
                           Done
                         </Text>
                       </Pressable>
@@ -444,26 +797,50 @@ export default function AddCatForm({
               </View>
             </ScrollView>
 
+            {/* SAVE AND CANCEL */}
             <View style={styles.actions}>
               <Pressable
-                style={styles.actionButton}
+                style={
+                  styles.actionButton
+                }
                 onPress={handleCancel}
                 disabled={saving}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
               >
-                <Text style={styles.actionLabel}>Cancel</Text>
+                <Text
+                  style={
+                    styles.actionLabel
+                  }
+                >
+                  Cancel
+                </Text>
               </Pressable>
-              <View style={styles.actionDivider} />
+
+              <View
+                style={
+                  styles.actionDivider
+                }
+              />
+
               <Pressable
-                style={styles.actionButton}
+                style={
+                  styles.actionButton
+                }
                 onPress={handleSave}
                 disabled={saving}
                 accessibilityRole="button"
                 accessibilityLabel="Save"
               >
-                <Text style={[styles.actionLabel, styles.bold]}>
-                  {saving ? "Saving..." : "Save"}
+                <Text
+                  style={[
+                    styles.actionLabel,
+                    styles.bold,
+                  ]}
+                >
+                  {saving
+                    ? "Saving..."
+                    : "Save"}
                 </Text>
               </Pressable>
             </View>
@@ -475,13 +852,17 @@ export default function AddCatForm({
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: {
+    flex: 1,
+  },
+
   overlay: {
     flex: 1,
     backgroundColor: colors.overlay,
     alignItems: "center",
     justifyContent: "center",
   },
+
   card: {
     backgroundColor: colors.white,
     borderRadius: radii.xl,
@@ -489,13 +870,23 @@ const styles = StyleSheet.create({
     maxHeight: "90%",
     ...shadows.floating,
   },
-  scroll: { flexGrow: 0, flexShrink: 1 },
-  cover: { height: COVER_HEIGHT, backgroundColor: colors.border },
+
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+
+  cover: {
+    height: COVER_HEIGHT,
+    backgroundColor: colors.border,
+  },
+
   coverEmpty: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
   },
+
   coverCamera: {
     position: "absolute",
     right: spacing.sm,
@@ -510,12 +901,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...shadows.card,
   },
+
   avatarWrap: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     alignSelf: "center",
     marginTop: -AVATAR_SIZE / 2,
   },
+
   avatar: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
@@ -527,6 +920,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   avatarCamera: {
     position: "absolute",
     right: -2,
@@ -541,11 +935,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     ...shadows.card,
   },
+
   form: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
     paddingBottom: spacing.md,
   },
+
   title: {
     ...typography.subheading,
     fontFamily: fontFamily.heading,
@@ -553,6 +949,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing.sm,
   },
+
   imageError: {
     ...typography.caption,
     fontFamily: fontFamily.body,
@@ -560,18 +957,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing.xs,
   },
+
   row: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: spacing.sm,
     minHeight: 40,
   },
+
   label: {
     ...typography.label,
     fontFamily: fontFamily.semibold,
     color: colors.textPrimary,
     width: LABEL_WIDTH,
   },
+
   input: {
     flex: 1,
     height: 40,
@@ -585,7 +985,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textPrimary,
   },
-  invalid: { borderColor: colors.dangerStrong },
+
+  descriptionRow: {
+    alignItems: "flex-start",
+  },
+
+  descriptionInput: {
+    height: 92,
+    borderRadius: radii.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+
+  invalid: {
+    borderColor: colors.dangerStrong,
+  },
+
   error: {
     ...typography.caption,
     fontFamily: fontFamily.body,
@@ -594,7 +1009,13 @@ const styles = StyleSheet.create({
     marginTop: -spacing.xs,
     marginBottom: spacing.xs,
   },
-  genderRow: { flex: 1, flexDirection: "row", gap: spacing.xs },
+
+  genderRow: {
+    flex: 1,
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+
   pill: {
     flex: 1,
     height: 40,
@@ -605,55 +1026,82 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+
+  pillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+
   pillLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 14,
     color: colors.textPrimary,
   },
+
   dateField: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   dateText: {
     fontFamily: fontFamily.body,
     fontSize: 14,
     color: colors.textPrimary,
   },
-  datePlaceholder: { color: colors.textMuted },
+
+  datePlaceholder: {
+    color: colors.textMuted,
+  },
+
   iosPicker: {
     marginTop: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
   },
-  iosActions: { flexDirection: "row", justifyContent: "space-between" },
+
+  iosActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
   iosButton: {
     minHeight: dimensions.touchTarget,
     paddingHorizontal: spacing.md,
     justifyContent: "center",
   },
+
   iosButtonLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 15,
     color: colors.textPrimary,
   },
+
   actions: {
     flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: colors.divider,
   },
+
   actionButton: {
     flex: 1,
     minHeight: dimensions.button,
     alignItems: "center",
     justifyContent: "center",
   },
-  actionDivider: { width: 1, backgroundColor: colors.divider },
+
+  actionDivider: {
+    width: 1,
+    backgroundColor: colors.divider,
+  },
+
   actionLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 16,
     color: colors.textPrimary,
   },
-  bold: { fontFamily: fontFamily.semibold },
+
+  bold: {
+    fontFamily: fontFamily.semibold,
+  },
 });

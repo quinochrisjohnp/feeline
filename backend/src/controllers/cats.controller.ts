@@ -78,10 +78,6 @@ const findDuplicateName = (
     },
   });
 
-// ============================================================
-// CREATE CAT
-// ============================================================
-
 export const createCat = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.profileId) {
@@ -91,6 +87,10 @@ export const createCat = async (req: AuthRequest, res: Response) => {
     }
 
     const body = req.body ?? {};
+
+    // ========================================================
+    // NAME
+    // ========================================================
 
     const name = cleanName(body.name);
 
@@ -106,6 +106,10 @@ export const createCat = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // ========================================================
+    // AGE
+    // ========================================================
+
     const age = parseAge(body.age);
 
     if (age === "invalid") {
@@ -113,6 +117,10 @@ export const createCat = async (req: AuthRequest, res: Response) => {
         error: "Age must be a whole number",
       });
     }
+
+    // ========================================================
+    // BIRTHDATE
+    // ========================================================
 
     const birthdate = parseBirthdate(body.birthdate);
 
@@ -122,13 +130,58 @@ export const createCat = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const duplicateCat = await findDuplicateName(req.profileId, name);
+    // ========================================================
+    // CHECK DUPLICATE NAME
+    // ========================================================
+
+    const duplicateCat = await findDuplicateName(
+      req.profileId,
+      name
+    );
 
     if (duplicateCat) {
       return res.status(409).json({
         error: "You already have a cat with this name",
       });
     }
+
+    // ========================================================
+    // PROFILE IMAGE AND COVER IMAGE
+    // ========================================================
+
+    let profileImageUrl: string | undefined;
+    let coverImageUrl: string | undefined;
+
+    const files = req.files as
+      | { [fieldname: string]: Express.Multer.File[] }
+      | undefined;
+
+    const profileImage = files?.profile_image?.[0];
+    const coverImage = files?.cover_image?.[0];
+
+    // Upload profile image to Cloudinary
+    if (profileImage) {
+      const uploadedImage = await uploadImageToCloudinary(
+        profileImage.buffer,
+        `feeline/${req.profileId}`
+      );
+
+      profileImageUrl = uploadedImage.url;
+    }
+
+    // Upload cover image to Cloudinary
+    if (coverImage) {
+      const uploadedImage = await uploadImageToCloudinary(
+        coverImage.buffer,
+        `feeline/${req.profileId}`
+      );
+
+      coverImageUrl = uploadedImage.url;
+    }
+
+    // ========================================================
+    // CREATE CAT IN DATABASE
+    // ========================================================
 
     const cat = await prisma.cats.create({
       data: {
@@ -139,6 +192,18 @@ export const createCat = async (req: AuthRequest, res: Response) => {
         age,
         birthdate,
         description: cleanOptionalString(body.description),
+
+        ...(profileImageUrl !== undefined
+          ? {
+              profile_image_url: profileImageUrl,
+            }
+          : {}),
+
+        ...(coverImageUrl !== undefined
+          ? {
+              cover_image_url: coverImageUrl,
+            }
+          : {}),
       },
     });
 
@@ -382,18 +447,37 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
     }
 
     // ========================================================
-    // PROFILE IMAGE
+    // PROFILE IMAGE AND COVER IMAGE
     // ========================================================
 
     let profileImageUrl: string | undefined;
+    let coverImageUrl: string | undefined;
 
-    if (req.file) {
+    const files = req.files as
+      | { [fieldname: string]: Express.Multer.File[] }
+      | undefined;
+
+    const profileImage = files?.profile_image?.[0];
+    const coverImage = files?.cover_image?.[0];
+
+    // Upload profile picture only if a new one was selected
+    if (profileImage) {
       const uploadedImage = await uploadImageToCloudinary(
-        req.file.buffer,
+        profileImage.buffer,
         `feeline/${req.profileId}`
       );
 
       profileImageUrl = uploadedImage.url;
+    }
+
+    // Upload cover photo only if a new one was selected
+    if (coverImage) {
+      const uploadedImage = await uploadImageToCloudinary(
+        coverImage.buffer,
+        `feeline/${req.profileId}`
+      );
+
+      coverImageUrl = uploadedImage.url;
     }
 
     // ========================================================
@@ -445,6 +529,11 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
         ...(profileImageUrl !== undefined
           ? {
               profile_image_url: profileImageUrl,
+            }
+          : {}),
+        ...(coverImageUrl !== undefined
+          ? {
+              cover_image_url: coverImageUrl,
             }
           : {}),
       },

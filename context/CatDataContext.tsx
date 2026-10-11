@@ -310,44 +310,36 @@ export function CatDataProvider({
       []
     );
 
-  const updateCat =
-    useCallback(
-      async (
-        catId: string,
-        changes: CatChanges
-      ): Promise<Cat> => {
-        const savedCat =
-          await updateCatApi(
-            catId,
-            changes
-          );
+  const updateCat = useCallback(
+    async (
+      catId: string,
+      changes: CatChanges
+    ): Promise<Cat> => {
+      // Save changes to PostgreSQL through the backend.
+      const savedCat = await updateCatApi(
+        catId,
+        changes
+      );
 
-        dispatch({
-          type: "UPDATE_CAT",
-          catId,
+      // Update the frontend using the saved backend values.
+      dispatch({
+        type: "UPDATE_CAT",
+        catId,
+        changes: {
+          name: savedCat.name,
+          breed: savedCat.breed,
+          gender: savedCat.gender,
+          birthdate: savedCat.birthdate,
+          description: savedCat.description,
+          photoUri: savedCat.photoUri,
+          coverUri: savedCat.coverUri,
+        },
+      });
 
-          changes: {
-            name:
-              savedCat.name,
-
-            gender:
-              savedCat.gender,
-
-            birthdate:
-              savedCat.birthdate,
-
-            photoUri:
-              savedCat.photoUri,
-
-            coverUri:
-              savedCat.coverUri,
-          },
-        });
-
-        return savedCat;
-      },
-      []
-    );
+      return savedCat;
+    },
+    []
+  );
 
   const renameAlbum =
     useCallback(
