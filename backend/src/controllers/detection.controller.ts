@@ -135,12 +135,14 @@ export const getDetectionHistory = async (
 // The user chooses the final album AFTER this.
 // ============================================================
 
+
 export const detectEmotion = async (
   req: AuthRequest,
   res: Response
 ) => {
-  let uploadedPublicId:
-    string | null = null;
+  let uploadedPublicId: string | null = null;
+
+  const requestStart = Date.now();
 
   try {
     if (!req.profileId) {
@@ -151,14 +153,25 @@ export const detectEmotion = async (
 
     if (!req.file) {
       return res.status(400).json({
-        error:
-          "No image file provided",
+        error: "No image file provided",
       });
     }
 
-    // --------------------------------------------------------
+    console.log(
+      "[FeELINE Performance] Detection request started"
+    );
+
+    console.log(
+      `[FeELINE Performance] Image size: ${(
+        req.file.buffer.length /
+        1024 /
+        1024
+      ).toFixed(2)} MB`
+    );
+
+    // ========================================================
     // TEMPORARY DETECTION RESULT
-    // --------------------------------------------------------
+    // ========================================================
 
     const detectionResult = {
       emotion: "Angry",
@@ -171,9 +184,15 @@ export const detectEmotion = async (
       ],
     };
 
-    // --------------------------------------------------------
-    // CLOUDINARY
-    // --------------------------------------------------------
+    // ========================================================
+    // CLOUDINARY UPLOAD
+    // ========================================================
+
+    const cloudinaryStart = Date.now();
+
+    console.log(
+      "[FeELINE Performance] Starting Cloudinary upload..."
+    );
 
     const uploadedImage =
       await uploadImageToCloudinary(
@@ -181,114 +200,114 @@ export const detectEmotion = async (
         `feeline/${req.profileId}`
       );
 
-    const imageUrl =
-      uploadedImage.url;
+    const cloudinaryDuration =
+      Date.now() - cloudinaryStart;
 
-    uploadedPublicId =
-      uploadedImage.publicId;
+    console.log(
+      `[FeELINE Performance] Cloudinary upload: ${cloudinaryDuration} ms`
+    );
 
-    // --------------------------------------------------------
+    const imageUrl = uploadedImage.url;
+
+    uploadedPublicId = uploadedImage.publicId;
+
+    // ========================================================
     // DATABASE TRANSACTION
-    // --------------------------------------------------------
+    // ========================================================
 
-    const result =
-      await prisma.$transaction(
-        async (tx) => {
-          // User hasn't chosen a real album yet.
-          // Every new detection begins in Unknown Cats.
-          const temporaryCat =
-            await tx.cats.create({
+    const databaseStart = Date.now();
+
+    console.log(
+      "[FeELINE Performance] Starting database transaction..."
+    );
+
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Every detection starts in Unknown Cats.
+
+        const temporaryCat =
+          await tx.cats.create({
+            data: {
+              profile_id: req.profileId!,
+              name: UNKNOWN_ALBUM_NAME,
+            },
+          });
+
+        let emotionCategory =
+          await tx.emotion_categories.findUnique({
+            where: {
+              emotion_name:
+                detectionResult.emotion,
+            },
+          });
+
+        if (!emotionCategory) {
+          emotionCategory =
+            await tx.emotion_categories.create({
               data: {
-                profile_id:
-                  req.profileId!,
-
-                name:
-                  UNKNOWN_ALBUM_NAME,
+                emotion_name:
+                  detectionResult.emotion,
               },
             });
-
-          let emotionCategory =
-            await tx.emotion_categories.findUnique(
-              {
-                where: {
-                  emotion_name:
-                    detectionResult.emotion,
-                },
-              }
-            );
-
-          if (!emotionCategory) {
-            emotionCategory =
-              await tx.emotion_categories.create(
-                {
-                  data: {
-                    emotion_name:
-                      detectionResult.emotion,
-                  },
-                }
-              );
-          }
-
-          const catImage =
-            await tx.cat_images.create({
-              data: {
-                cat_id:
-                  temporaryCat.cat_id,
-
-                image_url:
-                  imageUrl,
-
-                is_saved_to_album: false,
-              },
-            });
-
-          const detection =
-            await tx.emotion_detections.create(
-              {
-                data: {
-                  cat_id:
-                    temporaryCat.cat_id,
-
-                  image_id:
-                    catImage.image_id,
-
-                  emotion_id:
-                    emotionCategory.emotion_id,
-
-                  confidence_score:
-                    detectionResult.confidence,
-                },
-              }
-            );
-
-          return {
-            temporaryCat,
-            catImage,
-            detection,
-          };
         }
-      );
 
-    // Database succeeded.
-    //
-    // From this point forward, Cloudinary image belongs
-    // to a persisted DB record and must NOT be cleaned up.
+        const catImage =
+          await tx.cat_images.create({
+            data: {
+              cat_id: temporaryCat.cat_id,
+              image_url: imageUrl,
+              is_saved_to_album: false,
+            },
+          });
+
+        const detection =
+          await tx.emotion_detections.create({
+            data: {
+              cat_id: temporaryCat.cat_id,
+              image_id: catImage.image_id,
+              emotion_id:
+                emotionCategory.emotion_id,
+              confidence_score:
+                detectionResult.confidence,
+            },
+          });
+
+        return {
+          temporaryCat,
+          catImage,
+          detection,
+        };
+      }
+    );
+
+    const databaseDuration =
+      Date.now() - databaseStart;
+
+    console.log(
+      `[FeELINE Performance] Database transaction: ${databaseDuration} ms`
+    );
+
+    // Database succeeded. Keep the Cloudinary image.
     uploadedPublicId = null;
 
+    const totalDuration =
+      Date.now() - requestStart;
+
+    console.log(
+      `[FeELINE Performance] Total controller time: ${totalDuration} ms`
+    );
+
+    // ========================================================
+    // RESPONSE TO MOBILE
+    // ========================================================
+
     return res.status(201).json({
-      catId:
-        result.temporaryCat.cat_id,
-
-      imageId:
-        result.catImage.image_id,
-
+      catId: result.temporaryCat.cat_id,
+      imageId: result.catImage.image_id,
       imageUrl,
 
-      emotion:
-        detectionResult.emotion,
-
-      confidence:
-        detectionResult.confidence,
+      emotion: detectionResult.emotion,
+      confidence: detectionResult.confidence,
 
       recommendations:
         detectionResult.recommendations,
@@ -298,16 +317,19 @@ export const detectEmotion = async (
     });
   } catch (error) {
     console.error(
-      "Emotion detection error:",
+      "[FeELINE] Emotion detection error:",
       error
     );
 
-    // --------------------------------------------------------
+    console.error(
+      `[FeELINE Performance] Failed after ${
+        Date.now() - requestStart
+      } ms`
+    );
+
+    // ========================================================
     // CLOUDINARY ROLLBACK
-    // --------------------------------------------------------
-    //
-    // If Cloudinary succeeded but something afterward failed,
-    // remove the uploaded image so we don't leave an orphan.
+    // ========================================================
 
     if (uploadedPublicId) {
       try {
@@ -319,9 +341,7 @@ export const detectEmotion = async (
           "Rolled back Cloudinary image:",
           uploadedPublicId
         );
-      } catch (
-        cleanupError
-      ) {
+      } catch (cleanupError) {
         console.error(
           "Cloudinary rollback failed:",
           cleanupError
@@ -330,11 +350,11 @@ export const detectEmotion = async (
     }
 
     return res.status(500).json({
-      error:
-        "Failed to process image",
+      error: "Failed to process image",
     });
   }
 };
+
 // ============================================================
 // PATCH /api/detection/:detectionId/album
 //
