@@ -188,12 +188,20 @@ export function catDataReducer(
         updates.name = changes.name.trim();
       }
 
+      if (changes.breed !== undefined) {
+        updates.breed = changes.breed?.trim() || null;
+      }
+
       if (changes.gender !== undefined) {
         updates.gender = changes.gender;
       }
 
       if (changes.birthdate !== undefined) {
         updates.birthdate = changes.birthdate;
+      }
+
+      if (changes.description !== undefined) {
+        updates.description = changes.description?.trim() || null;
       }
 
       if (changes.photoUri !== undefined) {
@@ -213,7 +221,7 @@ export function catDataReducer(
                 ...cat,
                 ...updates,
               }
-            : cat,
+            : cat
         ),
       };
     }

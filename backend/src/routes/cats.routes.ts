@@ -1,34 +1,41 @@
-import { Router } from 'express';
-import { authenticate } from '../middleware/auth.middleware.js';
-import upload from '../middleware/upload.middleware.js';
+import { Router } from "express";
+import { authenticate } from "../middleware/auth.middleware.js";
+import upload from "../middleware/upload.middleware.js";
 
 import {
   createCat,
-  getMyCats,
-  getCatDetections,
-  updateCat,
   deleteCat,
-} from '../controllers/cats.controller.js';
+  getCatDetections,
+  getMyCats,
+  updateCat,
+} from "../controllers/cats.controller.js";
 
 const router = Router();
 
-router.post('/', authenticate, createCat);
+router.post(
+  '/',
+  authenticate,
+  upload.fields([
+    { name: 'profile_image', maxCount: 1 },
+    { name: 'cover_image', maxCount: 1 },
+  ]),
+  createCat
+);
 
-router.get('/', authenticate, getMyCats);
+router.get("/", authenticate, getMyCats);
 
 router.put(
-  '/:catId',
+  "/:catId",
   authenticate,
-  upload.single('profile_image'),
-  updateCat
+  upload.fields([
+    { name: "profile_image", maxCount: 1 },
+    { name: "cover_image", maxCount: 1 },
+  ]),
+  updateCat,
 );
 
-router.delete('/:catId', authenticate, deleteCat);
+router.delete("/:catId", authenticate, deleteCat);
 
-router.get(
-  '/:catId/detections',
-  authenticate,
-  getCatDetections
-);
+router.get("/:catId/detections", authenticate, getCatDetections);
 
 export default router;

@@ -19,15 +19,17 @@ export type CatGender = "Male" | "Female";
 export interface Cat {
   id: string;
   name: string;
+  breed?: string | null;
   gender: CatGender;
+
   /** YYYY-MM-DD */
   birthdate: string;
-  /** Mock/local reference; null renders the placeholder. */
+
+  description?: string | null;
+
   photoUri: string | null;
-  /** Mock/local reference; null renders the placeholder. */
   coverUri: string | null;
 }
-
 export type AlbumKind = "cat" | "unknown";
 
 export const UNKNOWN_ALBUM_ID = "unknown-cats";
@@ -76,7 +78,18 @@ export interface CatDataState {
   detectionRecords: DetectionRecord[];
 }
 
-export type CatChanges = Partial<Pick<Cat, "name" | "gender" | "birthdate" | "photoUri" | "coverUri">>;
+export type CatChanges = Partial<
+  Pick<
+    Cat,
+    | "name"
+    | "breed"
+    | "gender"
+    | "birthdate"
+    | "description"
+    | "photoUri"
+    | "coverUri"
+  >
+>;
 
 export interface SaveCaptureInput {
   albumId: string;

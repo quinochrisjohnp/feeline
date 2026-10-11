@@ -29,6 +29,7 @@ model cats {
   birthdate          DateTime?            @db.Date
   description        String?
   profile_image_url  String?
+  cover_image_url    String?
   created_at         DateTime?            @default(now()) @db.Timestamptz(6)
   updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
 
