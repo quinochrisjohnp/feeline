@@ -1,53 +1,37 @@
 import express from "express";
+import "dotenv/config";
 import cors from "cors";
-import dotenv from "dotenv";
-import pool from "./database";
-import authRoutes from "./auth/auth.routes";
 
-dotenv.config();
+import authRoutes from "./routes/auth.routes.js";
+import detectionRoutes from "./routes/detection.routes.js";
+import catsRoutes from "./routes/cats.routes.js";
+
+import {
+  notFound,
+  errorHandler,
+} from "./middleware/error.middleware.js";
 
 const app = express();
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 4000;
 
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (_req, res) => {
+app.get("/", (_, res) => {
   res.json({
-    success: true,
-    message: "FeELINE Backend API is running.",
+    status: "ok",
+    message: "FeELINE API is running",
   });
 });
 
-app.get("/health", (_req, res) => {
-  res.json({
-    success: true,
-    status: "healthy",
-  });
-});
+app.use("/api/auth", authRoutes);
+app.use("/api/detection", detectionRoutes);
+app.use("/api/cats", catsRoutes);
 
-app.get("/health/database", async (_req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
-
-    res.json({
-      success: true,
-      status: "Database connection successful",
-      database_time: result.rows[0].now,
-    });
-  } catch (error) {
-    console.error("Database connection error:", error);
-
-    res.status(500).json({
-      success: false,
-      status: "Database connection failed",
-    });
-  }
-});
-
-app.use("/auth", authRoutes);
+app.use(notFound);
+app.use(errorHandler);
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`FeELINE Backend running on port ${PORT}`);
+  console.log(`FeELINE API running on port ${PORT}`);
 });

@@ -42,3 +42,31 @@ app-example
 # generated native folders
 /ios
 /android
+
+# FeELINE Backend
+/backend/node_modules/
+/backend/dist/
+
+# Generated files from previous TypeScript builds
+/backend/src/**/*.js
+/backend/src/**/*.js.map
+/backend/src/**/*.d.ts
+/backend/src/**/*.d.ts.map
+
+# Generated Prisma config files
+/backend/prisma.config.js
+/backend/prisma.config.js.map
+/backend/prisma.config.d.ts
+/backend/prisma.config.d.ts.map
+
+# Backend environment variables
+/backend/.env
+/backend/.env.*
+!/backend/.env.example
+
+# Local development tools
+/backend/.agents/
+/backend/.windsurf/
+
+# Local archive
+/.claude.zip

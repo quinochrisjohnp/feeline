@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": ">= 24.8.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://feeline-backend.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "170859184301-rrcceip6li586ij485afrdmpknpo0s0f.apps.googleusercontent.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
