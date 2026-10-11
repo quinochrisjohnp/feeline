@@ -1,23 +1,19 @@
+
 import type { Response } from "express";
 
+import prisma from "../config/db.config.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
+
 import {
   deleteImageFromCloudinary,
   uploadImageToCloudinary,
 } from "../services/cloudinary.service.js";
+
 import { UNKNOWN_ALBUM_NAME } from "../utils/constants.js";
 import { isUuid } from "../utils/validators.js";
-import prisma from "../config/db.config.js";
 
 // ============================================================
 // GET /api/detection
-//
-// Returns every persisted detection belonging to the logged-in
-// user.
-//
-// Temporary database cats named "Unknown Cats" are marked with
-// isUnknown=true. The mobile app combines all of those temporary
-// rows into its single Unknown Cats system album.
 // ============================================================
 
 export const getDetectionHistory = async (
@@ -31,79 +27,53 @@ export const getDetectionHistory = async (
       });
     }
 
-    const detections =
-      await prisma.emotion_detections.findMany({
-        where: {
-          cats: {
-            profile_id: req.profileId,
-          },
+    const detections = await prisma.emotion_detections.findMany({
+      where: {
+        cats: {
+          profile_id: req.profileId,
         },
-
-        include: {
-          cats: true,
-          cat_images: true,
-          emotion_categories: true,
-        },
-
-        orderBy: {
-          detected_at: "desc",
-        },
-      });
+      },
+      include: {
+        cats: true,
+        cat_images: true,
+        emotion_categories: true,
+      },
+      orderBy: {
+        detected_at: "desc",
+      },
+    });
 
     const history = detections
       .filter(
         (detection) =>
-          detection.image_id &&
-          detection.cat_images
+          detection.image_id && detection.cat_images
       )
       .map((detection) => ({
-        detectionId:
-          detection.detection_id,
-
-        imageId:
-          detection.image_id!,
-
-        imageUrl:
-          detection.cat_images!.image_url,
-
-        catId:
-          detection.cat_id,
-
+        detectionId: detection.detection_id,
+        imageId: detection.image_id!,
+        imageUrl: detection.cat_images!.image_url,
+        catId: detection.cat_id,
         isUnknown:
-          detection.cats.name ===
-          UNKNOWN_ALBUM_NAME,
-
+          detection.cats.name === UNKNOWN_ALBUM_NAME,
         isSavedToAlbum:
           detection.cat_images!.is_saved_to_album,
-
         emotion:
-          detection.emotion_categories
-            .emotion_name,
-
-        confidence:
-          detection.confidence_score
-            ? Number(
-                detection.confidence_score
-              )
-            : 0,
-
-        capturedAt:
-          (
-            detection.cat_images!
-              .created_at ??
-            detection.detected_at ??
-            detection.created_at ??
-            new Date()
-          ).toISOString(),
-
-        detectedAt:
-          (
-            detection.detected_at ??
-            detection.created_at ??
-            detection.cat_images!
-              .created_at ??
-            new Date()
-          ).toISOString(),
+          detection.emotion_categories.emotion_name,
+        confidence: detection.confidence_score
+          ? Number(detection.confidence_score)
+          : 0,
+        capturedAt: (
+          detection.cat_images!.created_at ??
+          detection.detected_at ??
+          detection.created_at ??
+          new Date()
+        ).toISOString(),
+        detectedAt: (
+          detection.detected_at ??
+          detection.created_at ??
+          detection.cat_images!.created_at ??
+          new Date()
+        ).toISOString(),
       }));
 
     return res.json({
@@ -116,8 +86,7 @@ export const getDetectionHistory = async (
     );
 
     return res.status(500).json({
-      error:
-        "Failed to fetch detection history",
+      error: "Failed to fetch detection history",
     });
   }
 };
@@ -125,16 +94,18 @@ export const getDetectionHistory = async (
 // ============================================================
 // POST /api/detection
 //
-// Immediately:
-// 1. Upload image to Cloudinary
-// 2. Create temporary Unknown Cats owner
-// 3. Save cat_images
-// 4. Save emotion_detections
-// 5. Return result to mobile
+// Automatically uploads the image to Cloudinary and
+// saves its detection record to PostgreSQL.
 //
-// The user chooses the final album AFTER this.
+// Performance logging measures:
+// - Cloudinary upload
+// - Temporary Unknown Cat creation
+// - Emotion category lookup/creation
+// - Image record creation
+// - Detection record creation
+// - Database transaction overhead
+// - Total controller processing time
 // ============================================================
-
 
 export const detectEmotion = async (
   req: AuthRequest,
@@ -171,12 +142,13 @@ export const detectEmotion = async (
 
     // ========================================================
     // TEMPORARY DETECTION RESULT
+    //
+    // Preserved from your existing implementation.
     // ========================================================
 
     const detectionResult = {
       emotion: "Angry",
       confidence: 0.9,
-
       recommendations: [
         "Avoid physical interaction for now, as your cat may react defensively.",
         "Give your cat space and allow them time to calm down.",
@@ -200,15 +172,13 @@ export const detectEmotion = async (
         `feeline/${req.profileId}`
       );
 
-    const cloudinaryDuration =
-      Date.now() - cloudinaryStart;
-
     console.log(
-      `[FeELINE Performance] Cloudinary upload: ${cloudinaryDuration} ms`
+      `[FeELINE Performance] Cloudinary upload: ${
+        Date.now() - cloudinaryStart
+      } ms`
     );
 
     const imageUrl = uploadedImage.url;
-
     uploadedPublicId = uploadedImage.publicId;
 
     // ========================================================
@@ -217,60 +187,130 @@ export const detectEmotion = async (
 
     const databaseStart = Date.now();
 
+    let totalQueryDuration = 0;
+
     console.log(
       "[FeELINE Performance] Starting database transaction..."
     );
 
     const result = await prisma.$transaction(
       async (tx) => {
-        // Every detection starts in Unknown Cats.
+        // ----------------------------------------------------
+        // 1. CREATE TEMPORARY UNKNOWN CAT
+        // ----------------------------------------------------
 
-        const temporaryCat =
-          await tx.cats.create({
-            data: {
-              profile_id: req.profileId!,
-              name: UNKNOWN_ALBUM_NAME,
-            },
-          });
+        const temporaryCatStart = Date.now();
+
+        const temporaryCat = await tx.cats.create({
+          data: {
+            profile_id: req.profileId!,
+            name: UNKNOWN_ALBUM_NAME,
+          },
+        });
+
+        const temporaryCatDuration =
+          Date.now() - temporaryCatStart;
+
+        totalQueryDuration += temporaryCatDuration;
+
+        console.log(
+          `[FeELINE Performance] Create Unknown Cat: ${temporaryCatDuration} ms`
+        );
+
+        // ----------------------------------------------------
+        // 2. FIND EMOTION CATEGORY
+        // ----------------------------------------------------
+
+        const emotionLookupStart = Date.now();
 
         let emotionCategory =
           await tx.emotion_categories.findUnique({
             where: {
-              emotion_name:
-                detectionResult.emotion,
+              emotion_name: detectionResult.emotion,
             },
           });
 
+        const emotionLookupDuration =
+          Date.now() - emotionLookupStart;
+
+        totalQueryDuration += emotionLookupDuration;
+
+        console.log(
+          `[FeELINE Performance] Find Emotion Category: ${emotionLookupDuration} ms`
+        );
+
+        // ----------------------------------------------------
+        // 3. CREATE EMOTION CATEGORY IF MISSING
+        // ----------------------------------------------------
+
         if (!emotionCategory) {
+          const emotionCreateStart = Date.now();
+
           emotionCategory =
             await tx.emotion_categories.create({
               data: {
-                emotion_name:
-                  detectionResult.emotion,
+                emotion_name: detectionResult.emotion,
               },
             });
+
+          const emotionCreateDuration =
+            Date.now() - emotionCreateStart;
+
+          totalQueryDuration += emotionCreateDuration;
+
+          console.log(
+            `[FeELINE Performance] Create Emotion Category: ${emotionCreateDuration} ms`
+          );
         }
 
-        const catImage =
-          await tx.cat_images.create({
-            data: {
-              cat_id: temporaryCat.cat_id,
-              image_url: imageUrl,
-              is_saved_to_album: false,
-            },
-          });
+        // ----------------------------------------------------
+        // 4. CREATE IMAGE RECORD
+        // ----------------------------------------------------
+
+        const imageRecordStart = Date.now();
+
+        const catImage = await tx.cat_images.create({
+          data: {
+            cat_id: temporaryCat.cat_id,
+            image_url: imageUrl,
+            is_saved_to_album: false,
+          },
+        });
+
+        const imageRecordDuration =
+          Date.now() - imageRecordStart;
+
+        totalQueryDuration += imageRecordDuration;
+
+        console.log(
+          `[FeELINE Performance] Create Image Record: ${imageRecordDuration} ms`
+        );
+
+        // ----------------------------------------------------
+        // 5. CREATE DETECTION RECORD
+        // ----------------------------------------------------
+
+        const detectionRecordStart = Date.now();
 
         const detection =
           await tx.emotion_detections.create({
             data: {
               cat_id: temporaryCat.cat_id,
               image_id: catImage.image_id,
-              emotion_id:
-                emotionCategory.emotion_id,
+              emotion_id: emotionCategory.emotion_id,
               confidence_score:
                 detectionResult.confidence,
             },
           });
+
+        const detectionRecordDuration =
+          Date.now() - detectionRecordStart;
+
+        totalQueryDuration += detectionRecordDuration;
+
+        console.log(
+          `[FeELINE Performance] Create Detection Record: ${detectionRecordDuration} ms`
+        );
 
         return {
           temporaryCat,
@@ -283,6 +323,19 @@ export const detectEmotion = async (
     const databaseDuration =
       Date.now() - databaseStart;
 
+    const transactionOverhead = Math.max(
+      0,
+      databaseDuration - totalQueryDuration
+    );
+
+    console.log(
+      `[FeELINE Performance] Total DB Query Time: ${totalQueryDuration} ms`
+    );
+
+    console.log(
+      `[FeELINE Performance] Transaction Overhead: ${transactionOverhead} ms`
+    );
+
     console.log(
       `[FeELINE Performance] Database transaction: ${databaseDuration} ms`
     );
@@ -290,11 +343,10 @@ export const detectEmotion = async (
     // Database succeeded. Keep the Cloudinary image.
     uploadedPublicId = null;
 
-    const totalDuration =
-      Date.now() - requestStart;
-
     console.log(
-      `[FeELINE Performance] Total controller time: ${totalDuration} ms`
+      `[FeELINE Performance] Total controller time: ${
+        Date.now() - requestStart
+      } ms`
     );
 
     // ========================================================
@@ -305,15 +357,11 @@ export const detectEmotion = async (
       catId: result.temporaryCat.cat_id,
       imageId: result.catImage.image_id,
       imageUrl,
-
       emotion: detectionResult.emotion,
       confidence: detectionResult.confidence,
-
       recommendations:
         detectionResult.recommendations,
-
-      detectionId:
-        result.detection.detection_id,
+      detectionId: result.detection.detection_id,
     });
   } catch (error) {
     console.error(
@@ -327,10 +375,7 @@ export const detectEmotion = async (
       } ms`
     );
 
-    // ========================================================
-    // CLOUDINARY ROLLBACK
-    // ========================================================
-
+    // Roll back the Cloudinary image if DB saving failed.
     if (uploadedPublicId) {
       try {
         await deleteImageFromCloudinary(
@@ -358,10 +403,8 @@ export const detectEmotion = async (
 // ============================================================
 // PATCH /api/detection/:detectionId/album
 //
-// Move an existing image + detection from its temporary
-// Unknown Cats owner to a real cat.
+// Save a detection to Unknown Cats or a personal cat album.
 // ============================================================
-
 
 export const assignDetectionToAlbum = async (
   req: AuthRequest,
@@ -374,20 +417,21 @@ export const assignDetectionToAlbum = async (
       });
     }
 
-    const detectionId = Array.isArray(req.params.detectionId)
+    const detectionId = Array.isArray(
+      req.params.detectionId
+    )
       ? req.params.detectionId[0]
       : req.params.detectionId;
 
-    const { catId, saveToUnknown } = req.body ?? {};
+    const { catId, saveToUnknown } =
+      req.body ?? {};
 
-    // Validate detection ID
     if (!detectionId || !isUuid(detectionId)) {
       return res.status(400).json({
         error: "Invalid detectionId",
       });
     }
 
-    // Exactly one destination must be provided
     if (
       saveToUnknown !== undefined &&
       typeof saveToUnknown !== "boolean"
@@ -397,10 +441,18 @@ export const assignDetectionToAlbum = async (
       });
     }
 
+    // --------------------------------------------------------
+    // SAVE TO UNKNOWN ALBUM
+    // --------------------------------------------------------
+
     if (saveToUnknown === true) {
-      if (catId !== undefined && catId !== null) {
+      if (
+        catId !== undefined &&
+        catId !== null
+      ) {
         return res.status(400).json({
-          error: "Do not provide catId when saving to Unknown Album",
+          error:
+            "Do not provide catId when saving to Unknown Album",
         });
       }
     } else if (
@@ -412,19 +464,19 @@ export const assignDetectionToAlbum = async (
       });
     }
 
-    // Find detection and verify user ownership
-    const detection = await prisma.emotion_detections.findFirst({
-      where: {
-        detection_id: detectionId,
-        cats: {
-          profile_id: req.profileId,
+    const detection =
+      await prisma.emotion_detections.findFirst({
+        where: {
+          detection_id: detectionId,
+          cats: {
+            profile_id: req.profileId,
+          },
         },
-      },
-      include: {
-        cats: true,
-        cat_images: true,
-      },
-    });
+        include: {
+          cats: true,
+          cat_images: true,
+        },
+      });
 
     if (!detection) {
       return res.status(404).json({
@@ -432,9 +484,13 @@ export const assignDetectionToAlbum = async (
       });
     }
 
-    if (!detection.image_id || !detection.cat_images) {
+    if (
+      !detection.image_id ||
+      !detection.cat_images
+    ) {
       return res.status(400).json({
-        error: "Detection has no image to save",
+        error:
+          "Detection has no image to save",
       });
     }
 
@@ -442,19 +498,17 @@ export const assignDetectionToAlbum = async (
     const oldCatId = detection.cat_id;
     const imageId = detection.image_id;
 
-    // ==========================================
-    // OPTION 1: SAVE TO UNKNOWN ALBUM
-    // ==========================================
     if (saveToUnknown === true) {
-      if (currentCat.name !== UNKNOWN_ALBUM_NAME) {
+      if (
+        currentCat.name !==
+        UNKNOWN_ALBUM_NAME
+      ) {
         return res.status(400).json({
           error:
             "Detection belongs to a personal cat album",
         });
       }
 
-      // No image re-upload or new detection.
-      // Only mark the existing image as saved.
       await prisma.cat_images.update({
         where: {
           image_id: imageId,
@@ -465,26 +519,28 @@ export const assignDetectionToAlbum = async (
       });
 
       return res.json({
-        message: "Image saved to Unknown Album successfully.",
+        message:
+          "Image saved to Unknown Album successfully.",
         catId: oldCatId,
         detectionId,
         imageId,
       });
     }
 
-    // ==========================================
-    // OPTION 2: SAVE TO PERSONAL CAT ALBUM
-    // ==========================================
+    // --------------------------------------------------------
+    // SAVE TO PERSONAL CAT ALBUM
+    // --------------------------------------------------------
 
-    const targetCat = await prisma.cats.findFirst({
-      where: {
-        cat_id: catId,
-        profile_id: req.profileId,
-        NOT: {
-          name: UNKNOWN_ALBUM_NAME,
+    const targetCat =
+      await prisma.cats.findFirst({
+        where: {
+          cat_id: catId,
+          profile_id: req.profileId,
+          NOT: {
+            name: UNKNOWN_ALBUM_NAME,
+          },
         },
-      },
-    });
+      });
 
     if (!targetCat) {
       return res.status(404).json({
@@ -492,8 +548,6 @@ export const assignDetectionToAlbum = async (
       });
     }
 
-    // Already belongs to the selected cat.
-    // Still mark it as explicitly saved.
     if (oldCatId === targetCat.cat_id) {
       await prisma.cat_images.update({
         where: {
@@ -505,17 +559,15 @@ export const assignDetectionToAlbum = async (
       });
 
       return res.json({
-        message: "Image saved to album successfully.",
+        message:
+          "Image saved to album successfully.",
         catId: targetCat.cat_id,
         detectionId,
         imageId,
       });
     }
 
-    // ==========================================
-    // MOVE IMAGE AND DETECTION TO PERSONAL CAT
-    // ==========================================
-
+    // Move image and detection to the selected cat.
     await prisma.$transaction(async (tx) => {
       await tx.emotion_detections.update({
         where: {
@@ -537,24 +589,26 @@ export const assignDetectionToAlbum = async (
       });
     });
 
-    // ==========================================
-    // CLEAN UP EMPTY TEMPORARY UNKNOWN CAT
-    // ==========================================
-
-    if (currentCat.name === UNKNOWN_ALBUM_NAME) {
-      const [remainingImages, remainingDetections] =
-        await Promise.all([
-          prisma.cat_images.count({
-            where: {
-              cat_id: oldCatId,
-            },
-          }),
-          prisma.emotion_detections.count({
-            where: {
-              cat_id: oldCatId,
-            },
-          }),
-        ]);
+    // Remove the temporary Unknown Cats row if empty.
+    if (
+      currentCat.name ===
+      UNKNOWN_ALBUM_NAME
+    ) {
+      const [
+        remainingImages,
+        remainingDetections,
+      ] = await Promise.all([
+        prisma.cat_images.count({
+          where: {
+            cat_id: oldCatId,
+          },
+        }),
+        prisma.emotion_detections.count({
+          where: {
+            cat_id: oldCatId,
+          },
+        }),
+      ]);
 
       if (
         remainingImages === 0 &&
@@ -571,19 +625,31 @@ export const assignDetectionToAlbum = async (
     }
 
     return res.json({
-      message: "Image saved to album successfully.",
+      message:
+        "Image saved to album successfully.",
       catId: targetCat.cat_id,
       detectionId,
       imageId,
     });
   } catch (error) {
-    console.error("Assign detection error:", error);
+    console.error(
+      "Assign detection error:",
+      error
+    );
 
     return res.status(500).json({
-      error: "Failed to save detection to album",
+      error:
+        "Failed to save detection to album",
     });
   }
 };
+
+// ============================================================
+// DELETE /api/detection/:detectionId/album
+//
+// Remove an image from an album without deleting its
+// detection history or Cloudinary image.
+// ============================================================
 
 export const removeDetectionFromAlbum = async (
   req: AuthRequest,
@@ -596,7 +662,9 @@ export const removeDetectionFromAlbum = async (
       });
     }
 
-    const detectionId = Array.isArray(req.params.detectionId)
+    const detectionId = Array.isArray(
+      req.params.detectionId
+    )
       ? req.params.detectionId[0]
       : req.params.detectionId;
 
@@ -606,18 +674,18 @@ export const removeDetectionFromAlbum = async (
       });
     }
 
-    // Find the detection and verify ownership.
-    const detection = await prisma.emotion_detections.findFirst({
-      where: {
-        detection_id: detectionId,
-        cats: {
-          profile_id: req.profileId,
+    const detection =
+      await prisma.emotion_detections.findFirst({
+        where: {
+          detection_id: detectionId,
+          cats: {
+            profile_id: req.profileId,
+          },
         },
-      },
-      include: {
-        cat_images: true,
-      },
-    });
+        include: {
+          cat_images: true,
+        },
+      });
 
     if (!detection) {
       return res.status(404).json({
@@ -625,15 +693,16 @@ export const removeDetectionFromAlbum = async (
       });
     }
 
-    if (!detection.image_id || !detection.cat_images) {
+    if (
+      !detection.image_id ||
+      !detection.cat_images
+    ) {
       return res.status(404).json({
-        error: "Detection image not found",
+        error:
+          "Detection image not found",
       });
     }
 
-    // Remove only the Album association.
-    // Preserve the detection, cat association,
-    // and Cloudinary image.
     await prisma.cat_images.update({
       where: {
         image_id: detection.image_id,
@@ -644,15 +713,20 @@ export const removeDetectionFromAlbum = async (
     });
 
     return res.json({
-      message: "Image removed from Album successfully.",
+      message:
+        "Image removed from Album successfully.",
       detectionId,
       imageId: detection.image_id,
     });
   } catch (error) {
-    console.error("Remove detection from Album error:", error);
+    console.error(
+      "Remove detection from Album error:",
+      error
+    );
 
     return res.status(500).json({
-      error: "Failed to remove image from Album",
+      error:
+        "Failed to remove image from Album",
     });
   }
 };
