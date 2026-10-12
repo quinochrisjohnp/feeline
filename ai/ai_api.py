@@ -55,6 +55,10 @@ async def predict(file: UploadFile = File(...)):
                 status_code=504,
                 detail="AI prediction timed out."
             )
+        
+        print("AI prediction return code:", result.returncode, flush=True)
+        print("AI prediction STDOUT:", result.stdout, flush=True)
+        print("AI prediction STDERR:", result.stderr, flush=True)
 
         json_files = list(output_root.glob("*/prediction.json"))
 
