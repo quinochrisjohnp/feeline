@@ -1,8 +1,8 @@
-
 import type { Response } from "express";
 
 import prisma from "../config/db.config.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
+import { predictCatEmotion } from "../services/ai.service.js";
 
 import {
   deleteImageFromCloudinary,
@@ -16,10 +16,7 @@ import { isUuid } from "../utils/validators.js";
 // GET /api/detection
 // ============================================================
 
-export const getDetectionHistory = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const getDetectionHistory = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.profileId) {
       return res.status(401).json({
@@ -44,21 +41,15 @@ export const getDetectionHistory = async (
     });
 
     const history = detections
-      .filter(
-        (detection) =>
-          detection.image_id && detection.cat_images
-      )
+      .filter((detection) => detection.image_id && detection.cat_images)
       .map((detection) => ({
         detectionId: detection.detection_id,
         imageId: detection.image_id!,
         imageUrl: detection.cat_images!.image_url,
         catId: detection.cat_id,
-        isUnknown:
-          detection.cats.name === UNKNOWN_ALBUM_NAME,
-        isSavedToAlbum:
-          detection.cat_images!.is_saved_to_album,
-        emotion:
-          detection.emotion_categories.emotion_name,
+        isUnknown: detection.cats.name === UNKNOWN_ALBUM_NAME,
+        isSavedToAlbum: detection.cat_images!.is_saved_to_album,
+        emotion: detection.emotion_categories.emotion_name,
         confidence: detection.confidence_score
           ? Number(detection.confidence_score)
           : 0,
@@ -80,10 +71,7 @@ export const getDetectionHistory = async (
       detections: history,
     });
   } catch (error) {
-    console.error(
-      "Get detection history error:",
-      error
-    );
+    console.error("Get detection history error:", error);
 
     return res.status(500).json({
       error: "Failed to fetch detection history",
@@ -107,10 +95,7 @@ export const getDetectionHistory = async (
 // 7. Total controller time
 // ============================================================
 
-export const detectEmotion = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const detectEmotion = async (req: AuthRequest, res: Response) => {
   let uploadedPublicId: string | null = null;
 
   const requestStart = Date.now();
@@ -128,29 +113,44 @@ export const detectEmotion = async (
       });
     }
 
-    console.log(
-      "[FeELINE Performance] Detection request started"
-    );
+    console.log("[FeELINE Performance] Detection request started");
 
     console.log(
       `[FeELINE Performance] Image size: ${(
         req.file.buffer.length /
         1024 /
         1024
-      ).toFixed(2)} MB`
+      ).toFixed(2)} MB`,
     );
 
     // ========================================================
-    // TEMPORARY DETECTION RESULT
+    // ACTUAL AI EMOTION DETECTION
     // ========================================================
 
+    console.log("[FeELINE AI] Starting AI prediction...");
+
+    const aiStart = Date.now();
+
+    const aiPrediction = await predictCatEmotion(
+      req.file.buffer,
+      req.file.mimetype,
+    );
+
+    console.log(
+      `[FeELINE AI] Prediction completed in ${Date.now() - aiStart} ms`,
+    );
+
+    console.log(`[FeELINE AI] Emotion: ${aiPrediction.emotion}`);
+
+    console.log(`[FeELINE AI] Confidence: ${aiPrediction.confidence}`);
+
     const detectionResult = {
-      emotion: "Angry",
-      confidence: 0.9,
+      emotion: aiPrediction.emotion,
+      confidence: aiPrediction.confidence,
       recommendations: [
-        "Avoid physical interaction for now, as your cat may react defensively.",
-        "Give your cat space and allow them time to calm down.",
-        "Identify and remove possible triggers such as loud noise, sudden movements, or overstimulation.",
+        "Observe your cat's body language and behavior.",
+        "Provide a safe and comfortable environment.",
+        "Avoid forcing interaction if your cat appears uncomfortable.",
       ],
     };
 
@@ -160,21 +160,17 @@ export const detectEmotion = async (
 
     const cloudinaryStart = Date.now();
 
-    console.log(
-      "[FeELINE Performance] Starting Cloudinary upload..."
+    console.log("[FeELINE Performance] Starting Cloudinary upload...");
+
+    const uploadedImage = await uploadImageToCloudinary(
+      req.file.buffer,
+      `feeline/${req.profileId}`,
     );
 
-    const uploadedImage =
-      await uploadImageToCloudinary(
-        req.file.buffer,
-        `feeline/${req.profileId}`
-      );
-
-    const cloudinaryDuration =
-      Date.now() - cloudinaryStart;
+    const cloudinaryDuration = Date.now() - cloudinaryStart;
 
     console.log(
-      `[FeELINE Performance] Cloudinary upload: ${cloudinaryDuration} ms`
+      `[FeELINE Performance] Cloudinary upload: ${cloudinaryDuration} ms`,
     );
 
     const imageUrl = uploadedImage.url;
@@ -193,163 +189,149 @@ export const detectEmotion = async (
     let transactionCallbackStart = 0;
     let transactionCallbackEnd = 0;
 
-    console.log(
-      "[FeELINE Performance] Starting database transaction..."
-    );
+    console.log("[FeELINE Performance] Starting database transaction...");
 
-    const result = await prisma.$transaction(
-      async (tx) => {
-        // ====================================================
-        // TRANSACTION STARTUP
-        // ====================================================
+    const result = await prisma.$transaction(async (tx) => {
+      // ====================================================
+      // TRANSACTION STARTUP
+      // ====================================================
 
-        transactionCallbackStart = Date.now();
+      transactionCallbackStart = Date.now();
 
-        const transactionStartupDuration =
-          transactionCallbackStart - databaseStart;
+      const transactionStartupDuration =
+        transactionCallbackStart - databaseStart;
 
-        console.log(
-          `[FeELINE Performance] Transaction Startup: ${transactionStartupDuration} ms`
-        );
+      console.log(
+        `[FeELINE Performance] Transaction Startup: ${transactionStartupDuration} ms`,
+      );
 
-        // ====================================================
-        // 1. CREATE TEMPORARY UNKNOWN CAT
-        // ====================================================
+      // ====================================================
+      // 1. CREATE TEMPORARY UNKNOWN CAT
+      // ====================================================
 
-        const temporaryCatStart = Date.now();
+      const temporaryCatStart = Date.now();
 
-        const temporaryCat = await tx.cats.create({
+      const temporaryCat = await tx.cats.create({
+        data: {
+          profile_id: req.profileId!,
+          name: UNKNOWN_ALBUM_NAME,
+        },
+      });
+
+      const temporaryCatDuration = Date.now() - temporaryCatStart;
+
+      totalQueryDuration += temporaryCatDuration;
+
+      console.log(
+        `[FeELINE Performance] Create Unknown Cat: ${temporaryCatDuration} ms`,
+      );
+
+      // ====================================================
+      // 2. FIND EMOTION CATEGORY
+      // ====================================================
+
+      const emotionLookupStart = Date.now();
+
+      let emotionCategory = await tx.emotion_categories.findUnique({
+        where: {
+          emotion_name: detectionResult.emotion,
+        },
+      });
+
+      const emotionLookupDuration = Date.now() - emotionLookupStart;
+
+      totalQueryDuration += emotionLookupDuration;
+
+      console.log(
+        `[FeELINE Performance] Find Emotion Category: ${emotionLookupDuration} ms`,
+      );
+
+      // ====================================================
+      // 3. CREATE EMOTION CATEGORY IF MISSING
+      // ====================================================
+
+      if (!emotionCategory) {
+        const emotionCreateStart = Date.now();
+
+        emotionCategory = await tx.emotion_categories.create({
           data: {
-            profile_id: req.profileId!,
-            name: UNKNOWN_ALBUM_NAME,
+            emotion_name: detectionResult.emotion,
           },
         });
 
-        const temporaryCatDuration =
-          Date.now() - temporaryCatStart;
+        const emotionCreateDuration = Date.now() - emotionCreateStart;
 
-        totalQueryDuration += temporaryCatDuration;
-
-        console.log(
-          `[FeELINE Performance] Create Unknown Cat: ${temporaryCatDuration} ms`
-        );
-
-        // ====================================================
-        // 2. FIND EMOTION CATEGORY
-        // ====================================================
-
-        const emotionLookupStart = Date.now();
-
-        let emotionCategory =
-          await tx.emotion_categories.findUnique({
-            where: {
-              emotion_name: detectionResult.emotion,
-            },
-          });
-
-        const emotionLookupDuration =
-          Date.now() - emotionLookupStart;
-
-        totalQueryDuration += emotionLookupDuration;
+        totalQueryDuration += emotionCreateDuration;
 
         console.log(
-          `[FeELINE Performance] Find Emotion Category: ${emotionLookupDuration} ms`
+          `[FeELINE Performance] Create Emotion Category: ${emotionCreateDuration} ms`,
         );
-
-        // ====================================================
-        // 3. CREATE EMOTION CATEGORY IF MISSING
-        // ====================================================
-
-        if (!emotionCategory) {
-          const emotionCreateStart = Date.now();
-
-          emotionCategory =
-            await tx.emotion_categories.create({
-              data: {
-                emotion_name: detectionResult.emotion,
-              },
-            });
-
-          const emotionCreateDuration =
-            Date.now() - emotionCreateStart;
-
-          totalQueryDuration += emotionCreateDuration;
-
-          console.log(
-            `[FeELINE Performance] Create Emotion Category: ${emotionCreateDuration} ms`
-          );
-        }
-
-        // ====================================================
-        // 4. CREATE IMAGE RECORD
-        // ====================================================
-
-        const imageRecordStart = Date.now();
-
-        const catImage = await tx.cat_images.create({
-          data: {
-            cat_id: temporaryCat.cat_id,
-            image_url: imageUrl,
-            is_saved_to_album: false,
-          },
-        });
-
-        const imageRecordDuration =
-          Date.now() - imageRecordStart;
-
-        totalQueryDuration += imageRecordDuration;
-
-        console.log(
-          `[FeELINE Performance] Create Image Record: ${imageRecordDuration} ms`
-        );
-
-        // ====================================================
-        // 5. CREATE DETECTION RECORD
-        // ====================================================
-
-        const detectionRecordStart = Date.now();
-
-        const detection =
-          await tx.emotion_detections.create({
-            data: {
-              cat_id: temporaryCat.cat_id,
-              image_id: catImage.image_id,
-              emotion_id: emotionCategory.emotion_id,
-              confidence_score:
-                detectionResult.confidence,
-            },
-          });
-
-        const detectionRecordDuration =
-          Date.now() - detectionRecordStart;
-
-        totalQueryDuration += detectionRecordDuration;
-
-        console.log(
-          `[FeELINE Performance] Create Detection Record: ${detectionRecordDuration} ms`
-        );
-
-        // ====================================================
-        // TRANSACTION CALLBACK COMPLETION
-        // ====================================================
-
-        transactionCallbackEnd = Date.now();
-
-        const transactionCallbackDuration =
-          transactionCallbackEnd -
-          transactionCallbackStart;
-
-        console.log(
-          `[FeELINE Performance] Transaction Callback Duration: ${transactionCallbackDuration} ms`
-        );
-
-        return {
-          temporaryCat,
-          catImage,
-          detection,
-        };
       }
-    );
+
+      // ====================================================
+      // 4. CREATE IMAGE RECORD
+      // ====================================================
+
+      const imageRecordStart = Date.now();
+
+      const catImage = await tx.cat_images.create({
+        data: {
+          cat_id: temporaryCat.cat_id,
+          image_url: imageUrl,
+          is_saved_to_album: false,
+        },
+      });
+
+      const imageRecordDuration = Date.now() - imageRecordStart;
+
+      totalQueryDuration += imageRecordDuration;
+
+      console.log(
+        `[FeELINE Performance] Create Image Record: ${imageRecordDuration} ms`,
+      );
+
+      // ====================================================
+      // 5. CREATE DETECTION RECORD
+      // ====================================================
+
+      const detectionRecordStart = Date.now();
+
+      const detection = await tx.emotion_detections.create({
+        data: {
+          cat_id: temporaryCat.cat_id,
+          image_id: catImage.image_id,
+          emotion_id: emotionCategory.emotion_id,
+          confidence_score: detectionResult.confidence,
+        },
+      });
+
+      const detectionRecordDuration = Date.now() - detectionRecordStart;
+
+      totalQueryDuration += detectionRecordDuration;
+
+      console.log(
+        `[FeELINE Performance] Create Detection Record: ${detectionRecordDuration} ms`,
+      );
+
+      // ====================================================
+      // TRANSACTION CALLBACK COMPLETION
+      // ====================================================
+
+      transactionCallbackEnd = Date.now();
+
+      const transactionCallbackDuration =
+        transactionCallbackEnd - transactionCallbackStart;
+
+      console.log(
+        `[FeELINE Performance] Transaction Callback Duration: ${transactionCallbackDuration} ms`,
+      );
+
+      return {
+        temporaryCat,
+        catImage,
+        detection,
+      };
+    });
 
     // ========================================================
     // TRANSACTION FINISHED
@@ -357,56 +339,51 @@ export const detectEmotion = async (
 
     const databaseEnd = Date.now();
 
-    const databaseDuration =
-      databaseEnd - databaseStart;
+    const databaseDuration = databaseEnd - databaseStart;
 
-    const transactionStartupDuration =
-      transactionCallbackStart - databaseStart;
+    const transactionStartupDuration = transactionCallbackStart - databaseStart;
 
     const transactionCallbackDuration =
-      transactionCallbackEnd -
-      transactionCallbackStart;
+      transactionCallbackEnd - transactionCallbackStart;
 
-    const transactionCompletionDuration =
-      databaseEnd - transactionCallbackEnd;
+    const transactionCompletionDuration = databaseEnd - transactionCallbackEnd;
 
     const callbackOverhead = Math.max(
       0,
-      transactionCallbackDuration -
-        totalQueryDuration
+      transactionCallbackDuration - totalQueryDuration,
     );
 
     const transactionOverhead = Math.max(
       0,
-      databaseDuration - totalQueryDuration
+      databaseDuration - totalQueryDuration,
     );
 
     console.log(
-      `[FeELINE Performance] Total DB Query Time: ${totalQueryDuration} ms`
+      `[FeELINE Performance] Total DB Query Time: ${totalQueryDuration} ms`,
     );
 
     console.log(
-      `[FeELINE Performance] Transaction Startup: ${transactionStartupDuration} ms`
+      `[FeELINE Performance] Transaction Startup: ${transactionStartupDuration} ms`,
     );
 
     console.log(
-      `[FeELINE Performance] Transaction Callback Duration: ${transactionCallbackDuration} ms`
+      `[FeELINE Performance] Transaction Callback Duration: ${transactionCallbackDuration} ms`,
     );
 
     console.log(
-      `[FeELINE Performance] Callback Overhead: ${callbackOverhead} ms`
+      `[FeELINE Performance] Callback Overhead: ${callbackOverhead} ms`,
     );
 
     console.log(
-      `[FeELINE Performance] Transaction Completion: ${transactionCompletionDuration} ms`
+      `[FeELINE Performance] Transaction Completion: ${transactionCompletionDuration} ms`,
     );
 
     console.log(
-      `[FeELINE Performance] Transaction Overhead: ${transactionOverhead} ms`
+      `[FeELINE Performance] Transaction Overhead: ${transactionOverhead} ms`,
     );
 
     console.log(
-      `[FeELINE Performance] Database transaction: ${databaseDuration} ms`
+      `[FeELINE Performance] Database transaction: ${databaseDuration} ms`,
     );
 
     // Database succeeded. Keep the Cloudinary image.
@@ -416,11 +393,10 @@ export const detectEmotion = async (
     // TOTAL CONTROLLER TIME
     // ========================================================
 
-    const totalDuration =
-      Date.now() - requestStart;
+    const totalDuration = Date.now() - requestStart;
 
     console.log(
-      `[FeELINE Performance] Total controller time: ${totalDuration} ms`
+      `[FeELINE Performance] Total controller time: ${totalDuration} ms`,
     );
 
     // ========================================================
@@ -433,20 +409,14 @@ export const detectEmotion = async (
       imageUrl,
       emotion: detectionResult.emotion,
       confidence: detectionResult.confidence,
-      recommendations:
-        detectionResult.recommendations,
+      recommendations: detectionResult.recommendations,
       detectionId: result.detection.detection_id,
     });
   } catch (error) {
-    console.error(
-      "[FeELINE] Emotion detection error:",
-      error
-    );
+    console.error("[FeELINE] Emotion detection error:", error);
 
     console.error(
-      `[FeELINE Performance] Failed after ${
-        Date.now() - requestStart
-      } ms`
+      `[FeELINE Performance] Failed after ${Date.now() - requestStart} ms`,
     );
 
     // ========================================================
@@ -455,19 +425,11 @@ export const detectEmotion = async (
 
     if (uploadedPublicId) {
       try {
-        await deleteImageFromCloudinary(
-          uploadedPublicId
-        );
+        await deleteImageFromCloudinary(uploadedPublicId);
 
-        console.log(
-          "Rolled back Cloudinary image:",
-          uploadedPublicId
-        );
+        console.log("Rolled back Cloudinary image:", uploadedPublicId);
       } catch (cleanupError) {
-        console.error(
-          "Cloudinary rollback failed:",
-          cleanupError
-        );
+        console.error("Cloudinary rollback failed:", cleanupError);
       }
     }
 
@@ -485,7 +447,7 @@ export const detectEmotion = async (
 
 export const assignDetectionToAlbum = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) => {
   try {
     if (!req.profileId) {
@@ -494,14 +456,11 @@ export const assignDetectionToAlbum = async (
       });
     }
 
-    const detectionId = Array.isArray(
-      req.params.detectionId
-    )
+    const detectionId = Array.isArray(req.params.detectionId)
       ? req.params.detectionId[0]
       : req.params.detectionId;
 
-    const { catId, saveToUnknown } =
-      req.body ?? {};
+    const { catId, saveToUnknown } = req.body ?? {};
 
     if (!detectionId || !isUuid(detectionId)) {
       return res.status(400).json({
@@ -509,10 +468,7 @@ export const assignDetectionToAlbum = async (
       });
     }
 
-    if (
-      saveToUnknown !== undefined &&
-      typeof saveToUnknown !== "boolean"
-    ) {
+    if (saveToUnknown !== undefined && typeof saveToUnknown !== "boolean") {
       return res.status(400).json({
         error: "Invalid saveToUnknown value",
       });
@@ -523,19 +479,12 @@ export const assignDetectionToAlbum = async (
     // ========================================================
 
     if (saveToUnknown === true) {
-      if (
-        catId !== undefined &&
-        catId !== null
-      ) {
+      if (catId !== undefined && catId !== null) {
         return res.status(400).json({
-          error:
-            "Do not provide catId when saving to Unknown Album",
+          error: "Do not provide catId when saving to Unknown Album",
         });
       }
-    } else if (
-      typeof catId !== "string" ||
-      !isUuid(catId)
-    ) {
+    } else if (typeof catId !== "string" || !isUuid(catId)) {
       return res.status(400).json({
         error: "Invalid catId",
       });
@@ -545,19 +494,18 @@ export const assignDetectionToAlbum = async (
     // FIND DETECTION AND VERIFY OWNERSHIP
     // ========================================================
 
-    const detection =
-      await prisma.emotion_detections.findFirst({
-        where: {
-          detection_id: detectionId,
-          cats: {
-            profile_id: req.profileId,
-          },
+    const detection = await prisma.emotion_detections.findFirst({
+      where: {
+        detection_id: detectionId,
+        cats: {
+          profile_id: req.profileId,
         },
-        include: {
-          cats: true,
-          cat_images: true,
-        },
-      });
+      },
+      include: {
+        cats: true,
+        cat_images: true,
+      },
+    });
 
     if (!detection) {
       return res.status(404).json({
@@ -565,13 +513,9 @@ export const assignDetectionToAlbum = async (
       });
     }
 
-    if (
-      !detection.image_id ||
-      !detection.cat_images
-    ) {
+    if (!detection.image_id || !detection.cat_images) {
       return res.status(400).json({
-        error:
-          "Detection has no image to save",
+        error: "Detection has no image to save",
       });
     }
 
@@ -584,13 +528,9 @@ export const assignDetectionToAlbum = async (
     // ========================================================
 
     if (saveToUnknown === true) {
-      if (
-        currentCat.name !==
-        UNKNOWN_ALBUM_NAME
-      ) {
+      if (currentCat.name !== UNKNOWN_ALBUM_NAME) {
         return res.status(400).json({
-          error:
-            "Detection belongs to a personal cat album",
+          error: "Detection belongs to a personal cat album",
         });
       }
 
@@ -604,8 +544,7 @@ export const assignDetectionToAlbum = async (
       });
 
       return res.json({
-        message:
-          "Image saved to Unknown Album successfully.",
+        message: "Image saved to Unknown Album successfully.",
         catId: oldCatId,
         detectionId,
         imageId,
@@ -616,16 +555,15 @@ export const assignDetectionToAlbum = async (
     // OPTION 2: SAVE TO PERSONAL CAT ALBUM
     // ========================================================
 
-    const targetCat =
-      await prisma.cats.findFirst({
-        where: {
-          cat_id: catId,
-          profile_id: req.profileId,
-          NOT: {
-            name: UNKNOWN_ALBUM_NAME,
-          },
+    const targetCat = await prisma.cats.findFirst({
+      where: {
+        cat_id: catId,
+        profile_id: req.profileId,
+        NOT: {
+          name: UNKNOWN_ALBUM_NAME,
         },
-      });
+      },
+    });
 
     if (!targetCat) {
       return res.status(404).json({
@@ -644,8 +582,7 @@ export const assignDetectionToAlbum = async (
       });
 
       return res.json({
-        message:
-          "Image saved to album successfully.",
+        message: "Image saved to album successfully.",
         catId: targetCat.cat_id,
         detectionId,
         imageId,
@@ -681,14 +618,8 @@ export const assignDetectionToAlbum = async (
     // CLEAN UP EMPTY TEMPORARY UNKNOWN CAT
     // ========================================================
 
-    if (
-      currentCat.name ===
-      UNKNOWN_ALBUM_NAME
-    ) {
-      const [
-        remainingImages,
-        remainingDetections,
-      ] = await Promise.all([
+    if (currentCat.name === UNKNOWN_ALBUM_NAME) {
+      const [remainingImages, remainingDetections] = await Promise.all([
         prisma.cat_images.count({
           where: {
             cat_id: oldCatId,
@@ -701,10 +632,7 @@ export const assignDetectionToAlbum = async (
         }),
       ]);
 
-      if (
-        remainingImages === 0 &&
-        remainingDetections === 0
-      ) {
+      if (remainingImages === 0 && remainingDetections === 0) {
         await prisma.cats.deleteMany({
           where: {
             cat_id: oldCatId,
@@ -716,21 +644,16 @@ export const assignDetectionToAlbum = async (
     }
 
     return res.json({
-      message:
-        "Image saved to album successfully.",
+      message: "Image saved to album successfully.",
       catId: targetCat.cat_id,
       detectionId,
       imageId,
     });
   } catch (error) {
-    console.error(
-      "Assign detection error:",
-      error
-    );
+    console.error("Assign detection error:", error);
 
     return res.status(500).json({
-      error:
-        "Failed to save detection to album",
+      error: "Failed to save detection to album",
     });
   }
 };
@@ -744,7 +667,7 @@ export const assignDetectionToAlbum = async (
 
 export const removeDetectionFromAlbum = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) => {
   try {
     if (!req.profileId) {
@@ -753,9 +676,7 @@ export const removeDetectionFromAlbum = async (
       });
     }
 
-    const detectionId = Array.isArray(
-      req.params.detectionId
-    )
+    const detectionId = Array.isArray(req.params.detectionId)
       ? req.params.detectionId[0]
       : req.params.detectionId;
 
@@ -765,18 +686,17 @@ export const removeDetectionFromAlbum = async (
       });
     }
 
-    const detection =
-      await prisma.emotion_detections.findFirst({
-        where: {
-          detection_id: detectionId,
-          cats: {
-            profile_id: req.profileId,
-          },
+    const detection = await prisma.emotion_detections.findFirst({
+      where: {
+        detection_id: detectionId,
+        cats: {
+          profile_id: req.profileId,
         },
-        include: {
-          cat_images: true,
-        },
-      });
+      },
+      include: {
+        cat_images: true,
+      },
+    });
 
     if (!detection) {
       return res.status(404).json({
@@ -784,13 +704,9 @@ export const removeDetectionFromAlbum = async (
       });
     }
 
-    if (
-      !detection.image_id ||
-      !detection.cat_images
-    ) {
+    if (!detection.image_id || !detection.cat_images) {
       return res.status(404).json({
-        error:
-          "Detection image not found",
+        error: "Detection image not found",
       });
     }
 
@@ -805,20 +721,15 @@ export const removeDetectionFromAlbum = async (
     });
 
     return res.json({
-      message:
-        "Image removed from Album successfully.",
+      message: "Image removed from Album successfully.",
       detectionId,
       imageId: detection.image_id,
     });
   } catch (error) {
-    console.error(
-      "Remove detection from Album error:",
-      error
-    );
+    console.error("Remove detection from Album error:", error);
 
     return res.status(500).json({
-      error:
-        "Failed to remove image from Album",
+      error: "Failed to remove image from Album",
     });
   }
 };
