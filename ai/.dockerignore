@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+prediction_runs_v3/
+*.log
+.env
+.git/
