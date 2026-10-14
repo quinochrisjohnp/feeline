@@ -1,14 +1,11 @@
 import type { Response } from "express";
-
 import prisma from "../config/db.config.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
 import { predictCatEmotion } from "../services/ai.service.js";
-
 import {
   deleteImageFromCloudinary,
   uploadImageToCloudinary,
 } from "../services/cloudinary.service.js";
-
 import { UNKNOWN_ALBUM_NAME } from "../utils/constants.js";
 import { isUuid } from "../utils/validators.js";
 
@@ -144,14 +141,57 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
 
     console.log(`[FeELINE AI] Confidence: ${aiPrediction.confidence}`);
 
+    // ========================================================
+    // DATABASE-DRIVEN EMOTION RECOMMENDATIONS
+    // ========================================================
+
+    let selectedRecommendations: string[] = [];
+
+    try {
+      const matchedRecommendations = await prisma.recommendations.findMany({
+        where: {
+          emotion_categories: {
+            emotion_name: {
+              equals: aiPrediction.emotion,
+              mode: "insensitive",
+            },
+          },
+        },
+        select: {
+          recommendation_text: true,
+        },
+      });
+
+      if (matchedRecommendations.length > 0) {
+        const shuffled = [...matchedRecommendations];
+
+        // Randomly select up to 3 recommendations
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+
+          [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+        }
+
+        selectedRecommendations = shuffled
+          .slice(0, 3)
+          .map((item) => item.recommendation_text);
+      }
+
+      console.log(`[FeELINE Recommendations] Emotion: ${aiPrediction.emotion}`);
+
+      console.log(
+        `[FeELINE Recommendations] Selected: ${selectedRecommendations.length}`,
+      );
+    } catch (error) {
+      console.error("[FeELINE Recommendations] Database lookup failed:", error);
+
+      // Continue detection using fallback recommendations.
+    }
+
     const detectionResult = {
       emotion: aiPrediction.emotion,
       confidence: aiPrediction.confidence,
-      recommendations: [
-        "Observe your cat's body language and behavior.",
-        "Provide a safe and comfortable environment.",
-        "Avoid forcing interaction if your cat appears uncomfortable.",
-      ],
+      recommendations: selectedRecommendations,
     };
 
     // ========================================================
@@ -186,6 +226,7 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
 
     // These values are recorded inside the callback and
     // compared after the transaction has completed.
+
     let transactionCallbackStart = 0;
     let transactionCallbackEnd = 0;
 
@@ -711,6 +752,7 @@ export const removeDetectionFromAlbum = async (
     }
 
     // Preserve detection history and Cloudinary image.
+
     await prisma.cat_images.update({
       where: {
         image_id: detection.image_id,
