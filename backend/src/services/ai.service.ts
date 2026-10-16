@@ -1,4 +1,6 @@
 
+import sharp from "sharp";
+
 type AIPredictionResponse = {
   status: string;
   prediction: {
@@ -10,7 +12,7 @@ type AIPredictionResponse = {
   warnings: string[];
 };
 
-// ADDED: Dedicated error for rejected cat images.
+// Dedicated error for rejected cat images.
 export class CatValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -25,14 +27,40 @@ export async function predictCatEmotion(
   emotion: string;
   confidence: number;
 }> {
+  // UPDATED: Normalize the image for Railway AI.
+  // JPEG and PNG are preserved; other formats are converted.
+  const imageMetadata = await sharp(imageBuffer).metadata();
+
+  let aiImageBuffer = imageBuffer;
+  let aiMimeType = mimeType;
+  let aiFilename = "cat.jpg";
+
+  if (imageMetadata.format === "jpeg") {
+    aiMimeType = "image/jpeg";
+    aiFilename = "cat.jpg";
+  } else if (imageMetadata.format === "png") {
+    aiMimeType = "image/png";
+    aiFilename = "cat.png";
+  } else {
+    // Convert WebP, HEIC, HEIF, and other supported
+    // formats into actual JPEG bytes.
+    aiImageBuffer = await sharp(imageBuffer)
+      .rotate()
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    aiMimeType = "image/jpeg";
+    aiFilename = "cat.jpg";
+  }
+
   const formData = new FormData();
 
   formData.append(
     "file",
-    new Blob([new Uint8Array(imageBuffer)], {
-      type: mimeType,
+    new Blob([new Uint8Array(aiImageBuffer)], {
+      type: aiMimeType,
     }),
-    "cat.jpg",
+    aiFilename,
   );
 
   const aiUrl = process.env.AI_SERVICE_URL?.replace(/\/+$/, "");
@@ -47,7 +75,7 @@ export async function predictCatEmotion(
     signal: AbortSignal.timeout(180000),
   });
 
-  // ADDED: Handle image rejection from Railway AI.
+  // PRESERVED: Handle image rejection from Railway AI.
   if (response.status === 422) {
     let message =
       "No usable cat face detected. Please upload a clear image of a cat.";
@@ -74,8 +102,7 @@ export async function predictCatEmotion(
 
   const data = (await response.json()) as AIPredictionResponse;
 
-  // ADDED: Handle a non-predictable image even if
-  // Railway returns HTTP 200.
+  // PRESERVED: Handle non-predictable images.
   if (data.status === "cannot_predict") {
     throw new CatValidationError(
       "No usable cat face detected. Please upload a clear image of a cat.",
