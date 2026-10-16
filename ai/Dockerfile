@@ -31,6 +31,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Verify PyTorch and TorchVision compatibility
 RUN python -c "import torch, torchvision; from torchvision.ops import nms; print('PyTorch:', torch.__version__, 'TorchVision:', torchvision.__version__)"
 
+# NEW: Download EfficientNet-B0 pretrained weights during build
+RUN python -c "from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights; efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT); print('EfficientNet-B0 weights ready')"
+
 # Copy AI application files
 COPY . .
 

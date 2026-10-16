@@ -6,6 +6,9 @@ import tempfile
 import json
 import sys
 
+from domestic_cat_validator import is_domestic_cat_image
+
+
 app = FastAPI(title="FeELINE AI API")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -30,6 +33,43 @@ async def predict(file: UploadFile = File(...)):
             "cat.png" if file.content_type == "image/png" else "cat.jpg"
         )
         image_path.write_bytes(await file.read())
+
+        # ====================================================
+        # NEW: DOMESTIC CAT VALIDATION (EFFICIENTNET-B0)
+        # ====================================================
+
+        try:
+            is_domestic_cat = is_domestic_cat_image(
+                image_path
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid or unreadable image."
+            )
+        except Exception as error:
+            print(
+                "Domestic cat validation error:",
+                str(error),
+                flush=True,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Domestic cat validation failed."
+            )
+
+        if not is_domestic_cat:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Only domestic cats are supported. "
+                    "Please upload a clear image of a domestic cat."
+                )
+            )
+
+        # ====================================================
+        # EXISTING: CAT EMOTION PREDICTION
+        # ====================================================
 
         output_root = Path(temp_dir) / "results"
 
@@ -74,8 +114,6 @@ async def predict(file: UploadFile = File(...)):
         )
 
         # Reject images without a usable cat face.
-        # The existing predictor uses "cannot_predict"
-        # when no reliable emotion prediction is possible.
         if prediction_data.get("status") == "cannot_predict":
             raise HTTPException(
                 status_code=422,
