@@ -1,3 +1,4 @@
+
 type AIPredictionResponse = {
   status: string;
   prediction: {
@@ -8,6 +9,14 @@ type AIPredictionResponse = {
   };
   warnings: string[];
 };
+
+// ADDED: Dedicated error for rejected cat images.
+export class CatValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CatValidationError";
+  }
+}
 
 export async function predictCatEmotion(
   imageBuffer: Buffer,
@@ -38,12 +47,42 @@ export async function predictCatEmotion(
     signal: AbortSignal.timeout(180000),
   });
 
+  // ADDED: Handle image rejection from Railway AI.
+  if (response.status === 422) {
+    let message =
+      "No usable cat face detected. Please upload a clear image of a cat.";
+
+    try {
+      const errorData = (await response.json()) as {
+        detail?: string;
+      };
+
+      if (typeof errorData.detail === "string") {
+        message = errorData.detail;
+      }
+    } catch {
+      // Keep the default message if parsing fails.
+    }
+
+    throw new CatValidationError(message);
+  }
+
+  // PRESERVED: Other AI service errors.
   if (!response.ok) {
     throw new Error(`AI service error: ${response.status}`);
   }
 
   const data = (await response.json()) as AIPredictionResponse;
 
+  // ADDED: Handle a non-predictable image even if
+  // Railway returns HTTP 200.
+  if (data.status === "cannot_predict") {
+    throw new CatValidationError(
+      "No usable cat face detected. Please upload a clear image of a cat.",
+    );
+  }
+
+  // PRESERVED: Existing prediction validation.
   if (
     data.status !== "success" ||
     !data.prediction.emotion ||
