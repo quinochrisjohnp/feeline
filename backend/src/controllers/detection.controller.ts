@@ -1,7 +1,10 @@
 import type { Response } from "express";
 import prisma from "../config/db.config.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
-import { predictCatEmotion } from "../services/ai.service.js";
+import {
+  CatValidationError,
+  predictCatEmotion,
+} from "../services/ai.service.js";
 import {
   deleteImageFromCloudinary,
   uploadImageToCloudinary,
@@ -454,7 +457,15 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
       detectionId: result.detection.detection_id,
     });
   } catch (error) {
-    console.error("[FeELINE] Emotion detection error:", error);
+  console.error("[FeELINE] Emotion detection error:", error);
+
+  // ADDED: Return a validation error for images
+  // without a usable cat face.
+  if (error instanceof CatValidationError) {
+    return res.status(422).json({
+      error: error.message,
+    });
+  }
 
     console.error(
       `[FeELINE Performance] Failed after ${Date.now() - requestStart} ms`,

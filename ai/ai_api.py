@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from pathlib import Path
 import subprocess
@@ -55,7 +56,7 @@ async def predict(file: UploadFile = File(...)):
                 status_code=504,
                 detail="AI prediction timed out."
             )
-        
+
         print("AI prediction return code:", result.returncode, flush=True)
         print("AI prediction STDOUT:", result.stdout, flush=True)
         print("AI prediction STDERR:", result.stderr, flush=True)
@@ -71,5 +72,28 @@ async def predict(file: UploadFile = File(...)):
         prediction_data = json.loads(
             json_files[0].read_text(encoding="utf-8")
         )
+
+        # Reject images without a usable cat face.
+        # The existing predictor uses "cannot_predict"
+        # when no reliable emotion prediction is possible.
+        if prediction_data.get("status") == "cannot_predict":
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "No usable cat face detected. "
+                    "Please upload a clear image of a cat."
+                )
+            )
+
+        # Other unexpected prediction statuses
+        # should not be treated as successful.
+        if prediction_data.get("status") not in (
+            "success",
+            "low_confidence",
+        ):
+            raise HTTPException(
+                status_code=500,
+                detail="AI prediction could not be completed."
+            )
 
         return prediction_data
