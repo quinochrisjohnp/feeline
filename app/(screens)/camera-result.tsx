@@ -1,4 +1,6 @@
+
 import React, {
+  useEffect,
   useRef,
 } from "react";
 
@@ -35,14 +37,9 @@ import {
 } from "@/constants/theme";
 
 function firstParam(
-  value:
-    | string
-    | string[]
-    | undefined
+  value: string | string[] | undefined
 ): string | undefined {
-  if (
-    Array.isArray(value)
-  ) {
+  if (Array.isArray(value)) {
     return value[0];
   }
 
@@ -61,64 +58,26 @@ function isEmotionKey(
 }
 
 export default function CameraResult() {
-  const router =
-    useRouter();
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const leaving = useRef(false);
 
-  const params =
-    useLocalSearchParams();
+  // PERFORMANCE MEASUREMENT
+  const captureStartTimestamp = firstParam(
+    params.captureStartTimestamp
+  );
 
-  const leaving =
-    useRef(false);
+  const imageUri = firstParam(params.imageUri);
+  const capturedAt = firstParam(params.capturedAt);
+  const source = firstParam(params.source);
+  const catId = firstParam(params.catId);
+  const imageId = firstParam(params.imageId);
+  const detectionId = firstParam(params.detectionId);
+  const emotionParam = firstParam(params.emotion);
+  const confidenceParam = firstParam(params.confidence);
+  const recommendations = firstParam(params.recommendations);
 
-  const imageUri =
-    firstParam(
-      params.imageUri
-    );
-
-  const capturedAt =
-    firstParam(
-      params.capturedAt
-    );
-
-  const source =
-    firstParam(
-      params.source
-    );
-
-  const catId =
-    firstParam(
-      params.catId
-    );
-
-  const imageId =
-    firstParam(
-      params.imageId
-    );
-
-  const detectionId =
-    firstParam(
-      params.detectionId
-    );
-
-  const emotionParam =
-    firstParam(
-      params.emotion
-    );
-
-  const confidenceParam =
-    firstParam(
-      params.confidence
-    );
-
-  const recommendations =
-    firstParam(
-      params.recommendations
-    );
-
-  const confidence =
-    Number(
-      confidenceParam
-    );
+  const confidence = Number(confidenceParam);
 
   const valid =
     !!imageUri &&
@@ -127,134 +86,102 @@ export default function CameraResult() {
     !!imageId &&
     !!catId &&
     !!emotionParam &&
-    isEmotionKey(
-      emotionParam
-    ) &&
-    Number.isFinite(
-      confidence
-    );
+    isEmotionKey(emotionParam) &&
+    Number.isFinite(confidence);
 
-  const handleRetake =
-    () => {
-      router.dismissTo(
-        "/camera"
+  // ==========================================================
+  // PERFORMANCE: Measure result screen appearance
+  // ==========================================================
+
+  useEffect(() => {
+    if (!valid || !captureStartTimestamp) {
+      return;
+    }
+
+    const start = Number(captureStartTimestamp);
+
+    if (!Number.isFinite(start) || start <= 0) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const totalSeconds = (Date.now() - start) / 1000;
+
+      console.log(
+        `[PERFORMANCE] Capture to Result Screen: ${totalSeconds.toFixed(3)} seconds`
       );
-    };
+    });
 
-  const handleSave =
-    () => {
-      if (
-        leaving.current ||
-        !valid
-      ) {
-        return;
-      }
+    return () => cancelAnimationFrame(frame);
+  }, [captureStartTimestamp, valid]);
 
-      leaving.current = true;
+  const handleRetake = () => {
+    router.dismissTo("/camera");
+  };
 
-      router.replace({
-        pathname:
-          "/camera-save",
+  const handleSave = () => {
+    if (leaving.current || !valid) {
+      return;
+    }
 
-        params: {
-          imageUri,
-          capturedAt,
-          source:
-            source ??
-            "camera",
+    leaving.current = true;
 
-          catId,
-          imageId,
-          detectionId,
-
-          emotion:
-            emotionParam,
-
-          confidence:
-            String(
-              confidence
-            ),
-
-          recommendations:
-            recommendations ??
-            "[]",
-        },
-      });
-    };
+    router.replace({
+      pathname: "/camera-save",
+      params: {
+        imageUri,
+        capturedAt,
+        source: source ?? "camera",
+        catId,
+        imageId,
+        detectionId,
+        emotion: emotionParam,
+        confidence: String(confidence),
+        recommendations: recommendations ?? "[]",
+      },
+    });
+  };
 
   if (
     !valid ||
     !emotionParam ||
-    !isEmotionKey(
-      emotionParam
-    )
+    !isEmotionKey(emotionParam)
   ) {
     return (
-      <FullBleedScreen
-        statusBarStyle="dark"
-      >
+      <FullBleedScreen statusBarStyle="dark">
         <ScreenContainer
-          edges={[
-            "left",
-            "right",
-            "bottom",
-          ]}
+          edges={["left", "right", "bottom"]}
           padded={false}
-          backgroundColor={
-            colors.black
-          }
+          backgroundColor={colors.black}
         >
           <DetailScreenHeader
             title="Emotion Result"
-            onBack={
-              handleRetake
-            }
+            onBack={handleRetake}
           />
 
           <ScrollView
-            contentContainerStyle={
-              styles.errorContent
-            }
+            contentContainerStyle={styles.errorContent}
           >
             {imageUri ? (
-              <MockCapturePhoto
-                imageUri={
-                  imageUri
-                }
-              />
+              <MockCapturePhoto imageUri={imageUri} />
             ) : null}
 
-            <View
-              style={
-                styles.errorCard
-              }
-            >
+            <View style={styles.errorCard}>
               <Text
-                style={
-                  styles.errorTitle
-                }
+                style={styles.errorTitle}
                 accessibilityRole="header"
               >
-                Emotion Detection
-                Error.
+                Emotion Detection Error.
               </Text>
 
-              <Text
-                style={
-                  styles.message
-                }
-              >
-                The detection
-                result is
-                unavailable.
+              <Text style={styles.message}>
+                The detection result is unavailable.
                 Please try again.
               </Text>
 
               <Button
                 label="Try Again"
-                onPress={
-                  handleRetake
-                }
+                onPress={handleRetake}
                 fullWidth
               />
             </View>
@@ -266,112 +193,80 @@ export default function CameraResult() {
 
   return (
     <ScreenContainer
-      edges={[
-        "left",
-        "right",
-        "bottom",
-      ]}
+      edges={["left", "right", "bottom"]}
       padded={false}
     >
       <DetailScreenHeader
         title="Emotion Result"
-        onBack={
-          handleRetake
-        }
+        onBack={handleRetake}
         rightElement={
           <Button
             label="Save"
             size="sm"
             variant="outline"
-            onPress={
-              handleSave
-            }
+            onPress={handleSave}
           />
         }
       />
 
       <ScrollView
-        contentContainerStyle={
-          styles.resultContent
-        }
+        contentContainerStyle={styles.resultContent}
       >
-        <View
-          style={
-            styles.photo
-          }
-        >
-          <MockCapturePhoto
-            imageUri={
-              imageUri
-            }
-          />
+        <View style={styles.photo}>
+          <MockCapturePhoto imageUri={imageUri} />
         </View>
 
         <EmotionResultCard
-          emotionKey={
-            emotionParam
-          }
-          confidence={
-            confidence
-          }
+          emotionKey={emotionParam}
+          confidence={confidence}
+          recommendations={recommendations}
           variant="normal"
-          onRetry={
-            handleRetake
-          }
+          onRetry={handleRetake}
         />
       </ScrollView>
     </ScreenContainer>
   );
 }
 
-const styles =
-  StyleSheet.create({
-    resultContent: {
-      flexGrow: 1,
-      paddingBottom:
-        spacing.md,
-    },
+const styles = StyleSheet.create({
+  resultContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.md,
+  },
 
-    photo: {
-      flexGrow: 1,
-      minHeight: 240,
-      margin: spacing.lg,
-    },
+  photo: {
+    flexGrow: 1,
+    minHeight: 240,
+    margin: spacing.lg,
+  },
 
-    errorContent: {
-      flexGrow: 1,
-      justifyContent:
-        "center",
-      padding: spacing.lg,
-      gap: spacing.lg,
-    },
+  errorContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
 
-    errorCard: {
-      width: "100%",
-      maxWidth:
-        dimensions.dialogMaxWidth,
-      alignSelf: "center",
-      backgroundColor:
-        colors.surface,
-      borderRadius:
-        radii.lg,
-      padding: spacing.lg,
-      ...shadows.floating,
-    },
+  errorCard: {
+    width: "100%",
+    maxWidth: dimensions.dialogMaxWidth,
+    alignSelf: "center",
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    ...shadows.floating,
+  },
 
-    errorTitle: {
-      ...typography.subheading,
-      color:
-        colors.textPrimary,
-      textAlign: "center",
-    },
+  errorTitle: {
+    ...typography.subheading,
+    color: colors.textPrimary,
+    textAlign: "center",
+  },
 
-    message: {
-      ...typography.body,
-      color:
-        colors.textSecondary,
-      marginVertical:
-        spacing.sm,
-      textAlign: "center",
-    },
-  });
+  message: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginVertical: spacing.sm,
+    textAlign: "center",
+  },
+});
