@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -13,15 +14,10 @@ import {
 } from "react-native";
 
 import { useFocusEffect, useRouter } from "expo-router";
-
 import { useIsFocused } from "@react-navigation/native";
-
 import { CameraView, useCameraPermissions } from "expo-camera";
-
 import * as ImagePicker from "expo-image-picker";
-
 import { Ionicons } from "@expo/vector-icons";
-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import CaptureButton from "@/components/camera/CaptureButton";
@@ -49,9 +45,7 @@ type CaptureSource = "camera" | "gallery";
 
 export default function Camera() {
   const router = useRouter();
-
   const focused = useIsFocused();
-
   const insets = useSafeAreaInsets();
 
   const [permission, requestPermission, refreshPermission] =
@@ -60,32 +54,26 @@ export default function Camera() {
   const camera = useRef<CameraView | null>(null);
 
   const [ready, setReady] = useState(false);
-
   const [mountError, setMountError] = useState(false);
-
   const [cameraKey, setCameraKey] = useState(0);
 
   const [appActive, setAppActive] = useState(
-    AppState.currentState === "active",
+    AppState.currentState === "active"
   );
 
   const [avoidVisible, setAvoidVisible] = useState(false);
-
   const [reviewing, setReviewing] = useState(false);
-
   const [lastImage, setLastImage] = useState<string | null>(null);
-
   const [error, setError] = useState<string | null>(null);
-
   const [gallerySettings, setGallerySettings] = useState(false);
-
   const [guideWidth, setGuideWidth] = useState<number | undefined>();
 
   const lock = useRef(false);
-
   const active = useRef(false);
-
   const generation = useRef(0);
+
+  // PERFORMANCE MEASUREMENT
+  const captureStartTime = useRef<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,21 +85,19 @@ export default function Camera() {
       setMountError(false);
 
       void refreshPermission().catch(() =>
-        setError("Camera permission could not be checked. Please try again."),
+        setError("Camera permission could not be checked. Please try again.")
       );
 
       return () => {
         active.current = false;
-
         generation.current += 1;
-
         lock.current = false;
 
         setReady(false);
         setReviewing(false);
         setAvoidVisible(false);
       };
-    }, [refreshPermission]),
+    }, [refreshPermission])
   );
 
   useEffect(() => {
@@ -137,7 +123,6 @@ export default function Camera() {
     }
 
     lock.current = false;
-
     setReviewing(false);
   };
 
@@ -147,7 +132,6 @@ export default function Camera() {
     }
 
     lock.current = true;
-
     setReviewing(true);
     setError(null);
     setGallerySettings(false);
@@ -163,50 +147,71 @@ export default function Camera() {
     uri: string,
     source: CaptureSource,
     ticket: number,
-  ) => {
+    startTimestamp?: number
+  ): Promise<boolean> => {
     if (!current(ticket)) {
-      return;
+      return false;
     }
 
     setLastImage(uri);
 
     try {
+      const uploadStart = performance.now();
+
       const detection = await uploadDetection(uri);
 
+      const uploadEnd = performance.now();
+
+      console.log(
+        `[PERFORMANCE] Upload + backend response: ${(
+          (uploadEnd - uploadStart) /
+          1000
+        ).toFixed(3)} seconds`
+      );
+
       if (!current(ticket)) {
-        return;
+        return false;
       }
 
       const emotion = normalizeEmotion(detection.emotion);
-
       const confidence = normalizeConfidence(detection.confidence);
+
+      const navigationStart = performance.now();
 
       generation.current += 1;
       active.current = false;
 
       router.push({
         pathname: "/camera-result",
-
         params: {
           imageUri: detection.imageUrl,
-
           capturedAt: new Date().toISOString(),
-
           source,
-
           catId: detection.catId,
-
           imageId: detection.imageId,
-
           detectionId: detection.detectionId,
-
           emotion,
-
           confidence: String(confidence),
+          recommendations: JSON.stringify(
+            detection.recommendations ?? []
+          ),
 
-          recommendations: JSON.stringify(detection.recommendations ?? []),
+          // PERFORMANCE: pass capture start to result screen
+          captureStartTimestamp:
+            startTimestamp !== undefined
+              ? String(startTimestamp)
+              : "",
         },
       });
+
+      console.log(
+        `[PERFORMANCE] Navigation call: ${(
+          (performance.now() - navigationStart) /
+          1000
+        ).toFixed(3)} seconds`
+      );
+
+      return true;
     } catch (uploadError) {
       console.error("Detection upload failed:", uploadError);
 
@@ -214,14 +219,15 @@ export default function Camera() {
         setError(
           uploadError instanceof Error
             ? uploadError.message
-            : "The image could not be processed. Please try again.",
+            : "The image could not be processed. Please try again."
         );
 
         unlock(ticket);
       }
+
+      return false;
     } finally {
       lock.current = false;
-
       setReviewing(false);
     }
   };
@@ -237,10 +243,27 @@ export default function Camera() {
       return;
     }
 
+    // Start timing when the capture handler begins.
+    const totalStart = performance.now();
+    const startTimestamp = Date.now();
+
+    captureStartTime.current = startTimestamp;
+
     try {
+      const captureStart = performance.now();
+
       const photo = await camera.current.takePictureAsync({
         quality: 0.9,
       });
+
+      const captureEnd = performance.now();
+
+      console.log(
+        `[PERFORMANCE] Camera capture: ${(
+          (captureEnd - captureStart) /
+          1000
+        ).toFixed(3)} seconds`
+      );
 
       if (!current(ticket)) {
         return;
@@ -250,13 +273,27 @@ export default function Camera() {
         throw new Error("No photo");
       }
 
-      await processImage(photo.uri, "camera", ticket);
+      const success = await processImage(
+        photo.uri,
+        "camera",
+        ticket,
+        startTimestamp
+      );
+
+      if (success) {
+        console.log(
+          `[PERFORMANCE] Capture to navigation call: ${(
+            (performance.now() - totalStart) /
+            1000
+          ).toFixed(3)} seconds`
+        );
+      }
     } catch (captureError) {
       console.error("Camera capture failed:", captureError);
 
       if (current(ticket)) {
         setError(
-          "We couldn't capture that photo. Please try again or choose one from your gallery.",
+          "We couldn't capture that photo. Please try again or choose one from your gallery."
         );
 
         unlock(ticket);
@@ -274,11 +311,8 @@ export default function Camera() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-
         allowsMultipleSelection: false,
-
         allowsEditing: false,
-
         quality: 1,
       });
 
@@ -288,7 +322,6 @@ export default function Camera() {
 
       if (result.canceled) {
         unlock(ticket);
-
         return;
       }
 
@@ -298,7 +331,19 @@ export default function Camera() {
         throw new Error("No selected image");
       }
 
-      await processImage(uri, "gallery", ticket);
+      // Gallery timing starts after image selection.
+      const startTimestamp = Date.now();
+
+      console.log(
+        "[PERFORMANCE] Gallery image selected; starting detection timer"
+      );
+
+      await processImage(
+        uri,
+        "gallery",
+        ticket,
+        startTimestamp
+      );
     } catch (galleryError) {
       console.error("Gallery error:", galleryError);
 
@@ -307,11 +352,10 @@ export default function Camera() {
       }
 
       setError(
-        "We couldn't open or process that photo. Try the gallery again, or check photo access in device settings.",
+        "We couldn't open or process that photo. Try the gallery again, or check photo access in device settings."
       );
 
       setGallerySettings(Platform.OS !== "web");
-
       unlock(ticket);
     }
   };
@@ -327,7 +371,7 @@ export default function Camera() {
       await requestPermission();
     } catch {
       setError(
-        "Camera access could not be requested. Please try again or use your gallery.",
+        "Camera access could not be requested. Please try again or use your gallery."
       );
     } finally {
       lock.current = false;
@@ -339,15 +383,13 @@ export default function Camera() {
       await Linking.openSettings();
     } catch {
       setError(
-        "Open your device settings and allow camera or photo access for FeELINE.",
+        "Open your device settings and allow camera or photo access for FeELINE."
       );
     }
   };
 
   const unavailable = !permission?.granted || mountError;
-
   const bottom = getTabBarClearance(insets.bottom);
-
   const top = insets.top + spacing.sm;
 
   return (
@@ -392,9 +434,8 @@ export default function Camera() {
               setGuideWidth(
                 Math.min(
                   layout.width * 0.84,
-
-                  layout.height * 0.82,
-                ),
+                  layout.height * 0.82
+                )
               );
             }}
           >
@@ -432,9 +473,7 @@ export default function Camera() {
           styles.topRow,
           {
             top,
-
             left: Math.max(insets.left, spacing.md),
-
             right: Math.max(insets.right, spacing.md),
           },
         ]}
@@ -469,7 +508,6 @@ export default function Camera() {
             styles.stateArea,
             {
               top: top + dimensions.button + spacing.md,
-
               bottom: bottom + dimensions.capture + spacing.md,
             },
           ]}
@@ -482,7 +520,10 @@ export default function Camera() {
             />
           ) : (
             <>
-              <Text style={styles.stateTitle} accessibilityRole="header">
+              <Text
+                style={styles.stateTitle}
+                accessibilityRole="header"
+              >
                 {mountError ? "Camera unavailable" : "Camera access"}
               </Text>
 
@@ -507,9 +548,7 @@ export default function Camera() {
                   mountError
                     ? () => {
                         setReady(false);
-
                         setMountError(false);
-
                         setCameraKey((key) => key + 1);
                       }
                     : permission.canAskAgain
@@ -540,12 +579,19 @@ export default function Camera() {
           ]}
           accessibilityLiveRegion="polite"
         >
-          <Text style={styles.lightCaption} accessibilityRole="alert">
+          <Text
+            style={styles.lightCaption}
+            accessibilityRole="alert"
+          >
             {error}
           </Text>
 
           {gallerySettings ? (
-            <Button label="Open Settings" size="sm" onPress={openSettings} />
+            <Button
+              label="Open Settings"
+              size="sm"
+              onPress={openSettings}
+            />
           ) : null}
         </View>
       ) : null}
@@ -555,9 +601,7 @@ export default function Camera() {
           styles.controls,
           {
             bottom,
-
             paddingLeft: Math.max(insets.left, spacing.lg),
-
             paddingRight: Math.max(insets.right, spacing.lg),
           },
         ]}
@@ -610,7 +654,9 @@ export default function Camera() {
         >
           <ActivityIndicator color={colors.textInverse} />
 
-          <Text style={styles.stateText}>Processing image…</Text>
+          <Text style={styles.stateText}>
+            Processing image…
+          </Text>
 
           <Text style={styles.lightCaption}>
             Uploading and saving detection…

@@ -70,3 +70,22 @@ app-example
 
 # Local archive
 /.claude.zip
+
+# FeELINE AI - Python virtual environment
+ai/.venv/
+ai/venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Python local environment variables
+ai/.env
+ai/.env.*
+
+# Temporary logs and debugging files
+/detection-changes.txt
+/detection-performance-diff.txt
+/feeline-login-log.txt
+/unknown-cats-files*.txt
