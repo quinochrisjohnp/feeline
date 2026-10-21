@@ -121,11 +121,11 @@ export default function Status() {
   // Hide tab bar while viewing a cat profile.
   useLayoutEffect(() => {
     navigation.setOptions({
-      tabBarStyle: showingProfile
+      tabBarStyle: showingProfile || !!managedId
         ? { display: "none" }
         : undefined,
     });
-  }, [navigation, showingProfile]);
+  }, [navigation, showingProfile, managedId]);
 
   // Android hardware back button.
   useFocusEffect(
@@ -557,7 +557,8 @@ export default function Status() {
   return (
     <ScreenContainer
       module="catProfile"
-      tabBar
+      tabBar={!managedCat}
+      padded={false}
     >
       <View style={styles.header}>
         <Text
@@ -585,7 +586,7 @@ export default function Status() {
         </TouchableOpacity>
       </View>
 
-      <Pressable style={{ flex: 1 }} onPress={() => setManagedId(null)} accessible={false}>
+      <Pressable style={{ flex: 1, paddingHorizontal: spacing.lg }} onPress={() => setManagedId(null)} accessible={false}>
       {cats.length === 0 ? (
         <EmptyState
           icon="paw-outline"
@@ -624,10 +625,13 @@ export default function Status() {
       )}
 
       </Pressable>
-      {managedCat ? <View style={styles.management}>
-        <Button label="Edit profile" size="compact" onPress={() => { setEditTarget(managedCat.id); setEditingCat(true); setManagedId(null); }} />
-        <Button label="Delete profile" size="compact" variant="dangerText" onPress={() => { setDeleteTarget(managedCat.id); setDeleteError(null); setManagedId(null); }} />
-        <Button label="Cancel" size="compact" variant="text" onPress={() => setManagedId(null)} />
+      {managedCat ? <View style={styles.actionBar}>
+        <TouchableOpacity style={styles.actionButton} accessibilityRole="button" accessibilityLabel="Edit" onPress={() => { setEditTarget(managedCat.id); setEditingCat(true); setManagedId(null); }}>
+          <Ionicons name="pencil-outline" size={dimensions.icon} color={colors.textPrimary} /><Text style={styles.actionLabel}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} accessibilityRole="button" accessibilityLabel="Delete" onPress={() => { setDeleteTarget(managedCat.id); setDeleteError(null); setManagedId(null); }}>
+          <Ionicons name="trash-outline" size={dimensions.icon} color={colors.dangerStrong} /><Text style={[styles.actionLabel, styles.actionLabelDanger]}>Delete</Text>
+        </TouchableOpacity>
       </View> : null}
       <AddCatForm visible={editingCat} initialCat={editingProfile} onCancel={() => setEditingCat(false)} onSave={handleSaveEditedCat} />
       <ConfirmModal visible={updatedNotice} title="Cat Profile Updated!" message="Your cat's profile and album are up to date."
@@ -668,8 +672,12 @@ export default function Status() {
 // ============================================================
 
 const styles = StyleSheet.create({
-  management: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, paddingVertical: spacing.sm, backgroundColor: colors.background },
+  actionBar: { flexDirection: "row", backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: spacing.sm, paddingBottom: spacing.sm, ...shadows.floating },
+  actionButton: { flex: 1, minHeight: dimensions.touchTarget, alignItems: "center", justifyContent: "center", gap: spacing.xxs, paddingVertical: spacing.xs },
+  actionLabel: { ...typography.label, fontFamily: fontFamily.semibold, color: colors.textPrimary },
+  actionLabelDanger: { color: colors.dangerStrong },
   header: {
+    paddingHorizontal: spacing.lg,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",

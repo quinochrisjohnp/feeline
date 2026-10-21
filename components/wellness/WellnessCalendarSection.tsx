@@ -15,7 +15,7 @@ export default function WellnessCalendarSection({ date, catId, blocked, onOpenCo
   date: Date; catId: string | null; blocked: boolean; onOpenContext(date: Date, catId: string): void;
 }) {
   const wellness = useWellness(), { state: data } = useCatData(), focused = useIsFocused();
-  const [selection, setSelection] = useState<{ signature: string; editor: boolean; details?: boolean } | null>(null);
+  const [selection, setSelection] = useState<{ signature: string; editor: boolean } | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const lock = useRef(false);
@@ -60,7 +60,7 @@ export default function WellnessCalendarSection({ date, catId, blocked, onOpenCo
       if (!reminderCat) return null;
       return <TouchableOpacity key={item.id} style={styles.card} accessibilityRole="button"
         accessibilityLabel={"View check-in reminder for " + reminderCat.name}
-        onPress={() => { wellness.markPresented(item.alertSignature); setError(null); setSelection({ signature: item.alertSignature, editor: false, details: true }); }}>
+        onPress={() => { wellness.markPresented(item.alertSignature); setError(null); setSelection({ signature: item.alertSignature, editor: false }); }}>
         <WellnessCatHeader cat={reminderCat} />
         <View style={styles.row}><Ionicons name="paw-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.label}>Check in with {reminderCat.name}</Text></View>
@@ -74,9 +74,8 @@ export default function WellnessCalendarSection({ date, catId, blocked, onOpenCo
       onSave={async at => { const message = await wellness.saveReminder(alert.signature, at, cat.name); setFeedback(message); setSelection(null); }}
 
       onDelete={async () => { await wellness.acknowledge(alert.signature, true); setSelection(null); setFeedback("Local reminder deleted."); }} />
-      : selection.details && reminder ? <WellnessReminderDetails cat={cat} alert={alert} reminder={reminder}
-        onClose={close} onEdit={() => setSelection({ signature: alert.signature, editor: true })}
-        onAcknowledge={acknowledge} busy={busy} error={error} />
+      : reminder ? <WellnessReminderDetails cat={cat} alert={alert} reminder={reminder}
+        onClose={close} onEdit={() => setSelection({ signature: alert.signature, editor: true })} />
       : <WellnessCheckInModal key={alert.signature} cat={cat} alert={alert} busy={busy} error={error}
         onClose={close} onAcknowledge={acknowledge} onRemind={() => setSelection({ signature: alert.signature, editor: true })} /> : null}
   </>;

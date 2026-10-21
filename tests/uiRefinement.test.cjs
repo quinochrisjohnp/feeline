@@ -55,7 +55,7 @@ test('profile long press edits through context and deletion refreshes both lists
   const screen=mount('app/(screens)/(tabs)/status.tsx',{context,dependencies:deps});
   const cards=()=>nodes(screen.render()).filter(n=>n.type?.endsWith?.('/CatCoverCard'));
   cards()[0].props.onLongPress();assert.equal(cards()[0].props.selected,true);assert.equal(cards()[1].props.faded,true);
-  button(screen.render(),'Edit profile').props.onPress();
+  nodes(screen.render()).find(n=>n.props?.accessibilityLabel==='Edit').props.onPress();
   const form=nodes(screen.render()).find(n=>n.type?.endsWith?.('/AddCatForm')&&n.props.initialCat);
   assert.equal(form.props.visible,true);await form.props.onSave({...cat,name:'New name'});
   assert.equal(updates[0][0],'cat');assert.equal(updates[0][1].name,'New name');
@@ -64,7 +64,7 @@ test('profile long press edits through context and deletion refreshes both lists
   modal(screen.render(),'Cat Profile Updated').props.onConfirm();
   cards()[0].props.onPress();assert.equal(nodes(screen.render()).find(n=>n.props?.accessibilityLabel==='Edit Cat Profile'),undefined);
   nodes(screen.render()).find(n=>n.props?.accessibilityLabel==='Back to Cat Profiles').props.onPress();
-  cards()[0].props.onLongPress();button(screen.render(),'Delete profile').props.onPress();
+  cards()[0].props.onLongPress();nodes(screen.render()).find(n=>n.props?.accessibilityLabel==='Delete').props.onPress();
   const confirm=modal(screen.render(),'Delete this cat profile');assert.equal(confirm.props.destructive,true);
   const pending=confirm.props.onConfirm();await confirm.props.onConfirm();assert.equal(deletes,1);release();await pending;
   assert.equal(cards().length,1);assert.equal(nodes(album.render()).filter(n=>n.type?.endsWith?.('/CatCoverCard')).length,2);
@@ -89,7 +89,7 @@ test('wellness header has no heart and reminder opens read-only details before t
   const details=find(tree,'./WellnessReminderDetails');assert.ok(details);details.props.onEdit();assert.ok(find(screen.render(),'./WellnessReminderEditor'));
   const header=mount('components/wellness/WellnessCatHeader.tsx',{props:{cat},dependencies:deps}).render();assert.equal(find(header,'Icon'),undefined);
   let edited=0;const detailTree=mount('components/wellness/WellnessReminderDetails.tsx',{props:{cat,alert,reminder,onClose(){},onEdit(){edited++;}},dependencies:deps}).render();
-  assert.equal(find(detailTree,'TextInput'),undefined);find(detailTree,'/ModalHeader').props.onEdit();assert.equal(edited,1);
+  assert.equal(find(detailTree,'TextInput'),undefined);assert.equal(button(detailTree,'Okay, I’ll check'),undefined);assert.equal(button(detailTree,'Remind me later'),undefined);find(detailTree,'/ModalHeader').props.onEdit();assert.equal(edited,1);
   const editor=mount('components/wellness/WellnessReminderEditor.tsx',{props:{cat,alert,reminder},dependencies:deps}).render();
   assert.equal(button(editor,'Mark completed'),undefined);assert.equal(button(editor,'Remind me later'),undefined);assert.ok(button(editor,'Save changes'));
 });
@@ -104,15 +104,15 @@ test('tips preference persists, synchronizes subscribers and handles storage fai
   failed=true;await store.setCameraTipsPreference(true);assert.equal(store.getCameraTipsPreference().enabled,false);assert.ok(store.getCameraTipsPreference().error);assert.ok(events>=5);remove();
 });
 
-test('Settings and tips checkbox use one preference, and avatar clips to a circle',()=>{
+test('Only tips checkbox controls the preference, and avatar clips to a circle',()=>{
   const preference={enabled:true,ready:true,saving:false,error:null,setEnabled:async v=>{preference.enabled=v;}};
   const dependencies={...deps,'@/hooks/useCameraTipsPreference':{useCameraTipsPreference:()=>preference},'@/context/AuthContext':{useAuth:()=>({profile:{profileImageUrl:'https://example.com/me.jpg'},signOut:async()=>{}})}};
   const settings=mount('app/(screens)/(tabs)/settings.tsx',{dependencies});let tree=settings.render();const avatar=find(tree,'Image');assert.equal(avatar.props.style.borderRadius,avatar.props.style.width/2);assert.equal(avatar.props.resizeMode,'cover');
-  nodes(tree).find(n=>n.props?.accessibilityLabel==='Show camera tips automatically').props.onValueChange(false);
+  assert.equal(nodes(tree).find(n=>n.props?.accessibilityLabel==='Show camera tips automatically'),undefined);
   const assets=Object.fromEntries(['cat_blurred.png','cat_dark.png','dog.png','cat_cropped.png','cat_deformaties.png'].map(n=>['../images/'+n,n]));
   const tips=mount('components/camera/WhatToAvoidModal.tsx',{props:{visible:true,onClose(){}},dependencies:{...dependencies,...assets}});
-  let checkbox=nodes(tips.render()).find(n=>n.props?.accessibilityRole==='checkbox');assert.equal(checkbox.props.accessibilityState.checked,true);checkbox.props.onPress();
-  assert.equal(nodes(settings.render()).find(n=>n.props?.accessibilityLabel==='Show camera tips automatically').props.value,true);
+  let checkbox=nodes(tips.render()).find(n=>n.props?.accessibilityRole==='checkbox');assert.equal(checkbox.props.accessibilityState.checked,false);checkbox.props.onPress();
+  assert.equal(preference.enabled,false);
 });
 
 test('document text is unchanged and readable surfaces wrap legal/about content',()=>{
@@ -123,14 +123,30 @@ test('document text is unchanged and readable surfaces wrap legal/about content'
   assert.ok(find(mount('app/(screens)/settings-about.tsx').render(),'/DocumentSurface'));
 });
 
-test('Calendar route opens photo-first with original URI; portrait and landscape are contained',()=>{
+test('Calendar reuses Album viewer with contained image, emotion, download and origin-aware Back',()=>{
   const state=initial();state.detectionRecords=[{id:'d',imageId:'i',catId:'cat',imageUri:'https://example.com/photo.jpg',emotion:'happy',confidence:90,recordedAt:'2026-10-21T12:00:00Z'}];
-  const screen=mount('app/(screens)/album-photo.tsx',{params:{imageId:'i',from:'calendar'},context:()=>({state}),dependencies:deps});
-  const viewer=find(screen.render(),'/DetectionPhotoViewer');assert.equal(viewer.props.uri,state.detectionRecords[0].imageUri);assert.equal(viewer.props.catName,'Mimi');
-  for(const uri of ['file:///portrait.jpg','file:///landscape.jpg']){
-    let closed=0,download=0;const tree=mount('components/calendar/DetectionPhotoViewer.tsx',{props:{...viewer.props,uri,onClose:()=>closed++,onDownload:()=>download++},dependencies:deps}).render();
-    const photo=find(tree,'/MockPhoto');assert.equal(photo.props.resizeMode,'contain');assert.equal(photo.props.imageUri,uri);
-    assert.equal(nodes(tree).find(n=>n.props?.testID==='calendar-photo-main').props.style.flex,1);
-    button(tree,'Close photo').props.onPress();button(tree,'Download').props.onPress();assert.equal(closed,1);assert.equal(download,1);
+  for(const from of ['calendar','album']) {
+    state.images=[{id:'i',albumId:'album',imageUri:state.detectionRecords[0].imageUri,capturedAt:state.detectionRecords[0].recordedAt}];
+    let destination; const screen=mount('app/(screens)/album-photo.tsx',{params:{imageId:'i',from},router:{dismissTo:r=>destination=r},context:()=>({state}),dependencies:deps});
+    let tree=screen.render();nodes(tree).find(n=>n.props?.onLayout).props.onLayout({nativeEvent:{layout:{width:300,height:500}}});tree=screen.render();
+    assert.equal(find(tree,'/MockPhoto').props.resizeMode,'contain');assert.equal(find(tree,'/MockPhoto').props.imageUri,state.images[0].imageUri);
+    for(const label of ['Emotion','Download','Delete'])assert.ok(nodes(tree).find(n=>n.props?.accessibilityLabel===label));
+    nodes(tree).find(n=>n.props?.accessibilityLabel==='Emotion').props.onPress();assert.ok(find(screen.render(),'/EmotionResultCard'));
+    find(tree,'/DetailScreenHeader').props.onBack();assert.equal(from==='calendar'?destination:destination.pathname,from==='calendar'?'/calendar':'/album-folder');
   }
+});
+
+test('Calendar saved photo deletion is guarded and retains history through the existing reducer',async()=>{
+ const {catDataReducer}=require('../context/catDataReducer.ts');let state=initial(),calls=0,release;
+ state.images=[{id:'i',albumId:'album',imageUri:'file:///cat.jpg',capturedAt:'2026-10-21T00:00:00Z'}];
+ state.detectionRecords=[{id:'d',imageId:'i',catId:'cat',imageUri:'file:///cat.jpg',emotion:'happy',recordedAt:'2026-10-21T00:00:00Z',isSavedToAlbum:true}];
+ const screen=mount('app/(screens)/album-photo.tsx',{params:{imageId:'i',from:'calendar'},dependencies:deps,context:()=>({state,deleteImage:async id=>{calls++;await new Promise(r=>release=r);state=catDataReducer(state,{type:'DELETE_IMAGE',imageId:id});}})});
+ nodes(screen.render()).find(n=>n.props?.accessibilityLabel==='Delete').props.onPress();
+ const confirm=modal(screen.render(),'Remove this Photo');const pending=confirm.props.onConfirm();await confirm.props.onConfirm();assert.equal(calls,1);release();await pending;
+ assert.equal(state.images.length,0);assert.equal(state.detectionRecords.length,1);assert.equal(state.detectionRecords[0].isSavedToAlbum,false);assert.ok(modal(screen.render(),'Removed from Album'));
+});
+test('Camera error modal uses shared shell, clears on retry and retains settings access',()=>{
+ let closed=0,tips=0,settings=0;const tree=mount('components/camera/CameraErrorModal.tsx',{dependencies:deps,props:{notice:{title:'Detection unavailable',message:'Try again',photoTips:false},onClose:()=>closed++,onPhotoTips:()=>tips++,onSettings:()=>settings++}}).render();
+ assert.ok(find(tree,'/ModalSurface'));assert.equal(find(tree,'/ModalHeader').props.title,'Detection unavailable');
+ button(tree,'Try another photo').props.onPress();button(tree,'View photo tips').props.onPress();button(tree,'Open Settings').props.onPress();assert.deepEqual([closed,tips,settings],[1,1,1]);
 });

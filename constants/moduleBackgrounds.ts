@@ -3,6 +3,8 @@ import type { ImageSourcePropType } from "react-native";
 export type BackgroundModule = "auth" | "settings" | "camera" | "calendar" | "album" | "catProfile";
 export type ModuleBackgroundMode = "image" | "color";
 
+const BG4 = require("../components/images/bg4.png");
+const BG5 = require("../components/images/bg5.png");
 const BG3 = require("../components/images/bg3.png");
 
 /** Set false to restore colors.background (#FFF7E9) across all modules. */
@@ -12,11 +14,12 @@ export const ENABLE_MODULE_BACKGROUNDS = true;
 export const moduleBackgroundConfig: Record<BackgroundModule, {
   mode: ModuleBackgroundMode;
   image: ImageSourcePropType;
+  crossfadeImage?: ImageSourcePropType;
 }> = {
   auth: { mode: "image", image: BG3 },
   settings: { mode: "image", image: BG3 },
   camera: { mode: "image", image: BG3 },
   calendar: { mode: "color", image: BG3 },
-  album: { mode: "image", image: BG3 },
-  catProfile: { mode: "image", image: BG3 },
+  album: { mode: "image", image: BG4, crossfadeImage: BG5 },
+  catProfile: { mode: "image", image: BG4, crossfadeImage: BG5 },
 };
