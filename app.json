@@ -2,6 +2,7 @@
   "expo": {
     "name": "FeELINE",
     "slug": "feeline",
+    "icon": "./components/images/logo-with-bg.png",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "feeline",
@@ -9,7 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.feeline.app"
+      "bundleIdentifier": "com.feeline.app",
+      "icon": "./components/images/logo-with-bg.png"
     },
     "android": {
       "package": "com.feeline.app",
@@ -17,7 +19,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA"
-      ]
+      ],
+      "icon": "./components/images/logo-with-bg.png"
     },
     "web": {
       "output": "static"
@@ -27,7 +30,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash.png",
+          "image": "./components/images/logo-no-bg.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#FFF7E9",
@@ -54,7 +57,8 @@
         }
       ],
       "@react-native-google-signin/google-signin",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

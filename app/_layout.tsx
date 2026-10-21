@@ -6,6 +6,7 @@ import { Comfortaa_700Bold } from "@expo-google-fonts/comfortaa";
 import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold } from "@expo-google-fonts/poppins";
 import { AuthProvider } from "../context/AuthContext";
 import { CatDataProvider } from "../context/CatDataContext";
+import { WellnessProvider } from "@/context/WellnessContext";
 import BrandedSplash from "@/components/common/BrandedSplash";
 import { colors } from "@/constants/theme";
 
@@ -45,7 +46,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <CatDataProvider>
-          <RootNavigation />
+          <WellnessProvider><RootNavigation /></WellnessProvider>
         </CatDataProvider>
       </AuthProvider>
     </SafeAreaProvider>

@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, {
   useCallback,
   useLayoutEffect,
@@ -93,6 +94,8 @@ export default function Album() {
   ] = useState<
     AlbumModel | null
   >(null);
+
+  useWellnessNavigationSafety(!!selectedAlbumId || !!renamingAlbum || !!deletingAlbum);
 
   const albumFolders =
     state.albums;

@@ -10,7 +10,7 @@ interface CompactWeekStripProps {
   weekDates: Date[];
   selectedDate: Date;
   monthLabel: string;
-  activityForDate: (date: Date) => { emotion?: EmotionKey; recordCount: number; birthdayCount: number };
+  activityForDate: (date: Date) => { emotion?: EmotionKey; recordCount: number; birthdayCount: number; reminderCount?: number };
   onSelectDate: (date: Date) => void;
   onExpand: () => void;
 }

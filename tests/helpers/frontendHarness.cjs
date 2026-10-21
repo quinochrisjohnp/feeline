@@ -7,7 +7,7 @@ const root = path.join(__dirname, "../..");
 
 require.extensions[".ts"] = (module, filename) => {
   module._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText, filename);
 };
 
@@ -18,8 +18,9 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
   let cursor = 0;
   const focus = [];
   const effects = [];
+  const cleanups = new Map();
   const hardwareBack = [];
-  const effect = (fn, deps) => { const index = cursor++; if (!slots[index] || deps.some((dep, i) => dep !== slots[index][i])) { slots[index] = deps; effects.push(fn); } };
+  const effect = (fn, deps) => { const index = cursor++; if (!slots[index] || deps.some((dep, i) => dep !== slots[index][i])) { slots[index] = deps; effects.push(() => { cleanups.get(index)?.(); const cleanup = fn(); if (typeof cleanup === "function") cleanups.set(index, cleanup); else cleanups.delete(index); }); } };
   const mocks = {
     react: { ...React,
       useState: (initial) => {
@@ -74,7 +75,7 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
     if (id.startsWith("./")) return require(path.join(path.dirname(path.join(root, file)), id) + ".ts");
     throw new Error("Unexpected dependency: " + id);
   } }, { filename: file });
-  return { render: () => { cursor = 0; focus.length = 0; const tree = (exports.default ?? exports.CatDataProvider ?? exports.AuthProvider)({ children: null, ...props }); effects.splice(0).forEach((fn) => fn()); return tree; }, focus, hardwareBack };
+  return { render: () => { cursor = 0; focus.length = 0; const tree = (exports.default ?? exports.CatDataProvider ?? exports.AuthProvider)({ children: null, ...props }); effects.splice(0).forEach((fn) => fn()); return tree; }, focus, hardwareBack, unmount: () => { [...cleanups.values()].reverse().forEach(fn => fn()); cleanups.clear(); } };
 }
 
 function nodes(node) {

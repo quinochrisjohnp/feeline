@@ -5,7 +5,7 @@ import ScreenContainer from "@/components/common/ScreenContainer";
 import GoogleButton from "@/components/common/GoogleButton";
 import EmotionLogoGrid from "@/components/common/EmotionLogoGrid";
 import { useAuth } from "@/context/AuthContext";
-import { colors, dimensions, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, spacing, typography } from "@/constants/theme";
 
 const Login = () => {
   const { signIn, isSigningIn, error } = useAuth();
@@ -14,8 +14,11 @@ const Login = () => {
   const scroll = useRef<ScrollView>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const illustrationRatio = 1122 / 1402;
+  const logoSize = viewport.height > 0
+    ? Math.max(0, Math.min(dimensions.logo, viewport.height * 0.26, viewport.width - spacing.lg * 2))
+    : dimensions.logo;
   const illustrationHeight = viewport.height > 0
-    ? Math.min(220, viewport.height * 1,
+    ? Math.min(220, viewport.height * 0.23,
       Math.max(0, Math.min(viewport.width, dimensions.contentMaxWidth) - spacing.lg * 2) * 0.75 / illustrationRatio)
     : 160;
 
@@ -31,7 +34,7 @@ const Login = () => {
             ? previous : { width: layout.width, height: layout.height });
         }}>
       <View style={styles.content}>
-        <EmotionLogoGrid />
+        <EmotionLogoGrid size={logoSize} />
         <Text style={styles.subtitle}>Understand your cat&apos;s emotional cues</Text>
 
         <Image source={require("@/components/images/illustration.png")} resizeMode="contain"
@@ -68,6 +71,7 @@ const styles = StyleSheet.create({
   title: { ...typography.display, color: colors.textPrimary, marginTop: spacing.md },
   subtitle: {
     ...typography.body,
+    fontFamily: fontFamily.body,
     color: colors.textSecondary,
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
@@ -78,11 +82,12 @@ const styles = StyleSheet.create({
   error: { ...typography.caption, color: colors.danger, marginTop: spacing.sm, textAlign: "center" },
   terms: {
     ...typography.caption,
+    fontFamily: fontFamily.body,
     color: colors.textMuted,
     marginTop: spacing.sm,
     textAlign: "center",
   },
   links: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", columnGap: spacing.md },
   linkTarget: { minHeight: dimensions.touchTarget, maxWidth: "100%", justifyContent: "center" },
-  termsLink: { ...typography.caption, color: colors.textPrimary, textDecorationLine: "underline", textAlign: "center" },
+  termsLink: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textPrimary, textDecorationLine: "underline", textAlign: "center" },
 });

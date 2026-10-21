@@ -6,8 +6,8 @@ test("Login illustration responds to viewport width and height while keeping scr
   const login = mount("app/(screens)/(auth)/login.tsx", {
     dependencies: {
       "@/context/AuthContext": { useAuth: () => ({ signIn() {}, error: null }) },
-      "@/constants/theme": { colors: {}, typography: {},
-        dimensions: { contentMaxWidth: 600, touchTarget: 44 },
+      "@/constants/theme": { colors: {}, typography: {}, fontFamily: {},
+        dimensions: { contentMaxWidth: 600, touchTarget: 44, logo: 200 },
         spacing: { lg: 24, md: 16, sm: 12, xs: 8 } },
     },
   });
@@ -15,6 +15,10 @@ test("Login illustration responds to viewport width and height while keeping scr
   for (const [width, height] of [[360, 720], [390, 760], [430, 850], [320, 480], [760, 320], [390, 360]]) {
     find(login.render(), "ScrollView").props.onLayout({ nativeEvent: { layout: { width, height } } });
     const tree = login.render();
+    const logo = find(tree, "/EmotionLogoGrid");
+    assert.ok(logo.props.size <= height * 0.26);
+    assert.ok(logo.props.size <= 200);
+    assert.ok(logo.props.size <= width - 48);
     const image = find(tree, "Image");
     const size = image.props.style[1];
     assert.equal(image.props.resizeMode, "contain");
