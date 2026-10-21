@@ -42,7 +42,7 @@ test("notification context selects its reminder date and cat, then consumes the 
   const screen=mount("components/wellness/WellnessCalendarSection.tsx",{props:{date:new Date(),catId:null,blocked:false,onOpenContext:(date,id)=>target=[date,id]},
     context:()=>({state:{cats:[cat]}}),dependencies:{"@/context/WellnessContext":{useWellness:()=>wellness},"@react-navigation/native":{useIsFocused:()=>true},
       "react-native":{AppState:{currentState:"active"},StyleSheet:{create:s=>s},View:"View",Text:"Text",TouchableOpacity:"TouchableOpacity"}}});
-  screen.render();screen.render();assert.equal(consumed,1);assert.equal(target[1],"cat");assert.equal(target[0].toISOString(),"2026-10-25T08:00:00.000Z");
+  screen.render();const tree=screen.render();assert.ok(find(tree,"./WellnessReminderDetails"));assert.equal(find(tree,"./WellnessCheckInModal"),undefined);assert.equal(consumed,1);assert.equal(target[1],"cat");assert.equal(target[0].toISOString(),"2026-10-25T08:00:00.000Z");
 });
 test("reminder editor rejects past times, preserves cat header, and confirms deletion",async()=>{
   let saved=0,deleted=0,confirmation;

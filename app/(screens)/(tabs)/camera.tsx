@@ -26,6 +26,7 @@ import { claimCameraSessionTips, detectionFailureNotice, type CameraDetectionNot
 import FeelineLoadingOverlay from "@/components/loading/FeelineLoadingOverlay";
 import { useWellness } from "@/context/WellnessContext";
 
+import CameraErrorModal from "@/components/camera/CameraErrorModal";
 import CaptureButton from "@/components/camera/CaptureButton";
 import WhatToAvoidModal from "@/components/camera/WhatToAvoidModal";
 import Button from "@/components/common/Button";
@@ -42,7 +43,6 @@ import {
   colors,
   dimensions,
   getTabBarClearance,
-  fontFamily,
   radii,
   spacing,
   typography,
@@ -128,15 +128,15 @@ export default function Camera() {
   }, [refreshPermission]);
 
   useEffect(() => {
-    setCameraSafe(focused && appActive && permission !== null && !permissionBusy && !reviewing && !avoidVisible);
+    setCameraSafe(focused && appActive && permission !== null && !permissionBusy && !reviewing && !avoidVisible && !error);
     return () => setCameraSafe(false);
-  }, [focused, appActive, permission, permissionBusy, reviewing, avoidVisible, setCameraSafe]);
+  }, [focused, appActive, permission, permissionBusy, reviewing, avoidVisible, error, setCameraSafe]);
 
   useEffect(() => {
-    if (focused && appActive && tipsPreference.ready && tipsPreference.enabled && !reviewing && !permissionBusy && claimCameraSessionTips()) {
+    if (focused && appActive && tipsPreference.ready && tipsPreference.enabled && !reviewing && !permissionBusy && !error && claimCameraSessionTips()) {
       setAvoidVisible(true);
     }
-  }, [focused, appActive, tipsPreference.ready, tipsPreference.enabled, reviewing, permissionBusy]);
+  }, [focused, appActive, tipsPreference.ready, tipsPreference.enabled, reviewing, permissionBusy, error]);
 
   const current = (ticket: number) =>
     active.current && generation.current === ticket;
@@ -598,40 +598,9 @@ export default function Camera() {
         </ScrollView>
       ) : null}
 
-      {notice ? (
-        <View
-          style={[
-            styles.error,
-            {
-              bottom: bottom + dimensions.capture + spacing.sm,
-              left: Math.max(insets.left, spacing.md),
-              right: Math.max(insets.right, spacing.md),
-            },
-          ]}
-          accessibilityLiveRegion="polite"
-        >
-          <View style={styles.noticeHeading}>
-            <Ionicons name={notice.photoTips ? "camera-outline" : "alert-circle-outline"}
-              size={dimensions.iconSmall} color={colors.textInverse} accessible={false} />
-            <Text style={styles.noticeTitle} accessibilityRole="alert">{notice.title}</Text>
-          </View>
-          <Text style={styles.noticeMessage}>{notice.message}</Text>
-          {notice.photoTips ? (
-            <TouchableOpacity style={styles.tipsAction} accessibilityRole="button"
-              accessibilityLabel="View photo tips" onPress={() => setAvoidVisible(true)}>
-              <Text style={styles.tipsLabel}>View photo tips</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {gallerySettings ? (
-            <Button
-              label="Open Settings"
-              size="sm"
-              onPress={openSettings}
-            />
-          ) : null}
-        </View>
-      ) : null}
+      {notice && focused && !avoidVisible ? <CameraErrorModal notice={notice}
+        onClose={() => setError(null)} onPhotoTips={() => { setError(null); setAvoidVisible(true); }}
+        onSettings={gallerySettings ? openSettings : undefined} /> : null}
 
       <View
         style={[
@@ -786,22 +755,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textInverse,
     textAlign: "center",
-  },
-
-  noticeHeading: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  noticeTitle: { ...typography.label, fontFamily: fontFamily.heading, color: colors.textInverse, flex: 1 },
-  noticeMessage: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textInverse },
-  tipsAction: { minHeight: dimensions.touchTarget, justifyContent: "center", alignSelf: "flex-start" },
-  tipsLabel: { ...typography.caption, fontFamily: fontFamily.medium, color: colors.textInverse, textDecorationLine: "underline" },
-
-  error: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    padding: spacing.sm,
-    gap: spacing.xs,
-    borderRadius: radii.md,
-    backgroundColor: colors.cameraControl,
   },
 
   processing: {

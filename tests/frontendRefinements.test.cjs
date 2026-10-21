@@ -58,10 +58,10 @@ test("Camera tips open once across focus changes and route remounts, and manual 
 
 test("photo rejection messages map to helpful copy; technical service errors stay private", () => {
   const { detectionFailureNotice } = newSession();
-  for (const message of ["No usable cat", "Missing cat face", "Use a clear image of a cat", "cannot_predict", "could not produce a reliable prediction"]) {
+  for (const message of ["Not a domestic cat", "Unclear cat", "No usable cat", "Missing cat face", "Use a clear image of a cat", "cannot_predict", "could not produce a reliable prediction"]) {
     const notice = detectionFailureNotice(new Error(message));
     assert.equal(notice.photoTips, true);
-    assert.equal(notice.title, "We couldn't detect a clear cat");
+    assert.equal(notice.title, "We couldn't analyze this photo");
   }
   const notice = detectionFailureNotice(new Error("Internal upstream exception secret detail"));
   assert.equal(notice.photoTips, false);
@@ -75,11 +75,10 @@ test("failed detection stays on Camera, opens tips, and clears on the next galle
   await find(screen.render(), "/CaptureButton").props.onPress();
   assert.equal(screen.routes.length, 0);
   let tree = screen.render();
-  const alert = nodes(tree).find(n => n.props?.accessibilityRole === "alert");
-  assert.equal(alert.props.children, "We couldn't detect a clear cat");
-  const notice = nodes(tree).find(n => n.props?.accessibilityLiveRegion === "polite" && n.props.style?.[0]?.position === "absolute");
-  assert.ok(notice.props.style[1].bottom > 124 + 78);
-  nodes(tree).find(n => n.props?.accessibilityLabel === "View photo tips").props.onPress();
+  const modal = find(tree, '/CameraErrorModal');
+  assert.equal(modal.props.notice.title, "We couldn't analyze this photo");
+  modal.props.onPhotoTips();
+  assert.equal(find(screen.render(), '/CameraErrorModal'), undefined);
   assert.equal(tips(screen).props.visible, true);
   tips(screen).props.onClose();
   await nodes(screen.render()).find(n => n.props?.accessibilityLabel === "Choose image from gallery").props.onPress();
@@ -217,7 +216,7 @@ test("analysis loader follows the real pending promise through success, failure,
     await work;
     assert.equal(find(screen.render(), "/FeelineLoadingOverlay"), undefined);
     assert.equal(screen.routes.length, outcome === "success" ? 1 : 0);
-    if (outcome === "failure") assert.equal(nodes(screen.render()).find(n => n.props?.accessibilityRole === "alert").props.children, "We couldn't detect a clear cat");
+    if (outcome === "failure") assert.equal(find(screen.render(), '/CameraErrorModal').props.notice.title, "We couldn't analyze this photo");
   }
 });
 

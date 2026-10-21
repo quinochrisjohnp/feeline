@@ -1,6 +1,5 @@
-import DetectionPhotoViewer from "@/components/calendar/DetectionPhotoViewer";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -35,7 +34,6 @@ import { formatFullDate, formatTime } from "@/utils/date";
 
 import {
   selectAlbumById,
-  selectCatForDetection,
   selectImageById,
   selectDetectionForImage,
 } from "@/context/catDataSelectors";
@@ -110,7 +108,7 @@ export default function AlbumPhoto() {
       : null);
 
   const [showEmotion, setShowEmotion] =
-    useState(fromCalendar);
+    useState(false);
 
   const [confirmingDelete, setConfirmingDelete] =
     useState(false);
@@ -120,6 +118,7 @@ export default function AlbumPhoto() {
 
   // Prevent duplicate deletion requests.
   const [deleting, setDeleting] = useState(false);
+  const deleteLock = useRef(false);
 
   const [intrinsic, setIntrinsic] =
     useState<Size | null>(null);
@@ -228,15 +227,15 @@ export default function AlbumPhoto() {
 
   // Remove a photo from an Album, not Detection History.
   const handleDeleteConfirm = async () => {
-    if (deleting) return;
+    if (deleteLock.current) return;
 
-    // Calendar photos should not be deleted
-    // through the Album removal operation.
-    if (fromCalendar || !savedImage) {
+    // The same Album removal applies regardless of entry route.
+    if (!savedImage) {
       setConfirmingDelete(false);
       return;
     }
 
+    deleteLock.current = true;
     setDeleting(true);
 
     try {
@@ -256,6 +255,7 @@ export default function AlbumPhoto() {
           : "Unable to remove the photo from the Album. Please try again."
       );
     } finally {
+      deleteLock.current = false;
       setDeleting(false);
     }
   };
@@ -264,7 +264,7 @@ export default function AlbumPhoto() {
   if (deletedNotice) {
     return (
       <ScreenContainer
-        module={fromCalendar ? "calendar" : "album"}
+        module="album"
         edges={["left", "right", "bottom"]}
         padded={false}
       >
@@ -289,7 +289,7 @@ export default function AlbumPhoto() {
   if (!image) {
     return (
       <ScreenContainer
-        module={fromCalendar ? "calendar" : "album"}
+        module="album"
         edges={["left", "right", "bottom"]}
         padded={false}
       >
@@ -316,9 +316,6 @@ export default function AlbumPhoto() {
     );
   }
 
-  if (fromCalendar) return <DetectionPhotoViewer uri={image.imageUri} record={record ?? undefined}
-    catName={record ? selectCatForDetection(state, record)?.name ?? "Unknown Cats" : "Unknown Cats"}
-    capturedAt={record?.recordedAt ?? image.capturedAt} onClose={backToAlbum} onDownload={handleDownload} />;
 
   // Calculate dimensions while preserving aspect ratio.
   let displayWidth = 0;
@@ -343,13 +340,13 @@ export default function AlbumPhoto() {
   const ready =
     intrinsic !== null && availableArea !== null;
 
-  // Album removal is only available from an Album.
+  // Only saved photos have an Album membership to remove.
   const canRemoveFromAlbum =
-    !fromCalendar && !!savedImage;
+    !!savedImage;
 
   return (
     <ScreenContainer
-      module={fromCalendar ? "calendar" : "album"}
+      module="album"
       edges={["left", "right", "bottom"]}
       padded={false}
     >

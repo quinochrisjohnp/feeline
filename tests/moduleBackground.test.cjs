@@ -7,7 +7,7 @@ const config = require("../constants/moduleBackgrounds.ts");
 
 test("all six modules resolve the supplied asset mapping", () => {
   for (const [module, file] of Object.entries({ auth: "bg3.png", settings: "bg3.png", camera: "bg3.png",
-    calendar: "bg3.png", album: "bg3.png", catProfile: "bg3.png" })) {
+    calendar: "bg3.png", album: "bg4.png", catProfile: "bg4.png" })) {
     assert.ok(config.moduleBackgroundConfig[module].image.endsWith(file));
   }
 });
@@ -41,7 +41,7 @@ test("individual and global switches restore cream without affecting other modul
   settings.ENABLE_MODULE_BACKGROUNDS = true;
   assert.equal(backgroundImage(render("album")), undefined);
   settings.moduleBackgroundConfig.album.mode = "image";
-  assert.equal(backgroundImage(render("album")).props.resizeMode, "contain");
+  assert.ok(backgroundImage(render("album")).props.nextSource.endsWith("bg5.png"));
 });
 
 test("screen background stays outside the keyboard and scroll content", () => {

@@ -1,3 +1,4 @@
+import { dailyEmotion } from "@/utils/calendarEmotion";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -31,7 +32,6 @@ export default function Calendar() {
   const [filterVisible, setFilterVisible] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [calendarHeight, setCalendarHeight] = useState(500);
-  const [viewportHeight, setViewportHeight] = useState(600);
   const [stripHeight, setStripHeight] = useState(170);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -46,7 +46,7 @@ export default function Calendar() {
   const hasHistory = selectCalendarRecords(state, filterId).length > 0;
   const activityForDate = (date: Date) => {
     const daily = selectCalendarRecordsForDate(state, date, filterId);
-    return { emotion: daily[daily.length - 1]?.emotion, recordCount: daily.length,
+    return { emotion: dailyEmotion(daily, date), recordCount: daily.length,
       birthdayCount: selectBirthdayCatsForDate(state, date, filterId).length,
       reminderCount: remindersForDate(wellness.state, date, filterId).filter(r => state.cats.some(c => c.id === r.catId)).length };
   };
@@ -76,7 +76,7 @@ export default function Calendar() {
 
   return (
     <ScreenContainer module="calendar" padded={false}>
-      <View style={styles.root} onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}>
+      <View style={styles.root}>
         <ScrollView ref={scrollRef} onScroll={handleScroll} scrollEventThrottle={16}
           showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: getTabBarClearance(0) }}>
           <View style={styles.calendarSection} onLayout={(event) => setCalendarHeight(event.nativeEvent.layout.height)}
@@ -98,7 +98,7 @@ export default function Calendar() {
               ))}
             </View>
           </View>
-          <View style={[styles.recordsSheet, { minHeight: Math.max(200, viewportHeight - stripHeight) }]}>
+          <View style={styles.recordsSheet}>
             <View style={styles.recordsHeader}>
               <Text style={styles.recordsHeading}>{dateHeading}</Text>
               <TouchableOpacity style={styles.filterChip} onPress={() => setFilterVisible(true)} accessibilityRole="button"

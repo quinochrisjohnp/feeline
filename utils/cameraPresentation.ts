@@ -16,10 +16,10 @@ export interface CameraDetectionNotice {
 /** Presentation only: never alters prediction, request, or persistence behavior. */
 export function detectionFailureNotice(error: unknown): CameraDetectionNotice {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-  const photoTips = /no usable cat|cat face|clear image of a cat|cannot_predict|could not produce a reliable prediction/i.test(message);
+  const photoTips = /no usable cat|not a domestic cat|non.domestic|not_a_cat|no_cat|unclear cat|cat face|clear image of a cat|cannot_predict|could not produce a reliable prediction/i.test(message);
   return photoTips ? {
-    title: "We couldn't detect a clear cat",
-    message: "Try a sharp, well-lit photo with the cat's full face visible and unobstructed.",
+    title: "We couldn't analyze this photo",
+    message: "Please try a clear, well-lit photo of a domestic cat with its face and body visible.",
     photoTips,
   } : {
     title: "Detection unavailable",
