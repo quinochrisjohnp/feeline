@@ -49,7 +49,7 @@ test("reminder editor rejects past times, preserves cat header, and confirms del
   const screen=mount("components/wellness/WellnessReminderEditor.tsx",{props:{cat,alert,reminder:{scheduledAt:"2020-01-01T00:00:00Z",status:"scheduled"},onClose(){},onSave:async()=>saved++,onComplete:async()=>{},onDelete:async()=>deleted++},
     dependencies:{"@/constants/theme":theme,"react-native":{Platform:{OS:"android"},StyleSheet:{create:s=>s},Text:"Text",View:"View",TextInput:"TextInput",Alert:{alert:(_t,_m,buttons)=>confirmation=buttons}}}});
   let tree=screen.render();assert.equal(find(tree,"./WellnessCatHeader").props.cat,cat);
-  await nodes(tree).find(n=>n.props?.label==="Save reminder").props.onPress();assert.equal(saved,0);
+  await nodes(tree).find(n=>n.props?.label==="Save changes").props.onPress();assert.equal(saved,0);
   assert.match(nodes(screen.render()).find(n=>n.props?.accessibilityRole==="alert").props.children,/future/);
   nodes(screen.render()).find(n=>n.props?.label==="Delete reminder").props.onPress();assert.equal(deleted,0);
   await confirmation.find(b=>b.text==="Delete").onPress();assert.equal(deleted,1);

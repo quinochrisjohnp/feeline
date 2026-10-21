@@ -1,9 +1,10 @@
+import DocumentSurface from "@/components/common/DocumentSurface";
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
-import { colors, spacing, typography } from "@/constants/theme";
+import { colors, fontFamily, spacing, typography } from "@/constants/theme";
 
 const FEATURES = [
   "Create and manage cat profiles",
@@ -18,7 +19,7 @@ export default function AboutFeeline() {
     <ScreenContainer module="settings" edges={["left", "right", "bottom"]} padded={false}>
       <DetailScreenHeader transparent title="About FeELINE" onBack={() => router.dismissTo("/settings")} />
       <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.body}>
+      <DocumentSurface>
         <Text style={styles.paragraph}>
           FeELINE is an academic and research-oriented mobile prototype for an AI-powered cat emotion detection
           application. It is designed to help users interpret observable emotional cues in cat images.
@@ -44,18 +45,17 @@ export default function AboutFeeline() {
           This application is developed as part of an academic project and is intended for educational and research
           purposes. It is not veterinary diagnosis or professional veterinary advice.
         </Text>
-      </View>
+      </DocumentSurface>
       </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: spacing.xxl },
-  body: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  paragraph: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.md },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  paragraph: { ...typography.body, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.md },
   spaced: { marginTop: spacing.xs },
-  subheading: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: spacing.sm },
+  subheading: { ...typography.bodyMedium, fontFamily: fontFamily.heading, color: colors.textPrimary, marginBottom: spacing.sm },
   bulletRow: { flexDirection: "row", marginBottom: spacing.xs, paddingLeft: spacing.xs },
   bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginTop: 8, marginRight: spacing.sm },
   bulletText: { ...typography.body, color: colors.textSecondary, flex: 1 },

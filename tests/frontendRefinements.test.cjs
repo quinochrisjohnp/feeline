@@ -10,12 +10,13 @@ function newSession() {
   delete require.cache[require.resolve("../utils/cameraPresentation.ts")];
   return require("../utils/cameraPresentation.ts");
 }
-function camera(session, upload = async () => { throw new Error("No usable cat"); }, gallery = async () => ({ canceled: true, assets: null })) {
+function camera(session, upload = async () => { throw new Error("No usable cat"); }, gallery = async () => ({ canceled: true, assets: null }), preference = { enabled: true, ready: true }) {
   let focused = true;
   const routes = [];
   const screen = mount("app/(screens)/(tabs)/camera.tsx", {
     router: { push: r => routes.push(r) }, globals: { performance, setTimeout: () => { throw new Error("Camera must not time out the loader"); }, console: { log() {}, error() {} } },
     dependencies: {
+      "@/hooks/useCameraTipsPreference": { useCameraTipsPreference: () => preference },
       "expo-image-picker": { launchImageLibraryAsync: gallery },
       "@/utils/cameraPresentation": session,
       "@/context/WellnessContext": { useWellness: () => ({ setCameraSafe() {} }) },
@@ -134,7 +135,7 @@ test("album measures its own width for three square columns and keeps the last r
 test("branding config uses supplied assets and contains the complete splash in both appearances", () => {
   const { expo } = require("../app.json");
   for (const icon of [expo.icon, expo.android.icon, expo.ios.icon]) {
-    assert.equal(icon, "./components/images/logo-with-bg.png");
+    assert.ok(["./components/images/logo-only.png","./components/images/logo-ios.png"].includes(icon));
     assert.ok(fs.existsSync(path.resolve(__dirname, "..", icon)));
   }
   const splash = expo.plugins.find(p => Array.isArray(p) && p[0] === "expo-splash-screen")[1];
@@ -231,4 +232,15 @@ test("gallery picker does not show analysis loader until a photo is selected", a
   assert.ok(find(screen.render(), "/FeelineLoadingOverlay"));
   finish({ catId: "cat", imageId: "image", detectionId: "det", imageUrl: "https://example.com/selected.jpg", emotion: "neutral", confidence: 0.8 });
   await work; assert.equal(screen.routes[0].params.source, "gallery");
+});
+
+test("disabled automatic tips wait for saved preference and preserve manual access", () => {
+  const preference = { enabled: false, ready: false };
+  const screen = camera(newSession(), undefined, undefined, preference);
+  assert.equal(tips(screen).props.visible, false);
+  preference.ready = true; assert.equal(tips(screen).props.visible, false);
+  nodes(screen.render()).find(n => n.props?.accessibilityLabel === "What to Avoid").props.onPress();
+  assert.equal(tips(screen).props.visible, true); tips(screen).props.onClose();
+  preference.enabled = true; screen.render(); assert.equal(tips(screen).props.visible, true);
+  tips(screen).props.onClose(); screen.render(); assert.equal(tips(screen).props.visible, false);
 });

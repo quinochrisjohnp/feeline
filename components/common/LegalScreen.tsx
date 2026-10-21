@@ -1,8 +1,9 @@
 import { useCallback, type ReactNode } from "react";
-import { BackHandler, ScrollView, StyleSheet, View } from "react-native";
+import { BackHandler, ScrollView, StyleSheet } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { dimensions, spacing } from "@/constants/theme";
+import { spacing } from "@/constants/theme";
+import DocumentSurface from "./DocumentSurface";
 import ScreenContainer from "./ScreenContainer";
 import DetailScreenHeader from "./DetailScreenHeader";
 
@@ -28,7 +29,7 @@ export default function LegalScreen({ title, children }: { title: string; childr
     <ScreenContainer module="settings" edges={["left", "right", "bottom"]} padded={false}>
       <DetailScreenHeader transparent title={title} onBack={goBack} />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.body}>{children}</View>
+        <DocumentSurface>{children}</DocumentSurface>
       </ScrollView>
     </ScreenContainer>
   );
@@ -36,5 +37,4 @@ export default function LegalScreen({ title, children }: { title: string; childr
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl },
-  body: { width: "100%", maxWidth: dimensions.contentMaxWidth, alignSelf: "center" },
 });

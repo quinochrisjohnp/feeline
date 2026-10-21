@@ -46,6 +46,8 @@ export const selectLatestDetectionForCat = (state: CatDataState, catId: string) 
   selectDetectionsForCat(state, catId)[0] ?? null;
 
 export function selectCatForDetection(state: CatDataState, record: DetectionRecord) {
+  // Persisted history can exist without an Album image; match Calendar's existing association rule.
+  if (record.catId !== undefined) return record.catId ? selectCatById(state, record.catId) : null;
   const image = selectImageById(state, record.imageId);
   const album = image ? selectAlbumById(state, image.albumId) : null;
   return album?.catId ? selectCatById(state, album.catId) : null;

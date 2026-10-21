@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, Animated, Easing, Image, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { colors, fontFamily, spacing, typography } from "@/constants/theme";
 
@@ -9,10 +8,10 @@ export default function FeelineLoadingOverlay() {
   const [reducedMotion, setReducedMotion] = useState(true);
   const rotation = useRef(new Animated.Value(0)).current;
   const breath = useRef(new Animated.Value(0)).current;
-  const left = useRef(new Animated.Value(0)).current;
-  const right = useRef(new Animated.Value(0)).current;
+  const drift = useRef(new Animated.Value(0)).current;
+  const light = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
-  const size = Math.min(170, width * 0.42, height * 0.26);
+  const size = Math.min(130, width * 0.33, height * 0.22);
   useEffect(() => {
     let mounted = true;
     void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (mounted) setReducedMotion(value); }).catch(() => {});
@@ -24,34 +23,36 @@ export default function FeelineLoadingOverlay() {
     if (reducedMotion) return;
     const timing = (value: Animated.Value, toValue: number, duration: number) =>
       Animated.timing(value, { toValue, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true });
-    const side = (value: Animated.Value, delay: number) => Animated.loop(Animated.sequence([
-      Animated.delay(delay), timing(value, 1, 2400), timing(value, 0, 2400), Animated.delay(800),
+    const cycle = (value: Animated.Value, duration: number) => Animated.loop(Animated.sequence([
+      timing(value, 1, duration), timing(value, 0, duration),
     ]));
     const animations = [
       Animated.loop(Animated.timing(rotation, { toValue: 1, duration: 14000, easing: Easing.linear, useNativeDriver: true })),
       Animated.loop(Animated.sequence([timing(breath, 1, 2800), timing(breath, 0, 2800)])),
-      side(left, 300), side(right, 1500),
+      cycle(drift, 7000), cycle(light, 9000),
     ];
     animations.forEach(a => a.start());
     return () => {
       animations.forEach(a => a.stop());
-      [rotation, breath, left, right].forEach(value => { value.stopAnimation(); value.setValue(0); });
+      [rotation, breath, drift, light].forEach(value => { value.stopAnimation(); value.setValue(0); });
     };
-  }, [reducedMotion, rotation, breath, left, right]);
+  }, [reducedMotion, rotation, breath, drift, light]);
   return (
     <View style={styles.overlay} accessibilityViewIsModal testID="feeline-loading">
       <StatusBar style="dark" />
-      <Animated.View pointerEvents="none" accessible={false} style={[StyleSheet.absoluteFillObject,
-        { backgroundColor: colors.primary, opacity: reducedMotion ? 0 : breath.interpolate({ inputRange: [0,1], outputRange: [0,0.055] }) }]} />
-      {[left, right].map((value, index) => (
-        <Animated.View key={index} pointerEvents="none" accessible={false} accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants" style={[styles.decoration,
-            index === 0 ? { left: "6%", top: "34%" } : { right: "6%", top: "60%" },
-            { opacity: reducedMotion ? 0 : value.interpolate({ inputRange: [0,0.5,1], outputRange: [0,0.4,0] }),
-              transform: [{ translateY: value.interpolate({ inputRange: [0,1], outputRange: [8,-8] }) }] }]}>
-          <Ionicons name={index === 0 ? "paw" : "heart"} size={20} color={colors.textSecondary} />
+      <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+        style={[StyleSheet.absoluteFillObject, { padding: spacing.sm }]}>
+        <Animated.View style={{ flex: 1, opacity: reducedMotion ? 0.75 : drift.interpolate({ inputRange: [0,1], outputRange: [0.7,0.85] }),
+          transform: [{ translateX: drift.interpolate({ inputRange: [0,1], outputRange: [-3,3] }) },
+            { translateY: drift.interpolate({ inputRange: [0,1], outputRange: [2,-2] }) },
+            { scale: drift.interpolate({ inputRange: [0,1], outputRange: [0.975,1] }) }] }}>
+          <Image source={require("../images/bg2.png")} resizeMode="contain" style={{ width: "100%", height: "100%" }} />
         </Animated.View>
-      ))}
+        <Animated.View style={[styles.glow, { width: width * 0.8, height: width * 0.8,
+          opacity: reducedMotion ? 0.04 : light.interpolate({ inputRange: [0,1], outputRange: [0.03,0.08] }),
+          transform: [{ translateX: light.interpolate({ inputRange: [0,1], outputRange: [-width * 0.2,width * 0.2] }) },
+            { translateY: light.interpolate({ inputRange: [0,1], outputRange: [-20,20] }) }] }]} />
+      </View>
       <Animated.View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
         style={{ transform: [
           { translateY: breath.interpolate({ inputRange: [0,1], outputRange: [0,-4] }) },
@@ -72,5 +73,5 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.sm },
   title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, textAlign: "center", marginTop: spacing.lg },
   support: { ...typography.body, fontFamily: fontFamily.body, color: colors.textSecondary, textAlign: "center" },
-  decoration: { position: "absolute" },
+  glow: { position: "absolute", top: "25%", left: "10%", borderRadius: 999, backgroundColor: colors.primary },
 });

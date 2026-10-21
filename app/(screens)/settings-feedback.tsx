@@ -6,7 +6,7 @@ import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import FormField from "@/components/common/FormField";
 import Button from "@/components/common/Button";
 import ConfirmModal from "@/components/common/ConfirmModal";
-import { colors, dimensions, radii, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, radii, spacing, typography } from "@/constants/theme";
 
 type Field = "title" | "email" | "subject" | "message";
 
@@ -63,7 +63,7 @@ export default function GiveFeedback() {
           <FormField ref={messageRef} label="Message" value={values.message} error={errors.message}
             onChangeText={(text) => change("message", text)} placeholder="Tell us what's on your mind..."
             multiline scrollEnabled style={styles.message} />
-          <Button label="Submit" onPress={handleSubmit} disabled={success} fullWidth />
+          <Button label="Submit" onPress={handleSubmit} disabled={success} style={{ alignSelf: "flex-end" }} />
         </View>
       </ScrollView>
       <ConfirmModal visible={success} title="Thank you for your Feedback!"
@@ -76,8 +76,8 @@ export default function GiveFeedback() {
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   body: { width: "100%", maxWidth: dimensions.contentMaxWidth, alignSelf: "center", backgroundColor: colors.surface,
-    padding: spacing.md, borderRadius: radii.xl },
-  heading: { ...typography.subheading, color: colors.textPrimary, textAlign: "center", marginBottom: spacing.sm },
-  note: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.lg },
+    padding: spacing.md, borderRadius: radii.lg },
+  heading: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, textAlign: "center", marginBottom: spacing.sm },
+  note: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.lg },
   message: { minHeight: dimensions.messageInput, maxHeight: 240 },
 });

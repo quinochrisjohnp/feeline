@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, dimensions, interaction, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, interaction, spacing, typography } from "@/constants/theme";
 
 interface DetailScreenHeaderProps {
   title: string;
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   transparent: { backgroundColor: "transparent" },
   backButton: { width: dimensions.touchTarget, minHeight: dimensions.touchTarget, justifyContent: "center" },
   titleWrap: { flex: 1 },
-  title: { ...typography.subheading },
-  subtitle: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  title: { ...typography.subheading, fontFamily: fontFamily.heading },
+  subtitle: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textMuted, marginTop: 2 },
   right: { minWidth: dimensions.touchTarget, minHeight: dimensions.touchTarget, alignItems: "flex-end", justifyContent: "center" },
 });

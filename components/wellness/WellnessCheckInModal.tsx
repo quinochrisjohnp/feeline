@@ -1,3 +1,4 @@
+import ModalHeader from "@/components/common/ModalHeader";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import ModalSurface from "@/components/common/ModalSurface";
@@ -14,8 +15,8 @@ export default function WellnessCheckInModal({ cat, alert, onClose, onAcknowledg
   const [expanded, setExpanded] = useState(false);
   const content = wellnessGuidance(cat.name, alert.rule);
   return <ModalSurface visible onClose={() => { if (!busy) onClose(); }}>
+    <ModalHeader title="A little check-in" onClose={onClose} disabled={busy} />
     <WellnessCatHeader cat={cat} />
-    <Text style={styles.heading} accessibilityRole="header">A little check-in for {cat.name}</Text>
     <Text style={styles.body}>{content.summary}</Text>
     <Text style={styles.caption}>{new Date(alert.from).toLocaleString()} – {new Date(alert.through).toLocaleString()}</Text>
     {content.primary.map(question => <Text key={question} style={styles.question}>{question}</Text>)}
@@ -31,17 +32,17 @@ export default function WellnessCheckInModal({ cat, alert, onClose, onAcknowledg
     <Text style={styles.caption}>{wellnessDisclaimer}</Text>
     {error ? <Text style={styles.body} accessibilityRole="alert">{error}</Text> : null}
     <View style={styles.actions}>
-      <Button label="Okay, I’ll check" onPress={onAcknowledge} loading={busy} fullWidth />
-      <Button label="Remind me later" variant="outline" onPress={onRemind} disabled={busy} fullWidth />
+      <Button label="Okay, I’ll check" onPress={onAcknowledge} loading={busy} size="compact" />
+      <Button label="Remind me later" variant="text" onPress={onRemind} disabled={busy} size="compact" />
     </View>
   </ModalSurface>;
 }
 const styles = StyleSheet.create({
   heading: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, marginBottom: spacing.sm },
-  body: { ...typography.body, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.sm },
+  body: { ...typography.body, fontSize: 15, lineHeight: 22, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.sm },
   question: { ...typography.body, fontFamily: fontFamily.body, color: colors.textPrimary, marginVertical: spacing.xs },
   caption: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.sm },
   expand: { minHeight: dimensions.touchTarget, justifyContent: "center" },
   link: { ...typography.label, fontFamily: fontFamily.medium, color: colors.textPrimary, textDecorationLine: "underline" },
-  actions: { gap: spacing.sm, marginTop: spacing.sm },
+  actions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.sm },
 });

@@ -1,6 +1,7 @@
+import { useCameraTipsPreference } from "@/hooks/useCameraTipsPreference";
 import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, { useRef, useState } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, Switch, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import SettingRow from "@/components/settings/SettingRow";
@@ -12,6 +13,7 @@ import { colors, radii, spacing, typography } from "@/constants/theme";
 const Settings = () => {
   const { profile, signOut } = useAuth();
   const router = useRouter();
+  const tips = useCameraTipsPreference();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ const Settings = () => {
     <ScreenContainer module="settings" scroll tabBar>
       <View style={styles.profileRow}>
         {profile?.profileImageUrl ? (
-          <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} />
+          <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} resizeMode="cover" accessibilityLabel="Account profile photo" />
         ) : (
           <PlaceholderBox icon="person" borderRadius={radii.pill} backgroundColor={colors.border} style={styles.avatar} />
         )}
@@ -74,6 +76,15 @@ const Settings = () => {
       </View>
 
       <View style={styles.section}>
+        <View style={styles.preferenceRow}>
+          <Text style={styles.preferenceLabel}>Show camera tips automatically</Text>
+          <Switch accessibilityLabel="Show camera tips automatically" value={tips.enabled}
+            disabled={!tips.ready || tips.saving} onValueChange={value => { void tips.setEnabled(value); }}
+            trackColor={{ true: colors.primary, false: colors.border }} />
+        </View>
+        {tips.error ? <Text accessibilityRole="alert" style={styles.email}>{tips.error}</Text> : null}
+      </View>
+      <View style={styles.section}>
         <SettingRow icon="log-out-outline" label="Log out" destructive onPress={() => { setLogoutError(null); setConfirmingLogout(true); }} />
       </View>
 
@@ -94,8 +105,10 @@ const Settings = () => {
 export default Settings;
 
 const styles = StyleSheet.create({
+  preferenceRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 44 },
+  preferenceLabel: { ...typography.label, color: colors.textPrimary, flex: 1 },
   profileRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl },
-  avatar: { width: 72, height: 72 },
+  avatar: { width: 64, height: 64, borderRadius: 32, overflow: "hidden" },
   profileText: { marginLeft: spacing.md, flex: 1, minWidth: 0 },
   name: { ...typography.subheading, color: colors.textPrimary },
   email: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xxs },

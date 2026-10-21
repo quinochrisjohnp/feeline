@@ -1,3 +1,4 @@
+import Button from "@/components/common/Button";
 import {
   colors,
   dimensions,
@@ -40,9 +41,8 @@ interface AddCatFormProps {
   onSave: (cat: Cat) => void | Promise<void>;
 }
 
-const COVER_HEIGHT = 128;
-const AVATAR_SIZE = 84;
-const LABEL_WIDTH = 78;
+const COVER_HEIGHT = 104;
+const AVATAR_SIZE = 68;
 
 const IMAGE_ERROR =
   "We couldn't open your photos right now. Please try again.";
@@ -85,6 +85,7 @@ export default function AddCatForm({
     dimensions.dialogMaxWidth
   );
 
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [description, setDescription] = useState("");
@@ -442,6 +443,9 @@ export default function AddCatForm({
                   </View>
                 )}
 
+                <Button variant="icon" label="Close cat form" onPress={handleCancel} disabled={saving}
+                  style={{ position: "absolute", top: spacing.xs, left: spacing.xs, backgroundColor: colors.surface }}
+                  leftIcon={<Ionicons name="close" size={22} color={colors.textPrimary} />} />
                 <Pressable
                   style={styles.coverCamera}
                   hitSlop={8}
@@ -537,15 +541,15 @@ export default function AddCatForm({
                   <TextInput
                     style={[
                       styles.input,
+                      focusedField === "name" && styles.focused,
                       nameInvalid &&
                         styles.invalid,
                     ]}
                     value={name}
                     maxLength={CAT_FORM_LIMITS.name}
                     onChangeText={setName}
-                    onBlur={() =>
-                      setNameTouched(true)
-                    }
+                    onFocus={() => setFocusedField("name")}
+                    onBlur={() => { setNameTouched(true); setFocusedField(null); }}
                     placeholder="Name"
                     placeholderTextColor={
                       colors.textMuted
@@ -568,7 +572,8 @@ export default function AddCatForm({
                   </Text>
 
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, focusedField === "breed" && styles.focused]}
+                    onFocus={() => setFocusedField("breed")} onBlur={() => setFocusedField(null)}
                     value={breed}
                     onChangeText={setBreed}
                     placeholder="Breed (optional)"
@@ -700,7 +705,9 @@ export default function AddCatForm({
                     style={[
                       styles.input,
                       styles.descriptionInput,
+                      focusedField === "description" && styles.focused,
                     ]}
+                    onFocus={() => setFocusedField("description")} onBlur={() => setFocusedField(null)}
                     value={description}
                     onChangeText={
                       setDescription
@@ -798,52 +805,9 @@ export default function AddCatForm({
               </View>
             </ScrollView>
 
-            {/* SAVE AND CANCEL */}
             <View style={styles.actions}>
-              <Pressable
-                style={
-                  styles.actionButton
-                }
-                onPress={handleCancel}
-                disabled={saving}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel"
-              >
-                <Text
-                  style={
-                    styles.actionLabel
-                  }
-                >
-                  Cancel
-                </Text>
-              </Pressable>
-
-              <View
-                style={
-                  styles.actionDivider
-                }
-              />
-
-              <Pressable
-                style={
-                  styles.actionButton
-                }
-                onPress={handleSave}
-                disabled={saving}
-                accessibilityRole="button"
-                accessibilityLabel="Save"
-              >
-                <Text
-                  style={[
-                    styles.actionLabel,
-                    styles.bold,
-                  ]}
-                >
-                  {saving
-                    ? "Saving..."
-                    : "Save"}
-                </Text>
-              </Pressable>
+              <Button label="Cancel" variant="text" size="compact" onPress={handleCancel} disabled={saving} />
+              <Button label={initialCat ? "Save changes" : "Save"} size="compact" onPress={handleSave} loading={saving} />
             </View>
           </View>
         </View>
@@ -892,8 +856,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: spacing.sm,
     bottom: spacing.sm,
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: radii.pill,
     backgroundColor: colors.white,
     borderWidth: 1,
@@ -926,8 +890,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: -2,
     bottom: -2,
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     borderRadius: radii.pill,
     backgroundColor: colors.white,
     borderWidth: 1,
@@ -959,28 +923,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
 
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-    minHeight: 40,
-  },
+  row: { gap: spacing.xs, marginBottom: spacing.sm },
 
   label: {
     ...typography.label,
     fontFamily: fontFamily.semibold,
     color: colors.textPrimary,
-    width: LABEL_WIDTH,
+    alignSelf: "flex-start",
   },
 
   input: {
-    flex: 1,
-    height: 40,
+    width: "100%",
+    minHeight: 44,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 0,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.surface,
     fontFamily: fontFamily.body,
     fontSize: 14,
@@ -998,6 +957,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
 
+  focused: { borderColor: colors.focus },
   invalid: {
     borderColor: colors.dangerStrong,
   },
@@ -1006,21 +966,21 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontFamily: fontFamily.body,
     color: colors.dangerStrong,
-    marginLeft: LABEL_WIDTH,
+    marginLeft: 0,
     marginTop: -spacing.xs,
     marginBottom: spacing.xs,
   },
 
   genderRow: {
-    flex: 1,
+    width: "100%",
     flexDirection: "row",
     gap: spacing.xs,
   },
 
   pill: {
     flex: 1,
-    height: 40,
-    borderRadius: radii.pill,
+    minHeight: 44,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -1082,24 +1042,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: colors.divider,
-  },
-
-  actionButton: {
-    flex: 1,
-    minHeight: dimensions.button,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  actionDivider: {
-    width: 1,
-    backgroundColor: colors.divider,
-  },
-
-  actionLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: 16,
-    color: colors.textPrimary,
+    justifyContent: "flex-end", gap: spacing.xs, padding: spacing.sm,
   },
 
   bold: {

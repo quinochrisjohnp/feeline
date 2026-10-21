@@ -1,7 +1,7 @@
 import React, { forwardRef, useId, useState } from "react";
 import { Pressable, StyleProp, StyleSheet, Text, TextInput, TextInputProps, View, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, dimensions, interaction, radii, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, interaction, radii, spacing, typography } from "@/constants/theme";
 
 export interface FormFieldProps extends TextInputProps {
   label: string;
@@ -57,12 +57,12 @@ export default FormField;
 
 const styles = StyleSheet.create({
   field: { marginBottom: spacing.md },
-  label: { ...typography.label, color: colors.textPrimary, marginBottom: spacing.xs },
-  input: { ...typography.body, color: colors.textPrimary },
+  label: { ...typography.label, fontFamily: fontFamily.medium, color: colors.textPrimary, marginBottom: spacing.xs },
+  input: { ...typography.body, fontFamily: fontFamily.body, fontSize: 15, color: colors.textPrimary },
   chrome: { minHeight: dimensions.input,
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
-    borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  multiline: { minHeight: dimensions.messageInput, borderRadius: radii.lg },
+    borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  multiline: { minHeight: dimensions.messageInput, borderRadius: radii.md },
   focused: { borderColor: colors.focus },
   invalid: { borderColor: colors.dangerStrong },
   inactive: { backgroundColor: colors.background, color: colors.textSecondary },

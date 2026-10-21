@@ -1,3 +1,4 @@
+import WellnessReminderDetails from "./WellnessReminderDetails";
 import React, { useEffect, useRef, useState } from "react";
 import { AppState, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
@@ -14,7 +15,7 @@ export default function WellnessCalendarSection({ date, catId, blocked, onOpenCo
   date: Date; catId: string | null; blocked: boolean; onOpenContext(date: Date, catId: string): void;
 }) {
   const wellness = useWellness(), { state: data } = useCatData(), focused = useIsFocused();
-  const [selection, setSelection] = useState<{ signature: string; editor: boolean } | null>(null);
+  const [selection, setSelection] = useState<{ signature: string; editor: boolean; details?: boolean } | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const lock = useRef(false);
@@ -58,21 +59,24 @@ export default function WellnessCalendarSection({ date, catId, blocked, onOpenCo
       const reminderCat = data.cats.find(c => c.id === item.catId);
       if (!reminderCat) return null;
       return <TouchableOpacity key={item.id} style={styles.card} accessibilityRole="button"
-        accessibilityLabel={"Edit check-in reminder for " + reminderCat.name}
-        onPress={() => { wellness.markPresented(item.alertSignature); setError(null); setSelection({ signature: item.alertSignature, editor: true }); }}>
+        accessibilityLabel={"View check-in reminder for " + reminderCat.name}
+        onPress={() => { wellness.markPresented(item.alertSignature); setError(null); setSelection({ signature: item.alertSignature, editor: false, details: true }); }}>
         <WellnessCatHeader cat={reminderCat} />
         <View style={styles.row}><Ionicons name="paw-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.label}>Check in with {reminderCat.name}</Text></View>
         <Text style={styles.caption}>{new Date(item.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {item.status === "acknowledged" ? "Completed" : "Scheduled"}</Text>
         {item.status === "scheduled" && item.notificationState !== "scheduled" ? <Text style={styles.caption}>Calendar reminder only · phone notifications {item.notificationState === "off" ? "off" : "not scheduled"}</Text> : null}
-        <Text style={styles.link}>Edit reminder</Text>
+        <Text style={styles.link}>View reminder</Text>
       </TouchableOpacity>;
     })}
     {visible && alert && cat && selection ? selection.editor ? <WellnessReminderEditor
       key={alert.signature + "-editor"} cat={cat} alert={alert} reminder={reminder} onClose={close}
       onSave={async at => { const message = await wellness.saveReminder(alert.signature, at, cat.name); setFeedback(message); setSelection(null); }}
-      onComplete={async () => { await wellness.acknowledge(alert.signature); setSelection(null); setFeedback("Check-in completed."); }}
+
       onDelete={async () => { await wellness.acknowledge(alert.signature, true); setSelection(null); setFeedback("Local reminder deleted."); }} />
+      : selection.details && reminder ? <WellnessReminderDetails cat={cat} alert={alert} reminder={reminder}
+        onClose={close} onEdit={() => setSelection({ signature: alert.signature, editor: true })}
+        onAcknowledge={acknowledge} busy={busy} error={error} />
       : <WellnessCheckInModal key={alert.signature} cat={cat} alert={alert} busy={busy} error={error}
         onClose={close} onAcknowledge={acknowledge} onRemind={() => setSelection({ signature: alert.signature, editor: true })} /> : null}
   </>;
