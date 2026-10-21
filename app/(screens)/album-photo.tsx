@@ -1,3 +1,4 @@
+import DetectionPhotoViewer from "@/components/calendar/DetectionPhotoViewer";
 
 import React, { useCallback, useEffect, useState } from "react";
 
@@ -34,6 +35,7 @@ import { formatFullDate, formatTime } from "@/utils/date";
 
 import {
   selectAlbumById,
+  selectCatForDetection,
   selectImageById,
   selectDetectionForImage,
 } from "@/context/catDataSelectors";
@@ -313,6 +315,10 @@ export default function AlbumPhoto() {
       </ScreenContainer>
     );
   }
+
+  if (fromCalendar) return <DetectionPhotoViewer uri={image.imageUri} record={record ?? undefined}
+    catName={record ? selectCatForDetection(state, record)?.name ?? "Unknown Cats" : "Unknown Cats"}
+    capturedAt={record?.recordedAt ?? image.capturedAt} onClose={backToAlbum} onDownload={handleDownload} />;
 
   // Calculate dimensions while preserving aspect ratio.
   let displayWidth = 0;

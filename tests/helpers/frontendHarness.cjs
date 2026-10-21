@@ -60,6 +60,8 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
     "@react-native-community/datetimepicker": { __esModule: true, default: "DateTimePicker",
       DateTimePickerAndroid: { open() {} } },
     "@/services/feedback": { submitFeedback: async () => ({ ok: true }) },
+    "@/hooks/useCameraTipsPreference": { useCameraTipsPreference: () => ({ enabled: true, ready: true, saving: false, error: null, setEnabled: async () => {} }) },
+    "@/context/WellnessContext": { useWellnessNavigationSafety() {} },
     "@/context/CatDataContext": { useCatData: () => context() },
     ...dependencies,
   };

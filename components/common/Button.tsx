@@ -1,9 +1,9 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
-import { colors, dimensions, interaction, radii, shadows, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, interaction, radii, shadows, spacing, typography } from "@/constants/theme";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "text" | "google";
-type ButtonSize = "md" | "sm";
+type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "text" | "google" | "icon" | "dangerText";
+type ButtonSize = "md" | "sm" | "compact" | "default";
 
 interface ButtonProps {
   label: string;
@@ -25,16 +25,16 @@ export default function Button({ label, onPress, variant = "primary", size = "md
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.base, size === "sm" ? styles.sizeSm : styles.sizeMd,
-        variantStyles[variant], fullWidth && styles.fullWidth, style,
+      style={({ pressed }) => [styles.base, (size === "sm" || size === "compact") ? styles.sizeSm : styles.sizeMd,
+        variantStyles[variant], variant === "icon" && styles.iconButton, fullWidth && styles.fullWidth, style,
         disabled && styles.disabled, pressed && !isDisabled && styles.pressed]}
       onPress={onPress} disabled={isDisabled} accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
     >
       <View style={[styles.contentRow, loading && styles.hidden]}>
-        {leftIcon ? <View style={styles.iconSlot}>{leftIcon}</View> : null}
-        <Text style={[styles.label, textStyles[variant], { color: ink }]}>{label}</Text>
+        {leftIcon ? <View style={variant !== "icon" && styles.iconSlot}>{leftIcon}</View> : null}
+        {variant !== "icon" ? <Text style={[styles.label, textStyles[variant], { color: ink }]}>{label}</Text> : null}
       </View>
       {loading && <ActivityIndicator style={styles.spinner} color={ink} />}
     </Pressable>
@@ -42,9 +42,10 @@ export default function Button({ label, onPress, variant = "primary", size = "md
 }
 
 const styles = StyleSheet.create({
-  base: { borderRadius: radii.pill, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.lg },
-  sizeMd: { minHeight: dimensions.button, paddingVertical: spacing.sm },
+  base: { borderRadius: radii.md, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
+  sizeMd: { minHeight: dimensions.button, paddingVertical: spacing.xs },
   sizeSm: { minHeight: dimensions.touchTarget, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  iconButton: { width: dimensions.touchTarget, minWidth: dimensions.touchTarget, paddingHorizontal: 0 },
   fullWidth: { alignSelf: "stretch" },
   disabled: { backgroundColor: colors.divider, borderColor: colors.border, elevation: 0, shadowOpacity: 0 },
   pressed: { opacity: interaction.pressedOpacity },
@@ -52,7 +53,7 @@ const styles = StyleSheet.create({
   hidden: { opacity: 0 },
   spinner: { position: "absolute" },
   iconSlot: { marginRight: spacing.xs },
-  label: { ...typography.button, textAlign: "center", flexShrink: 1 },
+  label: { ...typography.button, fontFamily: fontFamily.medium, fontSize: 15, textAlign: "center", flexShrink: 1 },
 });
 
 const variantStyles: Record<ButtonVariant, ViewStyle> = {
@@ -61,6 +62,8 @@ const variantStyles: Record<ButtonVariant, ViewStyle> = {
   outline: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   danger: { backgroundColor: colors.dangerStrong },
   text: { backgroundColor: "transparent" },
+  icon: { backgroundColor: "transparent" },
+  dangerText: { backgroundColor: "transparent" },
   google: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, ...shadows.card },
 };
 const textStyles: Record<ButtonVariant, TextStyle> = {
@@ -69,5 +72,7 @@ const textStyles: Record<ButtonVariant, TextStyle> = {
   outline: { color: colors.textPrimary },
   danger: { color: colors.textInverse },
   text: { color: colors.textPrimary, textDecorationLine: "underline" },
+  icon: { color: colors.textPrimary },
+  dangerText: { color: colors.dangerStrong },
   google: { color: colors.textPrimary },
 };

@@ -16,10 +16,14 @@ export default function ModalSurface({ visible, onClose, children, compact = fal
         <SafeAreaView style={styles.overlay}>
           {compact ? <View style={[styles.content, styles.flex, { padding: spacing.sm }]}>
             <View style={[styles.card, { padding: spacing.sm, flex: 1, minHeight: 0, maxHeight: dimensions.contentMaxWidth }]} accessibilityViewIsModal>{children}</View>
-          </View> : <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
-            <View style={styles.card} accessibilityViewIsModal>{children}</View>
-          </ScrollView>}
+          </View> : <View style={[styles.content, styles.flex]}>
+            <View style={[styles.card, { maxHeight: "100%", padding: 0, overflow: "hidden" }]} accessibilityViewIsModal>
+              <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ padding: spacing.md }} keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false} bounces={false}>
+                {children}
+              </ScrollView>
+            </View>
+          </View>}
         </SafeAreaView>
       </KeyboardAvoidingView>
     </Modal>
@@ -31,5 +35,5 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: colors.overlay },
   content: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
   card: { width: "100%", maxWidth: dimensions.dialogMaxWidth, backgroundColor: colors.surface,
-    borderRadius: radii.xl, padding: spacing.lg, ...shadows.floating },
+    borderRadius: radii.lg, padding: spacing.md, ...shadows.floating },
 });

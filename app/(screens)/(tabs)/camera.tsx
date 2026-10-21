@@ -1,3 +1,4 @@
+import { useCameraTipsPreference } from "@/hooks/useCameraTipsPreference";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -53,6 +54,7 @@ export default function Camera() {
   const router = useRouter();
   const { setCameraSafe } = useWellness();
   const focused = useIsFocused();
+  const tipsPreference = useCameraTipsPreference();
   const insets = useSafeAreaInsets();
 
   const [permission, requestPermission, refreshPermission] =
@@ -87,7 +89,6 @@ export default function Camera() {
   useFocusEffect(
     useCallback(() => {
       active.current = true;
-      if (claimCameraSessionTips()) setAvoidVisible(true);
       lock.current = false;
 
       setReviewing(false);
@@ -130,6 +131,12 @@ export default function Camera() {
     setCameraSafe(focused && appActive && permission !== null && !permissionBusy && !reviewing && !avoidVisible);
     return () => setCameraSafe(false);
   }, [focused, appActive, permission, permissionBusy, reviewing, avoidVisible, setCameraSafe]);
+
+  useEffect(() => {
+    if (focused && appActive && tipsPreference.ready && tipsPreference.enabled && !reviewing && !permissionBusy && claimCameraSessionTips()) {
+      setAvoidVisible(true);
+    }
+  }, [focused, appActive, tipsPreference.ready, tipsPreference.enabled, reviewing, permissionBusy]);
 
   const current = (ticket: number) =>
     active.current && generation.current === ticket;

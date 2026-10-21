@@ -402,7 +402,7 @@ export default function CameraSave() {
             ? selectAlbumName(state, pendingAlbumId)
             : "this album"
         }?`}
-        message="The image and detection are already stored. This will save the image to the selected album."
+        message="This will save the image to the selected album."
         confirmLabel="Save"
         onConfirm={handleConfirmSave}
         onCancel={() => setStep("select")}

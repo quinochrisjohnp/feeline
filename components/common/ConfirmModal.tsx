@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Button from "./Button";
 import ModalSurface from "./ModalSurface";
-import { colors, dimensions, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, spacing, typography } from "@/constants/theme";
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -39,10 +39,10 @@ export default function ConfirmModal({
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <View style={[styles.actions, stacked && styles.stacked]}>
             {(!hideCancel || destructive) && (
-              <Button label={cancelLabel} variant="outline" onPress={onCancel} disabled={busy} style={!stacked && styles.actionButton} />
+              <Button label={cancelLabel} variant="text" size="compact" onPress={onCancel} disabled={busy} style={!stacked && styles.actionButton} />
             )}
             <Button
-              label={confirmLabel}
+              size="compact" label={confirmLabel}
               variant={destructive ? "danger" : "primary"}
               onPress={onConfirm}
               loading={busy}
@@ -54,8 +54,8 @@ export default function ConfirmModal({
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.subheading, color: colors.textPrimary, textAlign: "center" },
-  message: { ...typography.body, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xs },
+  title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, textAlign: "center" },
+  message: { ...typography.body, fontFamily: fontFamily.body, fontSize: 15, color: colors.textSecondary, textAlign: "center", marginTop: spacing.xs },
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg },
   stacked: { flexDirection: "column" },
   actionButton: { flex: 1 },

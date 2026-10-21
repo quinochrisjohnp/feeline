@@ -37,8 +37,10 @@ export default function CatCoverCard({ name, coverUri, variant = "tile", onPress
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={subtitle ? `${name}, ${subtitle}` : name}
-      accessibilityHint={onLongPress ? "Open album. Hold for Rename and Delete." : undefined}
+      accessibilityHint={onLongPress ? "Open profile. Hold for profile management." : undefined}
       accessibilityState={{ selected }}
+      accessibilityActions={onLongPress ? [{ name: "longpress", label: "Manage cat profile" }] : undefined}
+      onAccessibilityAction={event => { if (event.nativeEvent.actionName === "longpress") onLongPress?.(); }}
       onPressIn={() => { longPressed.current = false; }}
       onPress={() => { if (!longPressed.current) onPress?.(); }}
       onLongPress={onLongPress ? () => { longPressed.current = true; onLongPress(); } : undefined}

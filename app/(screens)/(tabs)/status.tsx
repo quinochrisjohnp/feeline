@@ -2,11 +2,13 @@ import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, {
   useCallback,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 
 import {
   BackHandler,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -51,6 +53,7 @@ import {
 import {
   colors,
   dimensions,
+  fontFamily,
   radii,
   shadows,
   spacing,
@@ -66,6 +69,7 @@ export default function Status() {
     state,
     addCat,
     updateCat,
+    deleteCat,
   } = useCatData();
 
   const { cats } = state;
@@ -90,8 +94,29 @@ export default function Status() {
     selectedCatId ?? ""
   );
 
+  const [managedId, setManagedId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteLock = useRef(false);
+  const editingProfile = selectCatById(state, editTarget ?? "");
+  const managedCat = selectCatById(state, managedId ?? "");
   const showingProfile = !!selectedCat;
-  useWellnessNavigationSafety(addingCat || editingCat || createdNotice || updatedNotice);
+  useFocusEffect(useCallback(() => () => setManagedId(null), []));
+  useFocusEffect(useCallback(() => {
+    if (!managedId) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => { setManagedId(null); return true; });
+    return () => sub.remove();
+  }, [managedId]));
+  const handleDelete = async () => {
+    if (!deleteTarget || deleteLock.current) return;
+    deleteLock.current = true; setDeleting(true); setDeleteError(null);
+    try { await deleteCat(deleteTarget); setDeleteTarget(null); setManagedId(null); }
+    catch { setDeleteError("The profile could not be deleted. Please try again."); }
+    finally { deleteLock.current = false; setDeleting(false); }
+  };
+  useWellnessNavigationSafety(addingCat || editingCat || createdNotice || updatedNotice || !!managedId || !!deleteTarget);
 
   // Hide tab bar while viewing a cat profile.
   useLayoutEffect(() => {
@@ -143,16 +168,11 @@ export default function Status() {
   // EDIT CAT
   // ============================================================
 
-  const handleEditCat = () => {
-    if (!selectedCat) return;
-
-    setEditingCat(true);
-  };
 
   const handleSaveEditedCat = async (
     editedCat: Cat
   ) => {
-    if (!selectedCat) {
+    if (!editingProfile) {
       throw new Error(
         "Cat profile was not found."
       );
@@ -164,28 +184,28 @@ export default function Status() {
     // Only changed fields are sent to the backend.
 
     if (
-      editedCat.name !== selectedCat.name
+      editedCat.name !== editingProfile.name
     ) {
       changes.name = editedCat.name;
     }
 
     if (
       (editedCat.breed ?? "") !==
-      (selectedCat.breed ?? "")
+      (editingProfile.breed ?? "")
     ) {
       changes.breed = editedCat.breed;
     }
 
     if (
       editedCat.gender !==
-      selectedCat.gender
+      editingProfile.gender
     ) {
       changes.gender = editedCat.gender;
     }
 
     if (
       editedCat.birthdate !==
-      selectedCat.birthdate
+      editingProfile.birthdate
     ) {
       changes.birthdate =
         editedCat.birthdate;
@@ -193,7 +213,7 @@ export default function Status() {
 
     if (
       (editedCat.description ?? "") !==
-      (selectedCat.description ?? "")
+      (editingProfile.description ?? "")
     ) {
       changes.description =
         editedCat.description;
@@ -201,7 +221,7 @@ export default function Status() {
 
     if (
       editedCat.photoUri !==
-      selectedCat.photoUri
+      editingProfile.photoUri
     ) {
       changes.photoUri =
         editedCat.photoUri;
@@ -209,7 +229,7 @@ export default function Status() {
 
     if (
       editedCat.coverUri !==
-      selectedCat.coverUri
+      editingProfile.coverUri
     ) {
       changes.coverUri =
         editedCat.coverUri;
@@ -224,7 +244,7 @@ export default function Status() {
     }
 
     await updateCat(
-      selectedCat.id,
+      editingProfile.id,
       changes
     );
 
@@ -274,26 +294,6 @@ export default function Status() {
               {selectedCat.name}
             </Text>
 
-            {/* EDIT PROFILE BUTTON */}
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleEditCat}
-              accessibilityRole="button"
-              accessibilityLabel="Edit Cat Profile"
-            >
-              <Ionicons
-                name="create-outline"
-                size={19}
-                color={colors.textPrimary}
-              />
-
-              <Text
-                style={styles.editButtonText}
-              >
-                Edit Profile
-              </Text>
-            </TouchableOpacity>
-
             {/* LATEST DETECTED EMOTION */}
             <View style={styles.card}>
               {latest ? (
@@ -320,7 +320,7 @@ export default function Status() {
                   <Text
                     style={styles.cardCaption}
                   >
-                    Mock observable cues,
+                    Observable cues,
                     not a diagnosis.
                   </Text>
 
@@ -537,7 +537,7 @@ export default function Status() {
             setSelectedCatId(null)
           }
           accessibilityRole="button"
-          accessibilityLabel="Back to My Cats"
+          accessibilityLabel="Back to Cat Profiles"
         >
           <Ionicons
             name="arrow-back"
@@ -546,32 +546,6 @@ export default function Status() {
           />
         </TouchableOpacity>
 
-        {/* EDIT CAT MODAL */}
-        <AddCatForm
-          visible={editingCat}
-          initialCat={selectedCat}
-          onCancel={() =>
-            setEditingCat(false)
-          }
-          onSave={
-            handleSaveEditedCat
-          }
-        />
-
-        {/* UPDATE CONFIRMATION */}
-        <ConfirmModal
-          visible={updatedNotice}
-          title="Cat Profile Updated!"
-          message="Your cat's profile has been successfully updated."
-          hideCancel
-          confirmLabel="Continue"
-          onConfirm={() =>
-            setUpdatedNotice(false)
-          }
-          onCancel={() =>
-            setUpdatedNotice(false)
-          }
-        />
       </ScreenContainer>
     );
   }
@@ -590,7 +564,7 @@ export default function Status() {
           style={styles.title}
           accessibilityRole="header"
         >
-          My Cats
+          Cat Profiles
         </Text>
 
         <TouchableOpacity
@@ -611,11 +585,12 @@ export default function Status() {
         </TouchableOpacity>
       </View>
 
+      <Pressable style={{ flex: 1 }} onPress={() => setManagedId(null)} accessible={false}>
       {cats.length === 0 ? (
         <EmptyState
           icon="paw-outline"
           title="No cats added yet"
-          message="Add a cat profile to organize your mock photos and emotion-cue results."
+          message="Add a cat profile to organize your photos and emotion-cue results."
           actionLabel="Add your first cat"
           onAction={() =>
             setAddingCat(true)
@@ -627,7 +602,7 @@ export default function Status() {
             false
           }
         >
-          {cats.map((cat) => (
+          {cats.filter(cat => cat.id !== "unknown-cats").map((cat) => (
             <CatCoverCard
               key={cat.id}
               name={cat.name}
@@ -639,16 +614,28 @@ export default function Status() {
                 cat.birthdate
               )} years old`}
               variant="bar"
-              onPress={() =>
-                setSelectedCatId(
-                  cat.id
-                )
-              }
+              selected={managedId === cat.id}
+              faded={!!managedId && managedId !== cat.id}
+              onLongPress={() => setManagedId(cat.id)}
+              onPress={() => managedId ? setManagedId(null) : setSelectedCatId(cat.id)}
             />
           ))}
         </ScrollView>
       )}
 
+      </Pressable>
+      {managedCat ? <View style={styles.management}>
+        <Button label="Edit profile" size="compact" onPress={() => { setEditTarget(managedCat.id); setEditingCat(true); setManagedId(null); }} />
+        <Button label="Delete profile" size="compact" variant="dangerText" onPress={() => { setDeleteTarget(managedCat.id); setDeleteError(null); setManagedId(null); }} />
+        <Button label="Cancel" size="compact" variant="text" onPress={() => setManagedId(null)} />
+      </View> : null}
+      <AddCatForm visible={editingCat} initialCat={editingProfile} onCancel={() => setEditingCat(false)} onSave={handleSaveEditedCat} />
+      <ConfirmModal visible={updatedNotice} title="Cat Profile Updated!" message="Your cat's profile and album are up to date."
+        hideCancel confirmLabel="Continue" onConfirm={() => setUpdatedNotice(false)} onCancel={() => setUpdatedNotice(false)} />
+      <ConfirmModal visible={!!deleteTarget} title="Delete this cat profile?"
+        message={deleteError ?? "This removes the connected album, saved image records, and detection history for this cat. This cannot be undone."}
+        confirmLabel="Delete profile" destructive busy={deleting} onConfirm={handleDelete}
+        onCancel={() => { if (!deleteLock.current) setDeleteTarget(null); }} />
       {/* ADD CAT MODAL */}
       <AddCatForm
         visible={addingCat}
@@ -662,7 +649,7 @@ export default function Status() {
       <ConfirmModal
         visible={createdNotice}
         title="Cat Profile Saved!"
-        message="Your cat and its album are ready for this mock session."
+        message="Your cat and its album are ready."
         hideCancel
         confirmLabel="Continue"
         onConfirm={() =>
@@ -681,6 +668,7 @@ export default function Status() {
 // ============================================================
 
 const styles = StyleSheet.create({
+  management: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, paddingVertical: spacing.sm, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -691,6 +679,7 @@ const styles = StyleSheet.create({
 
   title: {
     ...typography.heading,
+    fontFamily: fontFamily.heading, fontSize: 24,
     color: colors.textPrimary,
   },
 
@@ -723,26 +712,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
     textAlign: "center",
-  },
-
-  editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.lg,
-    ...shadows.card,
-  },
-
-  editButtonText: {
-    ...typography.label,
-    color: colors.textPrimary,
   },
 
   card: {

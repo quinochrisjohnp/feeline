@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { colors, spacing, typography } from "@/constants/theme";
+import { colors, fontFamily, spacing, typography } from "@/constants/theme";
 
 interface PolicySectionProps {
   title: string;
@@ -19,6 +19,6 @@ export default function PolicySection({ title, children }: PolicySectionProps) {
 
 const styles = StyleSheet.create({
   wrapper: { marginBottom: spacing.lg },
-  title: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: spacing.xs },
-  body: { ...typography.body, color: colors.textSecondary },
+  title: { ...typography.bodyMedium, fontFamily: fontFamily.heading, color: colors.textPrimary, marginBottom: spacing.xs },
+  body: { ...typography.body, fontFamily: fontFamily.body, color: colors.textSecondary },
 });

@@ -6,7 +6,7 @@ function loading(reduced) {
   const Animated={Value,View:"AnimatedView",timing:(value,options)=>{timings.push(options);return {value,options};},
     sequence:items=>({items}),delay:duration=>({duration}),loop:animation=>{const loop={animation,start(){this.started=true;},stop(){this.stopped=true;}};loops.push(loop);return loop;}};
   const screen=mount("components/loading/FeelineLoadingOverlay.tsx",{dependencies:{
-    "../images/loading-icon.png":"loading-icon.png","expo-status-bar":{StatusBar:"StatusBar"},
+    "../images/loading-icon.png":"loading-icon.png","../images/bg2.png":"bg2.png","expo-status-bar":{StatusBar:"StatusBar"},
     "react-native":{Animated,Easing:{inOut:x=>x,sin:"sin",linear:"linear"},
       AccessibilityInfo:{isReduceMotionEnabled:async()=>reduced,addEventListener:(_,fn)=>{onChange=fn;return {remove(){removed++;}};},announceForAccessibility:()=>announcements++},
       View:"View",Text:"Text",Image:"Image",ActivityIndicator:"ActivityIndicator",StyleSheet:{create:s=>s},
@@ -18,7 +18,8 @@ test("loading uses contain and native gentle loops, then stops all animations/li
   const h=loading(false);h.screen.render();await Promise.resolve();const tree=h.screen.render();
   assert.equal(h.loops.length,4);assert.ok(h.loops.every(l=>l.started));assert.ok(h.timings.every(t=>t.useNativeDriver));
   assert.ok(h.timings.some(t=>t.duration===14000));
-  const image=find(tree,"Image");assert.equal(image.props.resizeMode,"contain");assert.equal(image.props.style.width,image.props.style.height);
+  const bg=nodes(tree).find(n=>n.props?.source==="bg2.png");assert.equal(bg.props.resizeMode,"contain");
+  const image=nodes(tree).find(n=>n.props?.source==="loading-icon.png");assert.equal(image.props.resizeMode,"contain");assert.equal(image.props.style.width,image.props.style.height);
   assert.equal(image.props.source,"loading-icon.png");
   assert.equal(h.announcements(),1);h.screen.render();assert.equal(h.announcements(),1);
   assert.ok(nodes(tree).some(n=>n.props?.pointerEvents==="none"&&n.props?.importantForAccessibility==="no-hide-descendants"));

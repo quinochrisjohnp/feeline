@@ -2,7 +2,7 @@
   "expo": {
     "name": "FeELINE",
     "slug": "feeline",
-    "icon": "./components/images/logo-with-bg.png",
+    "icon": "./components/images/logo-only.png",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "feeline",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.feeline.app",
-      "icon": "./components/images/logo-with-bg.png"
+      "icon": "./components/images/logo-ios.png"
     },
     "android": {
       "package": "com.feeline.app",
@@ -20,7 +20,11 @@
       "permissions": [
         "android.permission.CAMERA"
       ],
-      "icon": "./components/images/logo-with-bg.png"
+      "icon": "./components/images/logo-ios.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./components/images/logo-adaptive-foreground.png",
+        "backgroundColor": "#FFF7E9"
+      }
     },
     "web": {
       "output": "static"
