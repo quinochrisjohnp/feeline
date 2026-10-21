@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -15,12 +15,11 @@ import { colors, dimensions, fontFamily, radii, spacing, typography } from "@/co
 
 // Small, consistent gap between thumbnails; Album-module only.
 const ALBUM_GRID_GAP = 4;
-const ALBUM_GRID_OUTER_PADDING = spacing.md; // matches gridContent's paddingHorizontal
 
 export default function AlbumFolder() {
-  const { width } = useWindowDimensions();
-  // itemWidth = (availableWidth - outerPadding*2 - 2 inter-item gaps) / 3
-  const albumThumbnailSize = (width - ALBUM_GRID_OUTER_PADDING * 2 - ALBUM_GRID_GAP * 2) / 3;
+  const [gridWidth, setGridWidth] = useState(0);
+  // Round down slightly so fractional layout precision cannot wrap the third tile.
+  const albumThumbnailSize = Math.max(0, Math.floor((gridWidth - ALBUM_GRID_GAP * 2) / 3 * 100) / 100);
   const router = useRouter();
   const params = useLocalSearchParams<{ albumId?: string }>();
   const albumId = typeof params.albumId === "string" ? params.albumId : "";
@@ -83,8 +82,8 @@ export default function AlbumFolder() {
       ) : (
         <ScrollView contentContainerStyle={styles.gridContent}>
           <Text style={styles.hint}>Tap a photo to open it. Hold to select photos.</Text>
-          <View style={styles.photoGrid}>
-            {folderImages.map((image, index) => {
+          <View style={styles.photoGrid} onLayout={({ nativeEvent: { layout } }) => setGridWidth(layout.width)}>
+            {albumThumbnailSize > 0 && folderImages.map((image, index) => {
               const record = selectDetectionForImage(state, image.id);
               const isSelected = selectedIds.includes(image.id);
               const isLastInRow = (index + 1) % 3 === 0;

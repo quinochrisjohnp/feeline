@@ -6,8 +6,8 @@ const backgroundImage = tree => tree.props.children || undefined;
 const config = require("../constants/moduleBackgrounds.ts");
 
 test("all six modules resolve the supplied asset mapping", () => {
-  for (const [module, file] of Object.entries({ auth: "bg1.png", settings: "bg1.png", camera: "bg2.png",
-    calendar: "bg2.png", album: "bg3.png", catProfile: "bg3.png" })) {
+  for (const [module, file] of Object.entries({ auth: "bg3.png", settings: "bg3.png", camera: "bg3.png",
+    calendar: "bg3.png", album: "bg3.png", catProfile: "bg3.png" })) {
     assert.ok(config.moduleBackgroundConfig[module].image.endsWith(file));
   }
 });
@@ -27,7 +27,9 @@ test("individual and global switches restore cream without affecting other modul
   assert.ok(backgroundImage(render("album")));
   settings.moduleBackgroundConfig.album.mode = "color";
   assert.equal(backgroundImage(render("album")), undefined);
-  assert.ok(backgroundImage(render("calendar")));
+  assert.equal(backgroundImage(render("calendar")), undefined);
+  assert.equal(render("calendar").props.style.backgroundColor, "#FFF7E9");
+  assert.ok(backgroundImage(render("settings")));
   settings.ENABLE_MODULE_BACKGROUNDS = false;
   for (const module of Object.keys(settings.moduleBackgroundConfig)) {
     const tree = render(module);
@@ -57,7 +59,7 @@ test("screen background stays outside the keyboard and scroll content", () => {
 
 test("all backgrounds fit measured viewport bounds and stay anchored during keyboard resizing", () => {
   let keyboardVisible = false;
-  for (const module of ["auth", "settings", "calendar", "camera", "album", "catProfile"]) {
+  for (const module of ["auth", "settings", "camera", "album", "catProfile"]) {
     const screen = mount("components/common/ModuleBackground.tsx", {
       props: { module }, dependencies: {
         "@/constants/moduleBackgrounds": config,

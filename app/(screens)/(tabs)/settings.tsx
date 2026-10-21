@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, { useRef, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -15,6 +16,7 @@ const Settings = () => {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const logoutPending = useRef(false);
+  useWellnessNavigationSafety(confirmingLogout || loggingOut);
 
   const handleLogout = async () => {
     if (logoutPending.current) return;

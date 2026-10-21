@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { CAT_FORM_LIMITS } from "@/constants/catFormLimits";
 import FormField from "@/components/common/FormField";
 import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
@@ -32,6 +33,7 @@ export default function RenameCatModal({ visible, initialName, onCancel, onSave 
           <FormField
             label="Album name"
             value={name}
+            maxLength={CAT_FORM_LIMITS.name}
             onChangeText={setName}
             placeholder="Album name"
             error={!name.trim() ? "Enter an album name." : undefined}

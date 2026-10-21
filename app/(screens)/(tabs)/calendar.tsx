@@ -3,6 +3,9 @@ import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, 
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
+import WellnessCalendarSection from "@/components/wellness/WellnessCalendarSection";
+import { useWellness } from "@/context/WellnessContext";
+import { remindersForDate } from "@/utils/wellnessState";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import CalendarDay from "@/components/calendar/CalendarDay";
 import CompactWeekStrip from "@/components/calendar/CompactWeekStrip";
@@ -20,6 +23,7 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export default function Calendar() {
   const router = useRouter();
   const { state } = useCatData();
+  const wellness = useWellness();
   const filterOptions = selectCalendarFilterOptions(state);
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -43,7 +47,8 @@ export default function Calendar() {
   const activityForDate = (date: Date) => {
     const daily = selectCalendarRecordsForDate(state, date, filterId);
     return { emotion: daily[daily.length - 1]?.emotion, recordCount: daily.length,
-      birthdayCount: selectBirthdayCatsForDate(state, date, filterId).length };
+      birthdayCount: selectBirthdayCatsForDate(state, date, filterId).length,
+      reminderCount: remindersForDate(wellness.state, date, filterId).filter(r => state.cats.some(c => c.id === r.catId)).length };
   };
   const handleExpand = () => {
     setCollapsed(false);
@@ -109,14 +114,16 @@ export default function Calendar() {
                 <Text style={styles.allDay}>All Day</Text>
               </View>
             ))}
+            <WellnessCalendarSection date={selectedDate} catId={filterId} blocked={filterVisible}
+              onOpenContext={(date, catId) => { selectDate(date); setSelectedCatId(catId); }} />
             {records.map((record) => (
               <DetectionListRow key={record.id} catName={selectCatForDetection(state, record)?.name ?? "Unknown Cats"}
                 emotion={record.emotion} time={formatTime(record.recordedAt)}
                 onPress={() => router.push({ pathname: "/album-photo", params: { imageId: record.imageId, from: "calendar" } })} />
             ))}
-            {records.length === 0 && birthdays.length === 0 ? <EmptyState icon="calendar-clear-outline"
+            {records.length === 0 && birthdays.length === 0 && remindersForDate(wellness.state, selectedDate, filterId).length === 0 ? <EmptyState icon="calendar-clear-outline"
               title={hasHistory ? "No events for this date" : "No detections yet"}
-              message={hasHistory ? "Choose another date to view saved detections." : `Saved mock detections${filterId ? ` for ${selectedCatName}` : ""} will appear here.`} /> : null}
+              message={hasHistory ? "Choose another date to view saved detections." : `Saved detections${filterId ? ` for ${selectedCatName}` : ""} will appear here.`} /> : null}
           </View>
         </ScrollView>
         {collapsed && <View style={styles.stickyOverlay} onLayout={(event) => setStripHeight(event.nativeEvent.layout.height)}>

@@ -20,6 +20,11 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { claimCameraSessionTips, detectionFailureNotice, type CameraDetectionNotice } from "@/utils/cameraPresentation";
+
+import FeelineLoadingOverlay from "@/components/loading/FeelineLoadingOverlay";
+import { useWellness } from "@/context/WellnessContext";
+
 import CaptureButton from "@/components/camera/CaptureButton";
 import WhatToAvoidModal from "@/components/camera/WhatToAvoidModal";
 import Button from "@/components/common/Button";
@@ -36,6 +41,7 @@ import {
   colors,
   dimensions,
   getTabBarClearance,
+  fontFamily,
   radii,
   spacing,
   typography,
@@ -45,6 +51,7 @@ type CaptureSource = "camera" | "gallery";
 
 export default function Camera() {
   const router = useRouter();
+  const { setCameraSafe } = useWellness();
   const focused = useIsFocused();
   const insets = useSafeAreaInsets();
 
@@ -63,8 +70,10 @@ export default function Camera() {
 
   const [avoidVisible, setAvoidVisible] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [permissionBusy, setPermissionBusy] = useState(false);
   const [lastImage, setLastImage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | CameraDetectionNotice | null>(null);
   const [gallerySettings, setGallerySettings] = useState(false);
   const [guideWidth, setGuideWidth] = useState<number | undefined>();
 
@@ -78,9 +87,11 @@ export default function Camera() {
   useFocusEffect(
     useCallback(() => {
       active.current = true;
+      if (claimCameraSessionTips()) setAvoidVisible(true);
       lock.current = false;
 
       setReviewing(false);
+      setAnalyzing(false);
       setReady(false);
       setMountError(false);
 
@@ -95,6 +106,7 @@ export default function Camera() {
 
         setReady(false);
         setReviewing(false);
+        setAnalyzing(false);
         setAvoidVisible(false);
       };
     }, [refreshPermission])
@@ -114,6 +126,11 @@ export default function Camera() {
     return () => subscription.remove();
   }, [refreshPermission]);
 
+  useEffect(() => {
+    setCameraSafe(focused && appActive && permission !== null && !permissionBusy && !reviewing && !avoidVisible);
+    return () => setCameraSafe(false);
+  }, [focused, appActive, permission, permissionBusy, reviewing, avoidVisible, setCameraSafe]);
+
   const current = (ticket: number) =>
     active.current && generation.current === ticket;
 
@@ -124,6 +141,7 @@ export default function Camera() {
 
     lock.current = false;
     setReviewing(false);
+    setAnalyzing(false);
   };
 
   const begin = () => {
@@ -154,6 +172,7 @@ export default function Camera() {
     }
 
     setLastImage(uri);
+    setAnalyzing(true);
 
     try {
       const uploadStart = performance.now();
@@ -178,6 +197,9 @@ export default function Camera() {
 
       const navigationStart = performance.now();
 
+      setAnalyzing(false);
+      setReviewing(false);
+      lock.current = false;
       generation.current += 1;
       active.current = false;
 
@@ -216,19 +238,14 @@ export default function Camera() {
       console.error("Detection upload failed:", uploadError);
 
       if (current(ticket)) {
-        setError(
-          uploadError instanceof Error
-            ? uploadError.message
-            : "The image could not be processed. Please try again."
-        );
+        setError(detectionFailureNotice(uploadError));
 
         unlock(ticket);
       }
 
       return false;
     } finally {
-      lock.current = false;
-      setReviewing(false);
+      if (current(ticket)) unlock(ticket);
     }
   };
 
@@ -368,6 +385,7 @@ export default function Camera() {
     lock.current = true;
 
     try {
+      setPermissionBusy(true);
       await requestPermission();
     } catch {
       setError(
@@ -375,6 +393,7 @@ export default function Camera() {
       );
     } finally {
       lock.current = false;
+      setPermissionBusy(false);
     }
   };
 
@@ -391,6 +410,9 @@ export default function Camera() {
   const unavailable = !permission?.granted || mountError;
   const bottom = getTabBarClearance(insets.bottom);
   const top = insets.top + spacing.sm;
+  const notice = typeof error === "string"
+    ? { title: gallerySettings ? "Photo access" : "Camera notice", message: error, photoTips: false }
+    : error;
 
   return (
     <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
@@ -569,22 +591,30 @@ export default function Camera() {
         </ScrollView>
       ) : null}
 
-      {error ? (
+      {notice ? (
         <View
           style={[
             styles.error,
             {
               bottom: bottom + dimensions.capture + spacing.sm,
+              left: Math.max(insets.left, spacing.md),
+              right: Math.max(insets.right, spacing.md),
             },
           ]}
           accessibilityLiveRegion="polite"
         >
-          <Text
-            style={styles.lightCaption}
-            accessibilityRole="alert"
-          >
-            {error}
-          </Text>
+          <View style={styles.noticeHeading}>
+            <Ionicons name={notice.photoTips ? "camera-outline" : "alert-circle-outline"}
+              size={dimensions.iconSmall} color={colors.textInverse} accessible={false} />
+            <Text style={styles.noticeTitle} accessibilityRole="alert">{notice.title}</Text>
+          </View>
+          <Text style={styles.noticeMessage}>{notice.message}</Text>
+          {notice.photoTips ? (
+            <TouchableOpacity style={styles.tipsAction} accessibilityRole="button"
+              accessibilityLabel="View photo tips" onPress={() => setAvoidVisible(true)}>
+              <Text style={styles.tipsLabel}>View photo tips</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {gallerySettings ? (
             <Button
@@ -646,23 +676,7 @@ export default function Camera() {
         <View style={styles.spacer} />
       </View>
 
-      {reviewing ? (
-        <View
-          style={styles.processing}
-          accessibilityLiveRegion="polite"
-          accessibilityViewIsModal
-        >
-          <ActivityIndicator color={colors.textInverse} />
-
-          <Text style={styles.stateText}>
-            Processing image…
-          </Text>
-
-          <Text style={styles.lightCaption}>
-            Uploading and saving detection…
-          </Text>
-        </View>
-      ) : null}
+      {analyzing && focused ? <FeelineLoadingOverlay /> : null}
 
       <WhatToAvoidModal
         visible={avoidVisible}
@@ -766,6 +780,12 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
     textAlign: "center",
   },
+
+  noticeHeading: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  noticeTitle: { ...typography.label, fontFamily: fontFamily.heading, color: colors.textInverse, flex: 1 },
+  noticeMessage: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textInverse },
+  tipsAction: { minHeight: dimensions.touchTarget, justifyContent: "center", alignSelf: "flex-start" },
+  tipsLabel: { ...typography.caption, fontFamily: fontFamily.medium, color: colors.textInverse, textDecorationLine: "underline" },
 
   error: {
     position: "absolute",

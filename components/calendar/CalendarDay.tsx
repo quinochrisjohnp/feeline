@@ -10,6 +10,7 @@ interface CalendarDayProps {
   dateLabel: string;
   recordCount?: number;
   birthdayCount?: number;
+  reminderCount?: number;
   disabled?: boolean;
   inCurrentMonth: boolean;
   isSelected: boolean;
@@ -23,6 +24,7 @@ export default function CalendarDay({
   dateLabel,
   recordCount = 0,
   birthdayCount = 0,
+  reminderCount = 0,
   disabled = false,
   inCurrentMonth,
   isSelected,
@@ -34,7 +36,7 @@ export default function CalendarDay({
   return (
     <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.7} disabled={disabled}
       accessibilityRole="button" accessibilityState={{ selected: isSelected, disabled }}
-      accessibilityLabel={`${dateLabel}${isToday ? ", today" : ""}, ${recordCount} detection${recordCount === 1 ? "" : "s"}${key ? `, latest ${EMOTIONS[key].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthday${birthdayCount === 1 ? "" : "s"}` : ""}`}>
+      accessibilityLabel={`${dateLabel}${reminderCount ? ", " + reminderCount + " wellness reminder(s)" : ""}${isToday ? ", today" : ""}, ${recordCount} detection${recordCount === 1 ? "" : "s"}${key ? `, latest ${EMOTIONS[key].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthday${birthdayCount === 1 ? "" : "s"}` : ""}`}>
       <View
         style={[
           styles.circle,
@@ -45,7 +47,7 @@ export default function CalendarDay({
       >
         {emotion ? <EmotionIcon emotion={emotion} size={35} /> : null}
       </View>
-      <Text style={[styles.dayLabel, !inCurrentMonth && styles.dayLabelMuted]}>{day}{birthdayCount ? " 🎂" : ""}</Text>
+      <Text style={[styles.dayLabel, !inCurrentMonth && styles.dayLabelMuted]}>{day}{birthdayCount ? " 🎂" : ""}{reminderCount ? " · 🐾" : ""}</Text>
       {recordCount > 1 ? <Text style={styles.count}>{recordCount}</Text> : null}
     </TouchableOpacity>
   );

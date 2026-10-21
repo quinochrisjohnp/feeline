@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, {
   useCallback,
   useLayoutEffect,
@@ -90,6 +91,7 @@ export default function Status() {
   );
 
   const showingProfile = !!selectedCat;
+  useWellnessNavigationSafety(addingCat || editingCat || createdNotice || updatedNotice);
 
   // Hide tab bar while viewing a cat profile.
   useLayoutEffect(() => {

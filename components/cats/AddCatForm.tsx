@@ -7,6 +7,7 @@ import {
   spacing,
   typography,
 } from "@/constants/theme";
+import { CAT_FORM_LIMITS } from "@/constants/catFormLimits";
 import type { Cat, CatGender } from "@/types/models";
 import { isValidBirthdate, toDateOnly } from "@/utils/date";
 import { generateId } from "@/utils/id";
@@ -540,6 +541,7 @@ export default function AddCatForm({
                         styles.invalid,
                     ]}
                     value={name}
+                    maxLength={CAT_FORM_LIMITS.name}
                     onChangeText={setName}
                     onBlur={() =>
                       setNameTouched(true)
@@ -550,7 +552,6 @@ export default function AddCatForm({
                     }
                     accessibilityLabel="Name"
                     returnKeyType="done"
-                    maxLength={100}
                   />
                 </View>
 
@@ -576,7 +577,7 @@ export default function AddCatForm({
                     }
                     accessibilityLabel="Breed"
                     returnKeyType="done"
-                    maxLength={100}
+                    maxLength={CAT_FORM_LIMITS.breed}
                   />
                 </View>
 
@@ -711,7 +712,7 @@ export default function AddCatForm({
                     accessibilityLabel="Description"
                     multiline
                     textAlignVertical="top"
-                    maxLength={1000}
+                    maxLength={CAT_FORM_LIMITS.description}
                   />
                 </View>
 
