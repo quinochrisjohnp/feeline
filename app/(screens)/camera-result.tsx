@@ -1,3 +1,4 @@
+import { parseDetectionRoute, normalizeEmotion, normalizeConfidence } from "@/services/detection";
 
 import React, {
   useEffect,
@@ -40,7 +41,7 @@ function firstParam(
   value: string | string[] | undefined
 ): string | undefined {
   if (Array.isArray(value)) {
-    return value[0];
+    return undefined;
   }
 
   return value;
@@ -67,19 +68,22 @@ export default function CameraResult() {
     params.captureStartTimestamp
   );
 
-  const imageUri = firstParam(params.imageUri);
+  const accepted = parseDetectionRoute(params.result);
+  const imageUri = accepted?.imageUrl;
   const capturedAt = firstParam(params.capturedAt);
   const source = firstParam(params.source);
-  const catId = firstParam(params.catId);
-  const imageId = firstParam(params.imageId);
-  const detectionId = firstParam(params.detectionId);
-  const emotionParam = firstParam(params.emotion);
-  const confidenceParam = firstParam(params.confidence);
-  const recommendations = firstParam(params.recommendations);
+  const catId = accepted?.catId;
+  const imageId = accepted?.imageId;
+  const detectionId = accepted?.detectionId;
+  const emotionParam = accepted ? normalizeEmotion(accepted.emotion) : undefined;
+  const confidenceParam = accepted ? normalizeConfidence(accepted.confidence) : NaN;
+  const recommendations = JSON.stringify(accepted?.recommendations ?? []);
 
   const confidence = Number(confidenceParam);
 
   const valid =
+    !!accepted &&
+    !!capturedAt && Number.isFinite(Date.parse(capturedAt)) && new Date(capturedAt).toISOString() === capturedAt &&
     !!imageUri &&
     !!capturedAt &&
     !!detectionId &&
@@ -129,6 +133,7 @@ export default function CameraResult() {
     router.replace({
       pathname: "/camera-save",
       params: {
+        result: JSON.stringify(accepted),
         imageUri,
         capturedAt,
         source: source ?? "camera",

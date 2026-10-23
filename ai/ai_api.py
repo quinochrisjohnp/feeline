@@ -1,18 +1,23 @@
-
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from contextlib import asynccontextmanager
 from pathlib import Path
-import subprocess
 import tempfile
-import json
-import sys
+import logging
+import anyio
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from PIL import UnidentifiedImageError
+from predict_cat_emotion import CatEmotionPipeline
 
-from domestic_cat_validator import is_domestic_cat_image
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # One instance per worker; no subprocess/model reload on request.
+    app.state.pipeline = await anyio.to_thread.run_sync(CatEmotionPipeline)
+    app.state.inference_limiter = anyio.CapacityLimiter(1)
+    yield
+    app.state.pipeline = None
 
 
-app = FastAPI(title="FeELINE AI API")
-
-PROJECT_ROOT = Path(__file__).resolve().parent
-PREDICTOR = PROJECT_ROOT / "predict_cat_emotion_v3.py"
+app = FastAPI(title="FeELINE AI API", lifespan=lifespan)
 
 
 @app.get("/")
@@ -21,117 +26,27 @@ def home():
 
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    if file.content_type not in ("image/jpeg", "image/png"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only JPEG and PNG images are supported."
-        )
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        image_path = Path(temp_dir) / (
-            "cat.png" if file.content_type == "image/png" else "cat.jpg"
-        )
-        image_path.write_bytes(await file.read())
-
-        # ====================================================
-        # NEW: DOMESTIC CAT VALIDATION (EFFICIENTNET-B0)
-        # ====================================================
-
-        try:
-            is_domestic_cat = is_domestic_cat_image(
-                image_path
-            )
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid or unreadable image."
-            )
-        except Exception as error:
-            print(
-                "Domestic cat validation error:",
-                str(error),
-                flush=True,
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Domestic cat validation failed."
-            )
-
-        if not is_domestic_cat:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Only domestic cats are supported. "
-                    "Please upload a clear image of a domestic cat."
-                )
-            )
-
-        # ====================================================
-        # EXISTING: CAT EMOTION PREDICTION
-        # ====================================================
-
-        output_root = Path(temp_dir) / "results"
-
-        command = [
-            sys.executable,
-            str(PREDICTOR),
-            str(image_path),
-            "--project-root",
-            str(PROJECT_ROOT),
-            "--output-root",
-            str(output_root),
-            "--cpu",
-        ]
-
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                timeout=180,
-            )
-        except subprocess.TimeoutExpired:
-            raise HTTPException(
-                status_code=504,
-                detail="AI prediction timed out."
-            )
-
-        print("AI prediction return code:", result.returncode, flush=True)
-        print("AI prediction STDOUT:", result.stdout, flush=True)
-        print("AI prediction STDERR:", result.stderr, flush=True)
-
-        json_files = list(output_root.glob("*/prediction.json"))
-
-        if not json_files:
-            raise HTTPException(
-                status_code=500,
-                detail="AI prediction failed."
-            )
-
-        prediction_data = json.loads(
-            json_files[0].read_text(encoding="utf-8")
-        )
-
-        # Reject images without a usable cat face.
-        if prediction_data.get("status") == "cannot_predict":
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "No usable cat face detected. "
-                    "Please upload a clear image of a cat."
-                )
-            )
-
-        # Other unexpected prediction statuses
-        # should not be treated as successful.
-        if prediction_data.get("status") not in (
-            "success",
-            "low_confidence",
-        ):
-            raise HTTPException(
-                status_code=500,
-                detail="AI prediction could not be completed."
-            )
-
-        return prediction_data
+async def predict(request: Request, file: UploadFile = File(...)):
+    try:
+        if file.content_type not in ("image/jpeg", "image/png"):
+            raise HTTPException(status_code=415, detail="Only JPEG and PNG images are supported.")
+        data = await file.read(5 * 1024 * 1024 + 1)
+        if not data or len(data) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Provide an image up to 5 MB.")
+        def infer():
+            # Temporary input exists only for this request; no output artifacts.
+            with tempfile.TemporaryDirectory() as directory:
+                image = Path(directory) / ("image.png" if file.content_type == "image/png" else "image.jpg")
+                image.write_bytes(data)
+                return request.app.state.pipeline.predict(image)
+        # The limiter remains held until inference finishes, including cancellation.
+        return await anyio.to_thread.run_sync(infer, limiter=request.app.state.inference_limiter)
+    except HTTPException:
+        raise
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Invalid or unreadable image.")
+    except Exception:
+        logging.exception("Local inference failed")
+        raise HTTPException(status_code=503, detail="Detection service unavailable.")
+    finally:
+        await file.close()

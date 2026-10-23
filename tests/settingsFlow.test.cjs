@@ -49,10 +49,11 @@ test("confirmed logout waits for the existing session clear, prevents duplicate 
   assert.equal(modal(screen.render(), "Log out?").props.visible, false);
 });
 
-test("AuthProvider restores the mock session and clears it on logout; next restoration stays signed out", async () => {
+test("AuthProvider restores the API session and clears it on logout; next restoration stays signed out", async () => {
   let token = "mock-session-token";
   let clears = 0;
-  const dependencies = { "../services/api": {
+  const dependencies = { "@react-native-google-signin/google-signin": {GoogleSignin:{signOut:async()=>{}}}, "../services/api": {
+    apiFetch: async path => { assert.equal(path,"/api/auth/me"); return {ok:true,json:async()=>({profile})}; },
     getToken: async () => token, saveToken: async (value) => { token = value; },
     clearToken: async () => { clears++; token = null; },
   } };

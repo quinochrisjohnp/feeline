@@ -28,6 +28,7 @@ function loadScreen(file, overrides = {}) {
     exports,
     require: (id) => {
       if (id in mocks) return mocks[id];
+      if (/\.png$/.test(id)) return id;
       if (id === "react/jsx-runtime") return require(id);
       if (id.includes("components/") || id.startsWith("./")) return { __esModule: true, default: id };
       throw new Error("Unexpected dependency: " + id);

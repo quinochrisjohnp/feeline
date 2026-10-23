@@ -2,7 +2,7 @@ import type { Response } from "express";
 import prisma from "../config/db.config.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
 import {
-  CatValidationError,
+  InvalidImageError,
   predictCatEmotion,
 } from "../services/ai.service.js";
 import {
@@ -136,13 +136,17 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
       req.file.mimetype,
     );
 
+    if (aiPrediction.status !== "success") return res.status(200).json(aiPrediction);
+    const emotion = aiPrediction.prediction.emotion!;
+    const storedEmotion = emotion.charAt(0).toUpperCase() + emotion.slice(1);
+
     console.log(
       `[FeELINE AI] Prediction completed in ${Date.now() - aiStart} ms`,
     );
 
-    console.log(`[FeELINE AI] Emotion: ${aiPrediction.emotion}`);
+    console.log(`[FeELINE AI] Emotion: ${storedEmotion}`);
 
-    console.log(`[FeELINE AI] Confidence: ${aiPrediction.confidence}`);
+    console.log(`[FeELINE AI] Confidence: ${aiPrediction.prediction.confidence!}`);
 
     // ========================================================
     // DATABASE-DRIVEN EMOTION RECOMMENDATIONS
@@ -155,7 +159,7 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
         where: {
           emotion_categories: {
             emotion_name: {
-              equals: aiPrediction.emotion,
+              equals: storedEmotion,
               mode: "insensitive",
             },
           },
@@ -180,7 +184,7 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
           .map((item) => item.recommendation_text);
       }
 
-      console.log(`[FeELINE Recommendations] Emotion: ${aiPrediction.emotion}`);
+      console.log(`[FeELINE Recommendations] Emotion: ${storedEmotion}`);
 
       console.log(
         `[FeELINE Recommendations] Selected: ${selectedRecommendations.length}`,
@@ -192,8 +196,8 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
     }
 
     const detectionResult = {
-      emotion: aiPrediction.emotion,
-      confidence: aiPrediction.confidence,
+      emotion: storedEmotion,
+      confidence: aiPrediction.prediction.confidence!,
       recommendations: selectedRecommendations,
     };
 
@@ -447,7 +451,8 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
     // RESPONSE TO MOBILE
     // ========================================================
 
-    return res.status(201).json({
+    return res.status(200).json({
+      ...aiPrediction,
       catId: result.temporaryCat.cat_id,
       imageId: result.catImage.image_id,
       imageUrl,
@@ -458,14 +463,7 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
   console.error("[FeELINE] Emotion detection error:", error);
-
-  // ADDED: Return a validation error for images
-  // without a usable cat face.
-  if (error instanceof CatValidationError) {
-    return res.status(422).json({
-      error: error.message,
-    });
-  }
+  if (error instanceof InvalidImageError) return res.status(error.statusCode).json({ error: "Invalid or unsupported image." });
 
     console.error(
       `[FeELINE Performance] Failed after ${Date.now() - requestStart} ms`,

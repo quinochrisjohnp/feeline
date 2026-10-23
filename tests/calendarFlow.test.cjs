@@ -4,7 +4,7 @@ const { execFileSync } = require("node:child_process");
 const { mount, nodes, find, modal, store } = require("./helpers/frontendHarness.cjs");
 const selectors = require("../context/catDataSelectors.ts");
 const { getMonthMatrix, getWeekDates, toDateOnly } = require("../utils/date.ts");
-const { createMockCapture } = require("../services/mockDetection.ts");
+
 const calendarFile = "app/(screens)/(tabs)/calendar.tsx";
 const rows = (tree) => nodes(tree).filter((node) => node.type === "@/components/calendar/DetectionListRow");
 const days = (tree) => nodes(tree).filter((node) => node.type === "@/components/calendar/CalendarDay");
@@ -16,8 +16,7 @@ const select = (screen, date) => {
 };
 
 function emptyContext() {
-  const context = store();
-  context().deleteImages(context().state.images.map((image) => image.id));
+  const context = store({emptyHistory:true});
   return context;
 }
 function capture(context, albumId, date, emotion = "happy") {
@@ -58,7 +57,7 @@ test("recordedAt determines local day across UTC month boundaries and DST", () =
   }
 });
 
-test("history filters normalized ownership, sorts timestamp ties by ID, and skips invalid chains without mutation", () => {
+test("history filters explicit ownership independently of Album membership, sorts ties, and skips invalid dates/emotions", () => {
   const context = emptyContext();
   const date = new Date(2026, 8, 19, 12);
   const album = context().state.albums.find((album) => album.kind === "cat");
@@ -74,12 +73,12 @@ test("history filters normalized ownership, sorts timestamp ties by ID, and skip
       { ...a.detection, id: "bad-emotion", emotion: "sad" }] };
   const before = JSON.stringify(invalid);
   assert.deepEqual(selectors.selectCalendarRecordsForDate(invalid, date).map((r) => r.id),
-    [early.detection.id, ...[a.detection.id, b.detection.id].sort()]);
-  assert.equal(selectors.selectCalendarRecordsForDate(invalid, date, album.catId).length, 2);
+    [early.detection.id, ...[a.detection.id, b.detection.id,"orphan","orphan-album"].sort()]);
+  assert.equal(selectors.selectCalendarRecordsForDate(invalid, date, album.catId).length, 4);
   assert.deepEqual(selectors.selectCalendarRecordsForDate(invalid, date, "unknown-cats").map((r) => r.id), [b.detection.id]);
-  assert.equal(selectors.selectCalendarRecords({ ...state, cats: [] }).length, 1);
-  assert.equal(selectors.selectCalendarRecords({ ...state, albums: [] }).length, 0);
-  assert.equal(selectors.selectCalendarRecords({ ...state, albums: state.albums.map((x) => x.kind === "unknown" ? { ...x, catId: "fake" } : x) }, "unknown-cats").length, 0);
+  assert.equal(selectors.selectCalendarRecords({ ...state, cats: [] }).length, 3);
+  assert.equal(selectors.selectCalendarRecords({ ...state, albums: [] }).length, 3);
+  assert.equal(selectors.selectCalendarRecords({ ...state, albums: state.albums.map((x) => x.kind === "unknown" ? { ...x, catId: "fake" } : x) }, "unknown-cats").length, 1);
   assert.equal(JSON.stringify(invalid), before);
 });
 
@@ -132,42 +131,19 @@ test("date navigation, Today, filtered markers, compact week, and deleted-filter
   assert.equal(find(screen.render(), "/CompactWeekStrip"), undefined);
 });
 
-test("Camera result -> Save -> Calendar -> canonical photo -> Delete updates both album and history", () => {
-  for (const unknown of [false, true]) {
-    const context = emptyContext();
-    const album = context().state.albums.find((album) => album.kind === (unknown ? "unknown" : "cat"));
-    const date = new Date(2026, 8, 19, 14, 35);
-    const params = createMockCapture("angry", date.toISOString(), "file:///cache/calendar-cat.jpg", "camera");
-    let saveRoute;
-    const result = mount("app/(screens)/camera-result.tsx", { params, router: { replace: (route) => { saveRoute = route; } } });
-    find(result.render(), "/DetailScreenHeader").props.rightElement.props.onPress();
-    const save = mount("app/(screens)/camera-save.tsx", { context, params: saveRoute.params, router: { dismissTo() {} } });
-    find(save.render(), "FlatList").props.renderItem({ item: album }).props.onPress();
-    modal(save.render(), "Save image").props.onConfirm();
-    modal(save.render(), "Image Saved!").props.onConfirm();
-    let photoRoute;
-    const calendar = mount(calendarFile, { context, router: { push: (route) => { photoRoute = route; } } });
-    select(calendar, date);
-    filter(calendar, unknown ? "unknown-cats" : album.catId);
-    const events = rows(calendar.render());
-    assert.equal(events.length, 1);
-    assert.equal(events[0].props.emotion, "angry");
-    events[0].props.onPress();
-    const image = context().state.images[0];
-    assert.equal(photoRoute.pathname, "/album-photo");
-    assert.equal(photoRoute.params.imageId, image.id);
-    const routes = [];
-    const photo = mount("app/(screens)/album-photo.tsx", { context, params: photoRoute.params, router: { dismissTo: (route) => routes.push(route) } });
-    assert.equal(find(photo.render(), "/EmotionResultCard").props.confidence, 90);
-    assert.equal(find(photo.render(), "/MockPhoto").props.imageUri, params.imageUri);
-    nodes(photo.render()).find((node) => node.props?.accessibilityLabel === "Delete").props.onPress();
-    modal(photo.render(), "Delete this Photo?").props.onConfirm();
-    modal(photo.render(), "Image Deleted").props.onConfirm();
-    assert.equal(routes.at(-1), "/calendar");
-    assert.equal(rows(calendar.render()).length, 0);
-    assert.equal(selectors.selectImagesForAlbum(context().state, album.id).length, 0);
-    assert.equal(context().state.detectionRecords.length, 0);
-    assert.ok(find(calendar.render(), "/EmptyState"));
+test("API-backed history opens its canonical photo; album removal preserves Calendar history", () => {
+  for(const unknown of [false,true]){
+    const context=emptyContext(),date=new Date(2026,8,19,14,35);
+    const album=context().state.albums.find(a=>a.kind===(unknown?'unknown':'cat'));
+    const saved=capture(context,album.id,date,'angry');let route;
+    const screen=mount(calendarFile,{context,router:{push:r=>route=r}});
+    select(screen,date);filter(screen,unknown?'unknown-cats':album.catId);
+    assert.equal(rows(screen.render()).length,1); rows(screen.render())[0].props.onPress();
+    assert.equal(route.pathname,'/album-photo');assert.equal(route.params.imageId,saved.image.id);
+    context().deleteImage(saved.image.id);
+    assert.equal(selectors.selectImagesForAlbum(context().state,album.id).length,0);
+    assert.equal(rows(screen.render()).length,1);
+    assert.equal(context().state.detectionRecords[0].isSavedToAlbum,false);
   }
 });
 
@@ -191,7 +167,7 @@ test("empty history and empty dates are explicit; filter dismissal preserves sel
   assert.equal(closed, 1);
 });
 
-test("birthday rows and multiple-event markers follow the filter; batch deletion removes markers and rows", () => {
+test("birthday rows and multiple-event markers follow the filter; album removal preserves history markers and rows", () => {
   const context = emptyContext();
   const cat = context().state.cats[0];
   const album = selectors.selectAlbumForCat(context().state, cat.id);
@@ -212,8 +188,8 @@ test("birthday rows and multiple-event markers follow the filter; batch deletion
   assert.equal(rows(screen.render()).length, 0);
   filter(screen, cat.id);
   context().deleteImages([a.image.id, b.image.id]);
-  assert.equal(rows(screen.render()).length, 0);
-  assert.equal(selectedDay().props.recordCount, 0);
+  assert.equal(rows(screen.render()).length, 2);
+  assert.equal(selectedDay().props.recordCount, 2);
   assert.equal(selectedDay().props.birthdayCount, 1);
   assert.equal(find(screen.render(), "/EmptyState"), undefined);
 });

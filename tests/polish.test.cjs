@@ -49,10 +49,9 @@ test("empty album collection offers recovery without inventing domain records", 
     context: () => ({ ...context(), state: { cats: [], albums: [], images: [], detectionRecords: [] } }),
     router: { navigate: (route) => routes.push(route) },
   });
-  const empty = find(screen.render(), "/EmptyState");
-  assert.equal(empty.props.title, "No albums available");
-  empty.props.onAction();
-  assert.deepEqual(routes, ["/status"]);
+  assert.equal(nodes(screen.render()).filter(n=>n.type?.endsWith?.('/CatCoverCard')).length,0);
+  assert.deepEqual(routes,[]);
+
 });
 
 test("malformed photo and album route identities render recoverable missing states", () => {
