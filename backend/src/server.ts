@@ -5,6 +5,7 @@ import cors from "cors";
 import authRoutes from "./routes/auth.routes.js";
 import detectionRoutes from "./routes/detection.routes.js";
 import catsRoutes from "./routes/cats.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 import {
   notFound,
@@ -28,6 +29,7 @@ app.get("/", (_, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/detection", detectionRoutes);
 app.use("/api/cats", catsRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
