@@ -34,11 +34,8 @@ RUN python -c "import torch, torchvision; from torchvision.ops import nms; print
 # Copy AI application files
 COPY . .
 
-# Use the supplied build-context models; never replace them from remote main.
-RUN test -s classification_runs/cat_validator_yolo26s/untouched_test_evaluation/selected_threshold.json \
-    && test "$(wc -c < classification_runs/cat_validator_yolo26s/weights/best.pt)" -gt 1000000 \
-    && test "$(wc -c < training_runs_v3/final_anatomy_detector_v3/weights/best.pt)" -gt 1000000 \
-    && test "$(wc -c < classification_runs_v3/final_gated_fusion_v3/final_gated_fusion_v3_torchscript.pt)" -gt 1000000
+# Resolve LFS pointers by exact object hash; never fetch code or weights from moving main.
+RUN python prepare_models.py
 
 # Fail the build if bundled models cannot load with the pinned CPU packages.
 # No API requests, storage access, or prediction artifacts are produced.

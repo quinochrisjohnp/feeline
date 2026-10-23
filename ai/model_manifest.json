@@ -1,0 +1,14 @@
+{
+  "classification_runs/cat_validator_yolo26s/weights/best.pt": {
+    "sha256": "de92f4b731afcdf3cedf896cd5cd41d1bba7497307ef7e6f711dc1f2a8a26ac2",
+    "size": 11026124
+  },
+  "training_runs_v3/final_anatomy_detector_v3/weights/best.pt": {
+    "sha256": "629c21257aabe7ddfafbd14c4f6ba7e286d4ecb3b2099563ba34f78ccf24c4e2",
+    "size": 20350341
+  },
+  "classification_runs_v3/final_gated_fusion_v3/final_gated_fusion_v3_torchscript.pt": {
+    "sha256": "3e76507d16dc24c6bd207c6d9a2ccf5bb2fcccb14bdffa0bfebd0d40b7a5977d",
+    "size": 165256567
+  }
+}
