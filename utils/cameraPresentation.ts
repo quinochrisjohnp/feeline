@@ -13,17 +13,24 @@ export interface CameraDetectionNotice {
   photoTips: boolean;
 }
 
-/** Presentation only: never alters prediction, request, or persistence behavior. */
-export function detectionFailureNotice(error: unknown): CameraDetectionNotice {
-  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-  const photoTips = /no usable cat|not a domestic cat|non.domestic|not_a_cat|no_cat|unclear cat|cat face|clear image of a cat|cannot_predict|could not produce a reliable prediction/i.test(message);
-  return photoTips ? {
-    title: "We couldn't analyze this photo",
-    message: "Please try a clear, well-lit photo of a domestic cat with its face and body visible.",
-    photoTips,
-  } : {
-    title: "Detection unavailable",
-    message: "We couldn't analyze this photo right now. Check your connection, then try again.",
-    photoTips,
+/** Semantic outcomes use validated fields, never message parsing. */
+export function detectionOutcomeNotice(result: { status: import("@/services/detection").PredictionStatus; cat_count?: unknown }): CameraDetectionNotice {
+  const count = result.cat_count;
+  const validCount = typeof count === "number" && Number.isSafeInteger(count) && count >= 2;
+  const messages = {
+    rejected_non_cat: ["No cat detected", "FeELINE can only analyze photos containing one real domestic cat. Please take or upload another photo."],
+    rejected_multiple_cats: ["Multiple cats detected", validCount ? "FeELINE detected " + count + " cats in this image. Please use a photo containing only one cat." : "FeELINE detected multiple cats in this image. Please use a photo containing only one cat."],
+    cannot_predict: ["Cat could not be analyzed", "FeELINE detected a cat, but the photo could not be analyzed clearly. Please use a clear, well-lit photo showing the cat’s face or body."],
+    low_confidence: ["Emotion unclear", "FeELINE detected a cat but could not confidently determine its emotion. Please try another clear photo."],
   };
+  if (result.status === "success") return detectionFailureNotice();
+  const [title, message] = messages[result.status];
+  return { title, message, photoTips: true };
+}
+
+export function detectionFailureNotice(error?: unknown): CameraDetectionNotice {
+  if (error && typeof error === "object" && "status" in error && error.status === "rejected_multiple_cats") {
+    return detectionOutcomeNotice({ status: "rejected_multiple_cats" });
+  }
+  return { title: "Detection unavailable", message: "We couldn't analyze this photo right now. Check your connection, then try again.", photoTips: false };
 }

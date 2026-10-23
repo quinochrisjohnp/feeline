@@ -31,6 +31,9 @@ export default function AlbumFolder() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false);
   const longPressed = useRef(false);
+  const deleteLock = useRef(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const selectionMode = selection?.albumId === albumId;
   // Only IDs still present in this album can be acted on, even after another view changes state.
   const selectedIds = selectionMode ? folderImages.filter((image) => selection.ids.includes(image.id)).map((image) => image.id) : [];
@@ -55,12 +58,23 @@ export default function AlbumFolder() {
     } else router.push({ pathname: "/album-photo", params: { imageId } });
   };
   const handleSelectAll = () => setSelection({ albumId, ids: allSelected ? [] : folderImages.map((image) => image.id) });
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
+    if (deleteLock.current) return;
     if (!selectedIds.length) { setConfirmingDelete(false); return; }
-    deleteImages(selectedIds);
-    setConfirmingDelete(false);
-    setSelection(null);
-    setDeletedNotice(true);
+    deleteLock.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteImages(selectedIds);
+      setConfirmingDelete(false);
+      setSelection(null);
+      setDeletedNotice(true);
+    } catch {
+      setDeleteError("Some photos could not be removed. Please try again.");
+    } finally {
+      deleteLock.current = false;
+      setDeleting(false);
+    }
   };
   const dismissNotice = () => { setDeletedNotice(false); exitSelectionMode(); };
 
@@ -132,15 +146,15 @@ export default function AlbumFolder() {
           </TouchableOpacity>
           <TouchableOpacity style={[styles.action, !selectedIds.length && styles.disabled]} accessibilityRole="button" accessibilityLabel="Delete"
             accessibilityState={{ disabled: !selectedIds.length }} disabled={!selectedIds.length}
-            onPress={() => setConfirmingDelete(true)}>
+            onPress={() => { setDeleteError(null); setConfirmingDelete(true); }}>
             <Ionicons name="trash-outline" size={22} color={colors.dangerStrong} />
             <Text style={[styles.actionLabel, { color: colors.dangerStrong }]}>Delete</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       <ConfirmModal visible={confirmingDelete} title="Delete these Photos?"
-        message={`Remove ${selectedIds.length} selected mock photo(s) and their detection records?`}
-        confirmLabel="Delete" destructive onConfirm={handleDeleteSelected} onCancel={() => setConfirmingDelete(false)} />
+        message={deleteError ?? `Remove ${selectedIds.length} selected photo(s) from this album? Detection history will be kept.`}
+        confirmLabel="Delete" destructive busy={deleting} onConfirm={handleDeleteSelected} onCancel={() => { if (!deleteLock.current) setConfirmingDelete(false); }} />
       <ConfirmModal visible={deletedNotice} title="Images Deleted" confirmLabel="Continue" hideCancel
         onConfirm={dismissNotice} onCancel={dismissNotice} />
     </ScreenContainer>

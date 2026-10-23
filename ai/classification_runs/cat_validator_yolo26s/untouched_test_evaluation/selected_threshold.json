@@ -1,0 +1,29 @@
+{
+  "threshold": 0.56,
+  "accuracy": 0.965,
+  "balanced_accuracy": 0.9604166666666667,
+  "macro_f1": 0.9633037141883568,
+  "non_cat_precision": 0.959349593495935,
+  "non_cat_recall": 0.9833333333333333,
+  "non_cat_f1": 0.9711934156378601,
+  "cat_precision": 0.974025974025974,
+  "cat_recall": 0.9375,
+  "cat_f1": 0.9554140127388535,
+  "support_non_cat": 120,
+  "support_cat": 80,
+  "confusion_matrix_noncat_cat": [
+    [
+      118,
+      2
+    ],
+    [
+      5,
+      75
+    ]
+  ],
+  "tn": 118,
+  "fp": 2,
+  "fn": 5,
+  "tp": 75,
+  "selection_rule": "highest validation macro-F1 subject to non_cat recall >= 0.95"
+}

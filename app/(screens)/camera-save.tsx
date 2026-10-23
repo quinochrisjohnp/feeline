@@ -30,6 +30,7 @@ import {
 } from "@/context/catDataSelectors";
 
 import {
+  parseDetectionRoute, normalizeEmotion, normalizeConfidence,
   assignDetectionToCat,
   saveDetectionToUnknown,
 } from "@/services/detection";
@@ -49,7 +50,7 @@ type SaveStep = "select" | "confirmSave" | "saving" | "saved";
 function firstParam(
   value: string | string[] | undefined
 ): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
+  return Array.isArray(value) ? undefined : value;
 }
 
 function isEmotionKey(value: string): value is EmotionKey {
@@ -71,14 +72,17 @@ export default function CameraSave() {
     refreshDetections,
   } = useCatData();
 
-  const imageUri = firstParam(params.imageUri);
+  const accepted = parseDetectionRoute(params.result);
+  const imageUri = accepted?.imageUrl;
   const capturedAt = firstParam(params.capturedAt);
-  const detectionId = firstParam(params.detectionId);
-  const emotionParam = firstParam(params.emotion);
+  const detectionId = accepted?.detectionId;
+  const emotionParam = accepted ? normalizeEmotion(accepted.emotion) : undefined;
 
-  const confidence = Number(firstParam(params.confidence));
+  const confidence = accepted ? normalizeConfidence(accepted.confidence) : NaN;
 
   const valid =
+    !!accepted &&
+    !!capturedAt && Number.isFinite(Date.parse(capturedAt)) && new Date(capturedAt).toISOString() === capturedAt &&
     !!imageUri &&
     !!capturedAt &&
     !!detectionId &&

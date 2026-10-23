@@ -2,6 +2,7 @@
   "expo": {
     "name": "FeELINE",
     "slug": "feeline",
+    "owner": "feeline",
     "icon": "./components/images/logo-only.png",
     "version": "1.0.0",
     "orientation": "portrait",

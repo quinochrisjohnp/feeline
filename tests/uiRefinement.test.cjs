@@ -147,6 +147,6 @@ test('Calendar saved photo deletion is guarded and retains history through the e
 });
 test('Camera error modal uses shared shell, clears on retry and retains settings access',()=>{
  let closed=0,tips=0,settings=0;const tree=mount('components/camera/CameraErrorModal.tsx',{dependencies:deps,props:{notice:{title:'Detection unavailable',message:'Try again',photoTips:false},onClose:()=>closed++,onPhotoTips:()=>tips++,onSettings:()=>settings++}}).render();
- assert.ok(find(tree,'/ModalSurface'));assert.equal(find(tree,'/ModalHeader').props.title,'Detection unavailable');
+ assert.ok(find(tree,'/ModalSurface'));assert.equal(nodes(tree).find(n=>n.props?.accessibilityRole==='header').props.children,'Detection unavailable');assert.equal(find(tree,'/ModalHeader'),undefined);assert.equal(find(tree,'Icon'),undefined);assert.equal(button(tree,'Close'),undefined);
  button(tree,'Try another photo').props.onPress();button(tree,'View photo tips').props.onPress();button(tree,'Open Settings').props.onPress();assert.deepEqual([closed,tips,settings],[1,1,1]);
 });

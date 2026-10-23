@@ -12,7 +12,7 @@ for (const extension of [".jpg", ".jpeg", ".png"]) {
 }
 const { getBundledCatImage } = require("../data/bundledCatImages.ts");
 const { isDeviceImageUri } = require("../utils/mediaUri.ts");
-const { initialCatDataState } = require("../data/initialAppData.ts");
+const initialCatDataState = require("./helpers/domainFixture.cjs").createState();
 const { selectAlbumCoverImage } = require("../context/catDataSelectors.ts");
 
 const render = (imageUri, props = {}) => mount("components/common/MockPhoto.tsx", {

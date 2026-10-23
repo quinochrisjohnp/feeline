@@ -56,12 +56,12 @@ test("Camera tips open once across focus changes and route remounts, and manual 
   assert.equal(tips(camera(newSession())).props.visible, true);
 });
 
-test("photo rejection messages map to helpful copy; technical service errors stay private", () => {
+test("legacy error strings are not inferred as semantic statuses; service errors stay private", () => {
   const { detectionFailureNotice } = newSession();
   for (const message of ["Not a domestic cat", "Unclear cat", "No usable cat", "Missing cat face", "Use a clear image of a cat", "cannot_predict", "could not produce a reliable prediction"]) {
     const notice = detectionFailureNotice(new Error(message));
-    assert.equal(notice.photoTips, true);
-    assert.equal(notice.title, "We couldn't analyze this photo");
+    assert.equal(notice.photoTips, false);
+    assert.equal(notice.title, "Detection unavailable");
   }
   const notice = detectionFailureNotice(new Error("Internal upstream exception secret detail"));
   assert.equal(notice.photoTips, false);
@@ -76,7 +76,7 @@ test("failed detection stays on Camera, opens tips, and clears on the next galle
   assert.equal(screen.routes.length, 0);
   let tree = screen.render();
   const modal = find(tree, '/CameraErrorModal');
-  assert.equal(modal.props.notice.title, "We couldn't analyze this photo");
+  assert.equal(modal.props.notice.title, "Detection unavailable");
   modal.props.onPhotoTips();
   assert.equal(find(screen.render(), '/CameraErrorModal'), undefined);
   assert.equal(tips(screen).props.visible, true);
@@ -156,7 +156,7 @@ test("real upload and result navigation remain intact and rapid capture taps sub
   const uploaded = [];
   const screen = camera(newSession(), async uri => {
     uploaded.push(uri);
-    return { catId: "cat", imageId: "image", detectionId: "detection", imageUrl: "https://example.com/real.jpg",
+    return { status: "success", catId: "cat", imageId: "image", detectionId: "detection", imageUrl: "https://example.com/real.jpg",
       emotion: "happy", confidence: 0.85, recommendations: ["Existing recommendation"] };
   });
   tips(screen).props.onClose();
@@ -212,11 +212,11 @@ test("analysis loader follows the real pending promise through success, failure,
     for (let i = 0; i < 20; i++) assert.ok(find(screen.render(), "/FeelineLoadingOverlay"));
     if (outcome === "leave") { screen.blur(); assert.equal(find(screen.render(), "/FeelineLoadingOverlay"), undefined); }
     if (outcome === "failure") reject(new Error("No usable cat face"));
-    else resolve({ catId: "cat", imageId: "image", detectionId: "det", imageUrl: "https://example.com/cat.jpg", emotion: "happy", confidence: 0.9 });
+    else resolve({ status: "success", catId: "cat", imageId: "image", detectionId: "det", imageUrl: "https://example.com/cat.jpg", emotion: "happy", confidence: 0.9 });
     await work;
     assert.equal(find(screen.render(), "/FeelineLoadingOverlay"), undefined);
     assert.equal(screen.routes.length, outcome === "success" ? 1 : 0);
-    if (outcome === "failure") assert.equal(find(screen.render(), '/CameraErrorModal').props.notice.title, "We couldn't analyze this photo");
+    if (outcome === "failure") assert.equal(find(screen.render(), '/CameraErrorModal').props.notice.title, "Detection unavailable");
   }
 });
 
@@ -229,7 +229,7 @@ test("gallery picker does not show analysis loader until a photo is selected", a
   select({ canceled: false, assets: [{ uri: "file:///selected.jpg" }] });
   await new Promise(setImmediate);
   assert.ok(find(screen.render(), "/FeelineLoadingOverlay"));
-  finish({ catId: "cat", imageId: "image", detectionId: "det", imageUrl: "https://example.com/selected.jpg", emotion: "neutral", confidence: 0.8 });
+  finish({ status: "success", catId: "cat", imageId: "image", detectionId: "det", imageUrl: "https://example.com/selected.jpg", emotion: "neutral", confidence: 0.8 });
   await work; assert.equal(screen.routes[0].params.source, "gallery");
 });
 

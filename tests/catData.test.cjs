@@ -12,7 +12,8 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { catDataReducer: reduce } = require("../context/catDataReducer.ts");
 const selectors = require("../context/catDataSelectors.ts");
-const { initialCatDataState: initial } = require("../data/initialAppData.ts");
+const { initialCatDataState: empty } = require("../data/initialAppData.ts");
+const initial = require("./helpers/domainFixture.cjs").createState();
 const { UNKNOWN_ALBUM_ID: unknown } = require("../types/models.ts");
 const { birthdateFromInput, isValidBirthdate, getAgeYears, toDateOnly } = require("../utils/date.ts");
 
@@ -47,7 +48,7 @@ function assertIntegrity(state) {
     assert.ok(!("emotion" in image));
   });
   state.detectionRecords.forEach((record) => {
-    assert.ok(state.images.some((image) => image.id === record.imageId));
+    assert.ok(state.images.some((image) => image.id === record.imageId) || record.isSavedToAlbum === false);
     assert.ok(!("catId" in record) && !("imageUri" in record));
     assert.ok(Number.isInteger(record.confidence) && record.confidence >= 0 && record.confidence <= 100);
   });
@@ -62,7 +63,8 @@ function capture(albumId, suffix = "new", confidence = 91) {
 }
 const cat = { id: "cat-new", name: "Mochi", gender: "Female", birthdate: "2024-02-29", photoUri: null, coverUri: null };
 
-test("initial state has complete normalized relationships and preserved fixtures", () => {
+test("production starts empty; explicit test fixtures have complete relationships", () => {
+  assert.equal(empty.cats.length,0); assert.equal(empty.images.length,0); assert.equal(empty.detectionRecords.length,0); assert.equal(empty.albums.length,1); assert.equal(empty.albums[0].id,unknown);
   assertIntegrity(initial);
   assert.equal(initial.cats.length, 4);
   assert.equal(initial.images.length, 12);
@@ -141,14 +143,15 @@ test("invalid saves leave neither an image nor an orphan detection", () => {
   [0, 100].forEach((confidence) => assertIntegrity(reduce(initial, capture(unknown, "boundary", confidence))));
 });
 
-test("single deletion removes every connected detection but preserves its album", () => {
+test("single removal preserves every connected history record and the album", () => {
   const action = capture(unknown);
   const saved = reduce(initial, action);
   const multiple = { ...saved, detectionRecords: [...saved.detectionRecords, { ...action.detection, id: "second-analysis" }] };
   const next = reduce(freeze(multiple), { type: "DELETE_IMAGE", imageId: action.image.id });
   assertIntegrity(next);
   assert.equal(selectors.selectImageById(next, action.image.id), null);
-  assert.ok(!next.detectionRecords.some((record) => record.imageId === action.image.id));
+  assert.equal(next.detectionRecords.filter(record => record.imageId === action.image.id).length, 2);
+  assert.ok(next.detectionRecords.filter(record => record.imageId === action.image.id).every(r => r.isSavedToAlbum === false));
   assert.ok(selectors.selectAlbumById(next, unknown));
 });
 
@@ -200,14 +203,14 @@ test("selectors resolve newest cover, latest detection, date and Unknown filter"
   assert.equal(selectors.selectAlbumCoverImage(state, "missing"), null);
 });
 
-test("reset restores all fixtures after mutations and returns independent objects", () => {
+test("reset clears account data and restores an independent system album", () => {
   const changed = reduce(reduce(initial, capture(unknown)), { type: "DELETE_CAT", catId: initial.cats[0].id });
   const reset = reduce(changed, { type: "RESET_MOCK_DATA" });
-  assert.deepEqual(reset, initial);
+  assert.deepEqual(reset, empty);
   assertIntegrity(reset);
   for (const key of Object.keys(initial)) {
     assert.notEqual(reset[key], initial[key]);
-    assert.notEqual(reset[key][0], initial[key][0]);
+    if (empty[key].length) assert.notEqual(reset[key][0], empty[key][0]);
   }
 });
 

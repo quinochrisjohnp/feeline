@@ -21,7 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { claimCameraSessionTips, detectionFailureNotice, type CameraDetectionNotice } from "@/utils/cameraPresentation";
+import { claimCameraSessionTips, detectionOutcomeNotice, detectionFailureNotice, type CameraDetectionNotice } from "@/utils/cameraPresentation";
 
 import FeelineLoadingOverlay from "@/components/loading/FeelineLoadingOverlay";
 import { useWellness } from "@/context/WellnessContext";
@@ -151,6 +151,18 @@ export default function Camera() {
     setAnalyzing(false);
   };
 
+  const resetFailedCapture = () => {
+    // Invalidate stale callbacks without remounting the ready live preview.
+    generation.current += 1;
+    lock.current = false;
+    captureStartTime.current = null;
+    setLastImage(null);
+    setError(null);
+    setGallerySettings(false);
+    setReviewing(false);
+    setAnalyzing(false);
+  };
+
   const begin = () => {
     if (!active.current || lock.current) {
       return null;
@@ -199,6 +211,11 @@ export default function Camera() {
         return false;
       }
 
+      if (detection.status !== "success") {
+        setError(detectionOutcomeNotice(detection));
+        unlock(ticket);
+        return false;
+      }
       const emotion = normalizeEmotion(detection.emotion);
       const confidence = normalizeConfidence(detection.confidence);
 
@@ -213,6 +230,7 @@ export default function Camera() {
       router.push({
         pathname: "/camera-result",
         params: {
+          result: JSON.stringify(detection),
           imageUri: detection.imageUrl,
           capturedAt: new Date().toISOString(),
           source,
@@ -599,7 +617,7 @@ export default function Camera() {
       ) : null}
 
       {notice && focused && !avoidVisible ? <CameraErrorModal notice={notice}
-        onClose={() => setError(null)} onPhotoTips={() => { setError(null); setAvoidVisible(true); }}
+        onClose={resetFailedCapture} onPhotoTips={() => { resetFailedCapture(); setAvoidVisible(true); }}
         onSettings={gallerySettings ? openSettings : undefined} /> : null}
 
       <View

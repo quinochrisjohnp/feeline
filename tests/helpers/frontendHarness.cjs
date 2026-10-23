@@ -21,6 +21,7 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
   const cleanups = new Map();
   const hardwareBack = [];
   const effect = (fn, deps) => { const index = cursor++; if (!slots[index] || deps.some((dep, i) => dep !== slots[index][i])) { slots[index] = deps; effects.push(() => { cleanups.get(index)?.(); const cleanup = fn(); if (typeof cleanup === "function") cleanups.set(index, cleanup); else cleanups.delete(index); }); } };
+  const memo = (fn, deps) => {const index=cursor++;const previous=slots[index];if(!previous || !deps || deps.some((dep,i)=>dep!==previous.deps[i]))slots[index]={deps,value:fn()};return slots[index].value;};
   const mocks = {
     react: { ...React,
       useState: (initial) => {
@@ -38,7 +39,7 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
         return [slots[index], (action) => { slots[index] = reducer(slots[index], action); }];
       },
       useEffect: effect, useLayoutEffect: effect,
-      useMemo: (fn) => fn(), useCallback: (fn) => fn,
+      useMemo: memo, useCallback: (fn,deps) => memo(()=>fn,deps),
     },
     "expo-router": { useNavigation: () => navigation, useLocalSearchParams: () => params, useRouter: () => router,
       useFocusEffect: (fn) => { focus.push(fn); } },
@@ -61,7 +62,9 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
       DateTimePickerAndroid: { open() {} } },
     "@/services/feedback": { submitFeedback: async () => ({ ok: true }) },
     "@/hooks/useCameraTipsPreference": { useCameraTipsPreference: () => ({ enabled: true, ready: true, saving: false, error: null, setEnabled: async () => {} }) },
-    "@/context/WellnessContext": { useWellnessNavigationSafety() {} },
+    "@/context/WellnessContext": { useWellnessNavigationSafety() {}, useWellness: () => ({ state:{reminders:[],checkIns:[]}, setCameraSafe() {} }) },
+    "@/services/cats": {},
+    "@/services/detection": require("./predictionFixture.cjs").service,
     "@/context/CatDataContext": { useCatData: () => context() },
     ...dependencies,
   };
@@ -69,7 +72,7 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
   const source = ts.transpileModule(fs.readFileSync(path.join(root, file), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(source, { exports, setTimeout, clearTimeout, ...globals, require: (id) => {
+  vm.runInNewContext(source, { exports, setTimeout, clearTimeout, requestAnimationFrame:fn=>{fn();return 1;}, cancelAnimationFrame:()=>{}, performance, console, process: { env: {} }, ...globals, require: (id) => {
     if (id in mocks) return mocks[id];
     if (id === "react/jsx-runtime") return require(id);
     if (id.includes("components/") || (file.startsWith("components/") && id.startsWith("./"))) return { __esModule: true, default: id };
@@ -89,9 +92,27 @@ function find(tree, name) {
 function modal(tree, title) {
   return nodes(tree).find((node) => node.props?.title?.startsWith(title));
 }
-function store() {
-  const provider = mount("context/CatDataContext.tsx");
-  return () => provider.render().props.value;
+// Route tests use the real reducer with explicit fixtures, never the production API.
+// API-backed provider behavior is tested separately with injected services.
+function store({emptyHistory=false}={}) {
+  const { catDataReducer: reduce } = require('../../context/catDataReducer.ts');
+  let state = require('./domainFixture.cjs').createState();
+  if(emptyHistory){state.images=[];state.detectionRecords=[];}
+  let sequence = 0;
+  const dispatch = action => { state = reduce(state, action); };
+  return () => ({ state, catsLoading:false, detectionsLoading:false,
+    refreshData: async()=>{}, refreshCats: async()=>{}, refreshDetections: async()=>{},
+    addCat: cat => { dispatch({type:'ADD_CAT',cat}); return cat; },
+    updateCat: (catId,changes) => {dispatch({type:'UPDATE_CAT',catId,changes});return state.cats.find(c=>c.id===catId);},
+    renameAlbum: (albumId,name)=>dispatch({type:'RENAME_ALBUM',albumId,name}),
+    deleteCat: catId=>dispatch({type:'DELETE_CAT',catId}),
+    deleteImage: imageId=>dispatch({type:'DELETE_IMAGE',imageId}),
+    deleteImages: imageIds=>dispatch({type:'DELETE_IMAGES',imageIds}),
+    resetMockData:()=>dispatch({type:'RESET_MOCK_DATA'}),
+    saveCapture: input=>{const id=String(++sequence);const image={id:'test-image-'+id,albumId:input.albumId,imageUri:input.imageUri,capturedAt:input.capturedAt};
+      const detection={id:'test-detection-'+id,imageId:image.id,emotion:input.emotion,confidence:input.confidence,recordedAt:input.capturedAt,catId:state.albums.find(a=>a.id===input.albumId)?.catId ?? null,imageUri:input.imageUri,isSavedToAlbum:true};
+      dispatch({type:'SAVE_CAPTURE',image,detection});return {image,detection};}
+  });
 }
 
 
