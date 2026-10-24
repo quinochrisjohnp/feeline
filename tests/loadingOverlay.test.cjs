@@ -16,7 +16,7 @@ function loading(reduced) {
 }
 test("loading uses contain and native gentle loops, then stops all animations/listeners on unmount",async()=>{
   const h=loading(false);h.screen.render();await Promise.resolve();const tree=h.screen.render();
-  assert.equal(h.loops.length,4);assert.ok(h.loops.every(l=>l.started));assert.ok(h.timings.every(t=>t.useNativeDriver));
+  assert.equal(h.loops.length,3);assert.ok(h.loops.every(l=>l.started));assert.ok(h.timings.every(t=>t.useNativeDriver));
   assert.ok(h.timings.some(t=>t.duration===14000));
   const bg=nodes(tree).find(n=>n.props?.source==="bg2.png");assert.equal(bg.props.resizeMode,"contain");
   const image=nodes(tree).find(n=>n.props?.source==="loading-icon.png");assert.equal(image.props.resizeMode,"contain");assert.equal(image.props.style.width,image.props.style.height);

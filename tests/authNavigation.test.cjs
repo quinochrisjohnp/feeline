@@ -17,6 +17,7 @@ function loadScreen(file, overrides = {}) {
       View: "View", Text: "Text", ScrollView: "ScrollView", TouchableOpacity: "TouchableOpacity",
     },
     "expo-router": { Stack: Object.assign(() => null, { Screen: "Screen", Protected: "Protected" }), useFocusEffect() {} },
+    "@/context/WellnessContext": { useWellnessNavigationSafety() {} },
     "@/constants/theme": { colors: { emotion: {} }, spacing: {}, typography: {}, dimensions: {} },
     ...overrides,
   };
@@ -45,7 +46,7 @@ function descendants(node) {
   return [node, ...children(node).flatMap(descendants)];
 }
 
-test("restoration shows branding, then root redirects to login or Camera", () => {
+test("restoration leaves branding to the root, then redirects to login or Camera", () => {
   for (const [isLoading, profile, expected] of [
     [true, null, null], [false, null, "/(screens)/(auth)/login"],
     [false, { profileId: "demo" }, "/(screens)/(tabs)/camera"],
@@ -55,7 +56,7 @@ test("restoration shows branding, then root redirects to login or Camera", () =>
       "expo-router": { Redirect: "Redirect" },
     });
     const screen = Index();
-    if (isLoading) assert.equal(screen.type, "@/components/common/BrandedSplash");
+    if (isLoading) assert.equal(screen, null);
     else assert.equal(screen.props.href, expected);
   }
 });
@@ -92,7 +93,7 @@ test("no protected screen is mounted while the session is restoring", () => {
   const Layout = loadScreen("app/(screens)/_layout.tsx", {
     "@/context/AuthContext": { useAuth: () => ({ isLoading: true, profile: null }) },
   });
-  assert.equal(Layout().type, "@/components/common/BrandedSplash");
+  assert.equal(Layout(), null);
 });
 
 test("login calls the existing mock sign-in and each legal link has its own internal destination", () => {

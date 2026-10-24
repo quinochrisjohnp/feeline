@@ -1,3 +1,4 @@
+import { usePresentationBlock } from "@/context/PresentationContext";
 import React from "react";
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,6 +11,7 @@ export default function ModalSurface({ visible, onClose, children, compact = fal
   children: React.ReactNode;
   compact?: boolean;
 }) {
+  usePresentationBlock(visible);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>

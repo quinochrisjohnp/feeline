@@ -16,13 +16,14 @@ const CATEGORIES = [
   { key: "dark", label: "Dark Images", image: require("../images/cat_dark.png") },
   { key: "notCats", label: "Not Cats", image: require("../images/dog.png") },
   { key: "cropped", label: "Cropped Image", image: require("../images/cat_cropped.png") },
+  { key: "multiple", label: "Multiple cats", image: require("../images/cat_multiple.png") },
   { key: "deformities", label: "Physical Deformities", image: require("../images/cat_deformaties.png") },
 ];
 
 export default function WhatToAvoidModal({ visible, onClose }: WhatToAvoidModalProps) {
   const preference = useCameraTipsPreference();
   const { height, fontScale } = useWindowDimensions();
-  const compact = height >= 560 && fontScale <= 1.3;
+  const compact = height >= 600 && fontScale <= 1.3;
   return (
     <ModalSurface compact={compact} visible={visible} onClose={onClose}>
       <View style={styles.titleRow}>
@@ -47,8 +48,9 @@ export default function WhatToAvoidModal({ visible, onClose }: WhatToAvoidModalP
         ))}
       </View>
 
+      <Text style={styles.note}>Avoid photos with multiple cats. FeELINE needs one clearly visible domestic cat in each image.</Text>
       <Text style={styles.note}>Examples illustrate image limitations. Physical differences do not make a cat invalid;
-        this prototype may have difficulty interpreting some images.</Text>
+        the system may have difficulty interpreting some images.</Text>
       <Pressable style={styles.preference} accessibilityRole="checkbox" accessibilityLabel="Don’t show automatically again"
         accessibilityState={{ checked: !preference.enabled, disabled: !preference.ready || preference.saving }}
         disabled={!preference.ready || preference.saving} onPress={() => { void preference.setEnabled(!preference.enabled); }}>

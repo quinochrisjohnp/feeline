@@ -5,32 +5,31 @@ export default function PrivacyPolicy() {
   return (
     <LegalScreen title="Privacy Policy">
       <PolicySection title="Google Login">
-        This prototype uses mock sign-in and a demo profile. It does not connect to Google
-        or access your Google account information.
+        FeELINE uses account authentication to access your cat profiles and detection history.
+        Sign-in information is exchanged with the authentication service.
       </PolicySection>
       <PolicySection title="Image Data">
-        Images and detection results are mock references held in memory. This prototype
-        does not capture, upload, or analyze your photos.
+        Photos submitted for detection are sent to the configured service for analysis.
+        Successful results and saved images are available through your account.
       </PolicySection>
       <PolicySection title="Cat Profile Data">
-        Cat names, birthdates, gender, and mock emotion history are held in memory for
-        the current app session. Reloading restores the initial mock data.
+        Cat profile information and detection history are stored through the application service.
+        Reloading the app does not reset your saved account data.
       </PolicySection>
       <PolicySection title="Data Usage">
-        Information entered here is used for the local prototype experience.
-        This prototype does not send profile or image data to a service.
+        Profile and image data support cat profiles, image analysis, albums, and detection history.
+        Wellness reminders and their presentation state are stored locally on this device.
       </PolicySection>
       <PolicySection title="Data Deletion">
-        You can remove cats and saved mock images through the album controls.
-        Reloading resets these changes. Logging out clears the saved mock session.
+        You can manage cats and remove saved photos through the app. Removing a photo from
+        an Album does not delete its detection history. Logging out ends the local session.
       </PolicySection>
       <PolicySection title="Security">
-        The existing mock session token is kept using SecureStore on supported devices.
-        Web previews keep the mock session in memory and sign out on reload.
-        This prototype does not implement a production authentication system.
+        Session credentials use SecureStore on supported native devices.
+        Keep your device and sign-in details secure.
       </PolicySection>
       <PolicySection title="Consent">
-        By continuing to use FeELINE, you acknowledge the mock data and session behavior
+        By continuing to use FeELINE, you acknowledge the data and session behavior
         described in this Privacy Policy.
       </PolicySection>
     </LegalScreen>

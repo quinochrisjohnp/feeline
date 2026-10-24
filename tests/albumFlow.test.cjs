@@ -100,7 +100,7 @@ test("single photo resolves imageId, exposes detection, and returns to its album
     router: { dismissTo: (route) => routes.push(route) } });
   measure(screen);
   let tree = screen.render();
-  assert.equal(find(tree, "/MockPhoto").props.imageUri, saved.image.imageUri);
+  assert.equal(find(tree, "/DraggableDetailsLayout").props.imageUri, saved.image.imageUri);
   action(tree, "Emotion").props.onPress();
   assert.equal(find(screen.render(), "/EmotionResultCard").props.confidence, 90);
   action(screen.render(), "Delete").props.onPress();

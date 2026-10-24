@@ -29,7 +29,7 @@ test('capture waits for readiness; rapid taps upload and navigate only once',asy
  pending.resolve(service.parseDetectionResponse(fixture()));await first;assert.equal(c.routes.length,1);await c.capture();assert.equal(c.routes.length,1);
  const route=c.routes[0];assert.equal(route.params.source,'camera');assert.equal(JSON.parse(route.params.result).imageUrl,fixture().imageUrl);
  const result=mount('app/(screens)/camera-result.tsx',{params:route.params,router:{replace:r=>c.routes.push(r)}});
- assert.equal(find(result.render(),'/MockCapturePhoto').props.imageUri,fixture().imageUrl);
+ assert.equal(find(result.render(),'/DraggableDetailsLayout').props.imageUri,fixture().imageUrl);
  const save=find(result.render(),'/DetailScreenHeader').props.rightElement;save.props.onPress();save.props.onPress();assert.equal(c.routes.length,2);assert.equal(JSON.parse(c.routes[1].params.result).detectionId,fixture().detectionId);
 });
 test('gallery uses one unedited image; returned API image and source reach Result',async()=>{
@@ -57,12 +57,12 @@ test('device URI validation rejects remote and malformed media',()=>{
  for(const uri of [undefined,[],['file:///cat.jpg'],'','file://','javascript:alert(1)','https://example.com/cat.jpg','file:///cache/%zz'])assert.equal(isDeviceImageUri(uri),false);
 });
 test('result retains one photo/card scroll area with fixed header and safe bottom',()=>{
- const screen=mount('app/(screens)/camera-result.tsx',{params:params()});const tree=screen.render(),panel=find(tree,'ScrollView');assert.ok(find(tree,'/DetailScreenHeader'));assert.ok(find(panel,'/EmotionResultCard'));assert.ok(find(panel,'/MockCapturePhoto'));assert.equal(nodes(tree).filter(n=>n.type==='ScrollView').length,1);assert.equal(find(panel,'/DetailScreenHeader'),undefined);
+ const screen=mount('app/(screens)/camera-result.tsx',{params:params()});const tree=screen.render(),panel=find(tree,'/DraggableDetailsLayout');assert.ok(find(tree,'/DetailScreenHeader'));assert.ok(find(panel,'/EmotionResultCard'));assert.equal(panel.props.imageUri,fixture().imageUrl);assert.equal(find(panel,'/DetailScreenHeader'),undefined);assert.deepEqual(Array.from(tree.props.edges),['left','right']);
 });
 
-test("What to Avoid uses all five assets in three rows and closes through Continue", () => {
+test("What to Avoid uses all six assets in three rows and closes through Continue", () => {
   let closed = 0;
-  const assets = Object.fromEntries(["cat_blurred", "cat_dark", "dog", "cat_cropped", "cat_deformaties"].map((name) => [`../images/${name}.png`, name]));
+  const assets = Object.fromEntries(["cat_blurred", "cat_dark", "dog", "cat_cropped", "cat_multiple", "cat_deformaties"].map((name) => [`../images/${name}.png`, name]));
   const screen = mount("components/camera/WhatToAvoidModal.tsx", {
     props: { visible: true, onClose: () => closed++ },
     dependencies: { ...assets, "react-native": { StyleSheet: { create: (s) => s }, useWindowDimensions:()=>({height:800,fontScale:1}), View: "View", Text: "Text", Image: "Image" } },
@@ -71,7 +71,7 @@ test("What to Avoid uses all five assets in three rows and closes through Contin
   assert.equal(tree.props.compact, true);
   assert.equal(tree.props.visible, true);
   const images = nodes(tree).filter((n) => n.type === "Image");
-  assert.deepEqual(images.map((n) => n.props.source), ["cat_blurred", "cat_dark", "dog", "cat_cropped", "cat_deformaties"]);
+  assert.deepEqual(images.map((n) => n.props.source), ["cat_blurred", "cat_dark", "dog", "cat_cropped", "cat_multiple", "cat_deformaties"]);
   assert.ok(images.every((n) => n.props.resizeMode === "cover"));
   find(tree, "/Button").props.onPress();
   assert.equal(closed, 1);

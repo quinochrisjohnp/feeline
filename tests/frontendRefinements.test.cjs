@@ -131,14 +131,14 @@ test("album measures its own width for three square columns and keeps the last r
   assert.equal(tiles()[0].props.accessibilityState.checked, true);
 });
 
-test("branding config uses supplied assets and contains the complete splash in both appearances", () => {
+test("branding config uses supplied assets and uses a blank native launch and complete in-app logo", () => {
   const { expo } = require("../app.json");
   for (const icon of [expo.icon, expo.android.icon, expo.ios.icon]) {
     assert.ok(["./components/images/logo-only.png","./components/images/logo-ios.png"].includes(icon));
     assert.ok(fs.existsSync(path.resolve(__dirname, "..", icon)));
   }
   const splash = expo.plugins.find(p => Array.isArray(p) && p[0] === "expo-splash-screen")[1];
-  assert.equal(splash.image, "./components/images/logo-no-bg.png");
+  assert.equal(splash.image, "./components/images/splash-blank.png");
   assert.ok(fs.existsSync(path.resolve(__dirname, "..", splash.image)));
   assert.equal(splash.resizeMode, "contain");
   assert.equal(splash.backgroundColor, "#FFF7E9");
@@ -173,27 +173,30 @@ test("real upload and result navigation remain intact and rapid capture taps sub
   assert.equal(route.params.confidence, "85");
 });
 
-test("loading logo fades/scales once using native driver without adding an authentication delay", () => {
+test("startup logo fades once on readiness without scaling or delaying authentication", () => {
   const animations = [];
   class Value {
     constructor(value) { this.value = value; }
     interpolate(range) { return range; }
   }
-  const splash = mount("components/common/BrandedSplash.tsx", { dependencies: {
+  const props = { ready: false };
+  const splash = mount("components/common/BrandedSplash.tsx", { props, dependencies: {
     "react-native": { StyleSheet: { create: s => s }, Animated: { Value, View: "AnimatedView",
       timing: (value, options) => { const a = { value, options, starts: 0, start() { this.starts++; }, stop() {} }; animations.push(a); return a; } } },
   } });
   const tree = splash.render();
+  assert.equal(animations.length, 0);
+  props.ready = true;
+  splash.render();
   splash.render();
   assert.equal(animations.length, 1);
-  assert.equal(animations[0].value.value, 0);
+  assert.equal(animations[0].value.value, 1);
   assert.equal(animations[0].options.useNativeDriver, true);
-  assert.equal(animations[0].options.toValue, 1);
+  assert.equal(animations[0].options.toValue, 0);
   assert.equal(animations[0].starts, 1);
   assert.ok(animations[0].options.duration <= 500);
   assert.equal(find(tree, "Text"), undefined);
-  const range = find(tree, "AnimatedView").props.style.transform[0].scale;
-  assert.deepEqual(Array.from(range.outputRange), [0.92, 1]);
+  assert.equal(find(tree, "AnimatedView").props.style[1].transform, undefined);
 });
 
 

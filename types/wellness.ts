@@ -4,10 +4,12 @@ export interface WellnessCandidate {
 }
 export interface WellnessAlert extends WellnessCandidate {
   status: "pending" | "acknowledged" | "snoozed";
+  presentedAt?: string;
   createdAt: string; notificationId?: string; notified?: boolean;
 }
 export interface WellnessReminder {
   id: string; alertSignature: string; catId: string; scheduledAt: string;
+  presentedOccurrence?: string;
   notificationId?: string; notificationState: "scheduled" | "off" | "failed";
   status: "scheduled" | "acknowledged"; createdAt: string; updatedAt: string;
 }

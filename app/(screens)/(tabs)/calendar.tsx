@@ -1,22 +1,25 @@
+import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+import ModalSurface from "@/components/common/ModalSurface";
+import Button from "@/components/common/Button";
 import { dailyEmotion } from "@/utils/calendarEmotion";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Animated, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import WellnessCalendarSection from "@/components/wellness/WellnessCalendarSection";
-import { useWellness } from "@/context/WellnessContext";
+import { useWellness, useWellnessNavigationSafety } from "@/context/WellnessContext";
 import { remindersForDate } from "@/utils/wellnessState";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import CalendarDay from "@/components/calendar/CalendarDay";
-import CompactWeekStrip from "@/components/calendar/CompactWeekStrip";
+import { SheetHandle, usePanelProgress } from "@/components/common/DraggableDetailsLayout";
 import DetectionListRow from "@/components/calendar/DetectionListRow";
 import CatFilterModal from "@/components/calendar/CatFilterModal";
 import EmptyState from "@/components/common/EmptyState";
 import { useCatData } from "@/context/CatDataContext";
 import { selectCalendarRecordsForDate, selectCalendarRecords, selectCalendarFilterOptions,
   selectBirthdayCatsForDate, selectCatForDetection } from "@/context/catDataSelectors";
-import { formatFullDate, formatTime, getMonthMatrix, getWeekDates, isSameDay, monthLabel } from "@/utils/date";
+import { formatFullDate, formatTime, getMonthMatrix, isSameDay, monthLabel } from "@/utils/date";
 import { colors, getTabBarClearance, radii, shadows, spacing, typography } from "@/constants/theme";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -30,17 +33,19 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [filterVisible, setFilterVisible] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [calendarHeight, setCalendarHeight] = useState(500);
-  const [stripHeight, setStripHeight] = useState(170);
-  const scrollRef = useRef<ScrollView>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [pickerDate, setPickerDate] = useState(() => new Date());
+  useWellnessNavigationSafety(filterVisible || datePickerOpen);
+  // Keep the original day sizing on every phone: 60-point cell + theme row gap.
+  const rowHeight = 60 + spacing.xs;
+  const panel = usePanelProgress(rowHeight * 5);
 
   // Derive the fallback immediately, including the render before the effect runs.
   const filterId = filterOptions.some((option) => option.id === selectedCatId) ? selectedCatId : null;
   useEffect(() => { if (selectedCatId !== filterId) setSelectedCatId(filterId); }, [selectedCatId, filterId]);
   const selectedCatName = filterOptions.find((option) => option.id === filterId)?.name ?? "All Cats";
   const cells = useMemo(() => getMonthMatrix(monthDate), [monthDate]);
-  const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
+  const selectedWeek = Math.floor(cells.findIndex(cell => isSameDay(cell.date, selectedDate)) / 7);
   const records = selectCalendarRecordsForDate(state, selectedDate, filterId);
   const birthdays = selectBirthdayCatsForDate(state, selectedDate, filterId);
   const hasHistory = selectCalendarRecords(state, filterId).length > 0;
@@ -50,55 +55,53 @@ export default function Calendar() {
       birthdayCount: selectBirthdayCatsForDate(state, date, filterId).length,
       reminderCount: remindersForDate(wellness.state, date, filterId).filter(r => state.cats.some(c => c.id === r.catId)).length };
   };
-  const handleExpand = () => {
-    setCollapsed(false);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-  };
+  const handleExpand = () => panel.snap(0);
   const selectDate = (date: Date) => {
     setSelectedDate(date);
     setMonthDate(new Date(date.getFullYear(), date.getMonth(), 1));
-    if (collapsed) scrollRef.current?.scrollTo({ y: Math.max(0, calendarHeight - stripHeight), animated: false });
+  };
+  const chooseDate = () => {
+    if (Platform.OS === "web") return;
+    setPickerDate(selectedDate);
+    setDatePickerOpen(true);
+    if (Platform.OS === "android") DateTimePickerAndroid.open({ value: selectedDate, mode: "date",
+      onChange: (event, date) => { setDatePickerOpen(false); if (event.type === "set" && date) selectDate(date); },
+      onError: () => setDatePickerOpen(false),
+    });
   };
   const moveMonth = (offset: number) => {
     selectDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + offset, 1));
     handleExpand();
   };
   const goToToday = () => { selectDate(new Date()); handleExpand(); };
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // Keep the full grid's height stable; the overlay takes over as the grid leaves view.
-    // A small hysteresis avoids flicker around the transition on native scroll bounce.
-    const threshold = Math.max(60, calendarHeight - stripHeight);
-    const y = event.nativeEvent.contentOffset.y;
-    if (!collapsed && y >= threshold) setCollapsed(true);
-    else if (collapsed && y < threshold - 24) setCollapsed(false);
-  };
   const dateHeading = isSameDay(selectedDate, new Date()) ? "TODAY" : formatFullDate(selectedDate.toISOString()).toUpperCase();
 
   return (
     <ScreenContainer module="calendar" padded={false}>
       <View style={styles.root}>
-        <ScrollView ref={scrollRef} onScroll={handleScroll} scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: getTabBarClearance(0) }}>
-          <View style={styles.calendarSection} onLayout={(event) => setCalendarHeight(event.nativeEvent.layout.height)}
-            aria-hidden={collapsed}
-            accessibilityElementsHidden={collapsed} importantForAccessibility={collapsed ? "no-hide-descendants" : "auto"}>
+          <View style={styles.calendarSection}>
             <View style={styles.headerPadding}>
-              <CalendarHeader label={monthLabel(monthDate)} onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} onToday={goToToday} />
+              <CalendarHeader onChooseDate={chooseDate} label={monthLabel(monthDate)} onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} onToday={goToToday} />
             </View>
             <View style={styles.weekdayRow}>
               {WEEKDAYS.map((day) => <Text key={day} style={styles.weekdayLabel}>{day}</Text>)}
             </View>
             <View style={styles.grid}>
-              {cells.map(({ date, inCurrentMonth }) => (
-                <CalendarDay key={date.toISOString()} day={date.getDate()}
-                  disabled={collapsed}
-                  dateLabel={date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-                  inCurrentMonth={inCurrentMonth} isSelected={isSameDay(date, selectedDate)} isToday={isSameDay(date, new Date())}
-                  {...activityForDate(date)} onPress={() => selectDate(date)} />
-              ))}
+              {Array.from({ length: cells.length / 7 }, (_, week) => {
+                if (panel.settledExpanded && week !== selectedWeek) return null;
+                const active = week === selectedWeek;
+                return <Animated.View key={week} style={{ flexDirection: "row", overflow: "hidden", height: active ? rowHeight : panel.progress.interpolate({ inputRange: [0, 1], outputRange: [rowHeight, 0] }), opacity: active ? 1 : panel.progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
+                  {cells.slice(week * 7, week * 7 + 7).map(({ date, inCurrentMonth }) => <CalendarDay key={date.toISOString()} day={date.getDate()}
+                    dateLabel={date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                    inCurrentMonth={inCurrentMonth} isSelected={isSameDay(date, selectedDate)} isToday={isSameDay(date, new Date())}
+                    {...activityForDate(date)} onPress={() => selectDate(date)} />)}
+                </Animated.View>;
+              })}
             </View>
           </View>
           <View style={styles.recordsSheet}>
+            <SheetHandle panel={panel} label="Expand events or show full calendar month" />
+            <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: getTabBarClearance(0) + spacing.lg }}>
             <View style={styles.recordsHeader}>
               <Text style={styles.recordsHeading}>{dateHeading}</Text>
               <TouchableOpacity style={styles.filterChip} onPress={() => setFilterVisible(true)} accessibilityRole="button"
@@ -124,13 +127,13 @@ export default function Calendar() {
             {records.length === 0 && birthdays.length === 0 && remindersForDate(wellness.state, selectedDate, filterId).length === 0 ? <EmptyState icon="calendar-clear-outline"
               title={hasHistory ? "No events for this date" : "No detections yet"}
               message={hasHistory ? "Choose another date to view saved detections." : `Saved detections${filterId ? ` for ${selectedCatName}` : ""} will appear here.`} /> : null}
+            </ScrollView>
           </View>
-        </ScrollView>
-        {collapsed && <View style={styles.stickyOverlay} onLayout={(event) => setStripHeight(event.nativeEvent.layout.height)}>
-          <CompactWeekStrip weekDates={weekDates} selectedDate={selectedDate} monthLabel={monthLabel(monthDate)}
-            activityForDate={activityForDate} onSelectDate={selectDate} onExpand={handleExpand} />
-        </View>}
       </View>
+      {Platform.OS === "ios" && datePickerOpen ? <ModalSurface visible onClose={() => setDatePickerOpen(false)}>
+        <DateTimePicker value={pickerDate} mode="date" display="spinner" onChange={(_, date) => { if (date) setPickerDate(date); }} />
+        <Button label="Done" onPress={() => { selectDate(pickerDate); setDatePickerOpen(false); }} />
+      </ModalSurface> : null}
       <CatFilterModal visible={filterVisible} options={filterOptions} selectedCatId={filterId}
         onSelect={setSelectedCatId} onClose={() => setFilterVisible(false)} />
     </ScreenContainer>
@@ -143,9 +146,9 @@ const styles = StyleSheet.create({
   headerPadding: { paddingHorizontal: spacing.md },
   weekdayRow: { flexDirection: "row" },
   weekdayLabel: { ...typography.caption, color: colors.textSecondary, width: `${100 / 7}%`, textAlign: "center" },
-  grid: { flexDirection: "row", flexWrap: "wrap", marginTop: spacing.sm },
+  grid: { marginTop: spacing.sm },
   recordsSheet: { backgroundColor: colors.white, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
-    padding: spacing.lg, marginTop: spacing.md, ...shadows.floating },
+    flex: 1, marginTop: spacing.md, overflow: "hidden", ...shadows.floating },
   recordsHeader: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
   recordsHeading: { ...typography.label, color: colors.textPrimary, letterSpacing: 1, flexShrink: 1 },
   filterChip: { flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "100%", minHeight: 44,

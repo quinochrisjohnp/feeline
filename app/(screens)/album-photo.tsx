@@ -1,11 +1,10 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 
 import {
   Alert,
   BackHandler,
-  Image,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,7 +18,7 @@ import {
 } from "expo-router";
 
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import DraggableDetailsLayout from "@/components/common/DraggableDetailsLayout";
 
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
@@ -38,7 +37,7 @@ import {
   selectDetectionForImage,
 } from "@/context/catDataSelectors";
 
-import MockPhoto from "@/components/common/MockPhoto";
+
 
 import {
   colors,
@@ -48,31 +47,10 @@ import {
   typography,
 } from "@/constants/theme";
 
-// Fallback aspect ratios for images whose dimensions
-// cannot be retrieved.
-const MOCK_ASPECT_RATIOS = [0.5, 0.75, 1, 1.6, 2.4];
-
-function mockAspectRatioFor(imageUri: string): number {
-  let hash = 0;
-
-  for (let i = 0; i < imageUri.length; i++) {
-    hash =
-      (hash * 31 + imageUri.charCodeAt(i)) >>> 0;
-  }
-
-  return MOCK_ASPECT_RATIOS[
-    hash % MOCK_ASPECT_RATIOS.length
-  ];
-}
-
-interface Size {
-  width: number;
-  height: number;
-}
-
 export default function AlbumPhoto() {
+  const [nativeNotice, setNativeNotice] = useState(false);
+  useWellnessNavigationSafety(nativeNotice);
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const params = useLocalSearchParams<{
     imageId?: string;
@@ -119,56 +97,6 @@ export default function AlbumPhoto() {
   // Prevent duplicate deletion requests.
   const [deleting, setDeleting] = useState(false);
   const deleteLock = useRef(false);
-
-  const [intrinsic, setIntrinsic] =
-    useState<Size | null>(null);
-
-  const [availableArea, setAvailableArea] =
-    useState<Size | null>(null);
-
-  // Determine photo dimensions.
-  useEffect(() => {
-    setIntrinsic(null);
-
-    const uri = image?.imageUri;
-
-    if (!uri) return;
-
-    let cancelled = false;
-
-    const applyFallback = () => {
-      if (cancelled) return;
-
-      const ratio = mockAspectRatioFor(uri);
-
-      setIntrinsic({
-        width: 1000,
-        height: Math.round(1000 / ratio),
-      });
-    };
-
-    if (Image && typeof Image.getSize === "function") {
-      try {
-        Image.getSize(
-          uri,
-          (width, height) => {
-            if (!cancelled) {
-              setIntrinsic({ width, height });
-            }
-          },
-          applyFallback
-        );
-      } catch {
-        applyFallback();
-      }
-    } else {
-      applyFallback();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [image?.imageUri]);
 
   // Preserve the parent Album for navigation.
   const [parentAlbumId] = useState(
@@ -219,9 +147,11 @@ export default function AlbumPhoto() {
 
   // Download functionality is still a placeholder.
   const handleDownload = () => {
+    setNativeNotice(true);
     Alert.alert(
-      "Mock download",
-      "This is a placeholder action. No file was downloaded to your device."
+      "Download unavailable",
+      "Downloading photos is not available yet. No file was downloaded to your device.",
+      [{ text: "OK", onPress: () => setNativeNotice(false) }], { cancelable: true, onDismiss: () => setNativeNotice(false) }
     );
   };
 
@@ -248,11 +178,13 @@ export default function AlbumPhoto() {
     } catch (error) {
       setConfirmingDelete(false);
 
+      setNativeNotice(true);
       Alert.alert(
         "Deletion Failed",
         error instanceof Error
           ? error.message
-          : "Unable to remove the photo from the Album. Please try again."
+          : "Unable to remove the photo from the Album. Please try again.",
+        [{ text: "OK", onPress: () => setNativeNotice(false) }], { cancelable: true, onDismiss: () => setNativeNotice(false) }
       );
     } finally {
       deleteLock.current = false;
@@ -264,8 +196,8 @@ export default function AlbumPhoto() {
   if (deletedNotice) {
     return (
       <ScreenContainer
-        module="album"
-        edges={["left", "right", "bottom"]}
+        module="gallery"
+        edges={["left", "right"]}
         padded={false}
       >
         <DetailScreenHeader
@@ -289,8 +221,8 @@ export default function AlbumPhoto() {
   if (!image) {
     return (
       <ScreenContainer
-        module="album"
-        edges={["left", "right", "bottom"]}
+        module="gallery"
+        edges={["left", "right"]}
         padded={false}
       >
         <DetailScreenHeader
@@ -317,37 +249,14 @@ export default function AlbumPhoto() {
   }
 
 
-  // Calculate dimensions while preserving aspect ratio.
-  let displayWidth = 0;
-  let displayHeight = 0;
-
-  if (
-    intrinsic &&
-    availableArea &&
-    availableArea.width > 0 &&
-    availableArea.height > 0
-  ) {
-    const scale = Math.min(
-      1,
-      availableArea.width / intrinsic.width,
-      availableArea.height / intrinsic.height
-    );
-
-    displayWidth = intrinsic.width * scale;
-    displayHeight = intrinsic.height * scale;
-  }
-
-  const ready =
-    intrinsic !== null && availableArea !== null;
-
   // Only saved photos have an Album membership to remove.
   const canRemoveFromAlbum =
     !!savedImage;
 
   return (
     <ScreenContainer
-      module="album"
-      edges={["left", "right", "bottom"]}
+      module="gallery"
+      edges={["left", "right"]}
       padded={false}
     >
       <DetailScreenHeader
@@ -357,69 +266,7 @@ export default function AlbumPhoto() {
         onBack={backToAlbum}
       />
 
-      <View
-        style={styles.imageArea}
-        onLayout={(event) =>
-          setAvailableArea({
-            width: event.nativeEvent.layout.width,
-            height: event.nativeEvent.layout.height,
-          })
-        }
-      >
-        {ready ? (
-          <View
-            style={[
-              styles.photo,
-              {
-                width: displayWidth,
-                height: displayHeight,
-              },
-            ]}
-          >
-            <MockPhoto
-              imageUri={image.imageUri}
-              size={48}
-              label="Captured photo"
-              resizeMode="contain"
-            />
-          </View>
-        ) : (
-          <View style={styles.loadingPlaceholder} />
-        )}
-      </View>
-
-      {showEmotion ? (
-        <ScrollView
-          style={styles.emotionScroll}
-          contentContainerStyle={
-            styles.emotionScrollContent
-          }
-          showsVerticalScrollIndicator={false}
-        >
-          {record ? (
-            <EmotionResultCard
-              emotionKey={record.emotion}
-              confidence={record.confidence}
-            />
-          ) : (
-            <Text style={styles.missingText}>
-              No detection result is available for this photo.
-            </Text>
-          )}
-        </ScrollView>
-      ) : null}
-
-      <View
-        style={[
-          styles.toolbar,
-          {
-            paddingBottom: Math.max(
-              insets.bottom,
-              spacing.sm
-            ),
-          },
-        ]}
-      >
+      <DraggableDetailsLayout imageUri={image.imageUri} footer={<View style={styles.toolbar}>
         {/* Emotion */}
         <TouchableOpacity
           style={styles.action}
@@ -490,7 +337,10 @@ export default function AlbumPhoto() {
             </Text>
           </TouchableOpacity>
         ) : null}
-      </View>
+      </View>}>
+        {record ? <EmotionResultCard embedded emotionKey={record.emotion} confidence={record.confidence} /> : <Text style={styles.missingText}>No detection result is available for this photo.</Text>}
+        {showEmotion && <Text style={styles.missingText}>Recorded {formatFullDate(image.capturedAt)} at {formatTime(image.capturedAt)}</Text>}
+      </DraggableDetailsLayout>
 
       {/* Confirmation before removing from Album */}
       <ConfirmModal

@@ -1,5 +1,6 @@
+import DialogActions from "@/components/common/DialogActions";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
 import { colors, fontFamily, spacing, typography } from "@/constants/theme";
@@ -11,15 +12,12 @@ export default function CameraErrorModal({ notice, onClose, onPhotoTips, onSetti
   return <ModalSurface visible onClose={onClose}>
     <Text style={styles.title} accessibilityRole="header">{notice.title}</Text>
     <Text style={styles.message} accessibilityRole="alert">{notice.message}</Text>
-    <View style={styles.actions}>
-      <Button label="Try another photo" size="compact" onPress={onClose} />
-      <Button label="View photo tips" size="compact" variant="text" onPress={onPhotoTips} />
-      {onSettings ? <Button label="Open Settings" size="compact" variant="text" onPress={onSettings} /> : null}
-    </View>
+    <DialogActions first={{ label: "Try another photo", onPress: onClose }}
+      second={{ label: "View photo tips", variant: "outline", onPress: onPhotoTips }} />
+    {onSettings ? <Button label="Open Settings" size="compact" variant="text" onPress={onSettings} /> : null}
   </ModalSurface>;
 }
 const styles = StyleSheet.create({
-  title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary },
-  message: { ...typography.body, color: colors.textSecondary, marginVertical: spacing.sm },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, justifyContent: "flex-end" },
+  title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, textAlign: "center" },
+  message: { ...typography.body, fontFamily: fontFamily.body, textAlign: "center", color: colors.textSecondary, marginVertical: spacing.sm },
 });

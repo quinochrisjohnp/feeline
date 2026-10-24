@@ -2,7 +2,7 @@ import React from "react";
 import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
 import { colors, dimensions, fontFamily, interaction, radii, shadows, spacing, typography } from "@/constants/theme";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "text" | "google" | "icon" | "dangerText";
+type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "text" | "google" | "icon" | "dangerText" | "dangerOutline";
 type ButtonSize = "md" | "sm" | "compact" | "default";
 
 interface ButtonProps {
@@ -16,10 +16,11 @@ interface ButtonProps {
   leftIcon?: React.ReactNode;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
 }
 
 export default function Button({ label, onPress, variant = "primary", size = "md", fullWidth = false,
-  loading = false, disabled = false, leftIcon, accessibilityLabel, style }: ButtonProps) {
+  loading = false, disabled = false, leftIcon, accessibilityLabel, style, labelStyle }: ButtonProps) {
   const isDisabled = disabled || loading;
   const ink = disabled ? colors.textSecondary : textStyles[variant].color;
 
@@ -34,7 +35,7 @@ export default function Button({ label, onPress, variant = "primary", size = "md
     >
       <View style={[styles.contentRow, loading && styles.hidden]}>
         {leftIcon ? <View style={variant !== "icon" && styles.iconSlot}>{leftIcon}</View> : null}
-        {variant !== "icon" ? <Text style={[styles.label, textStyles[variant], { color: ink }]}>{label}</Text> : null}
+        {variant !== "icon" ? <Text style={[styles.label, textStyles[variant], labelStyle, { color: ink }]}>{label}</Text> : null}
       </View>
       {loading && <ActivityIndicator style={styles.spinner} color={ink} />}
     </Pressable>
@@ -42,7 +43,7 @@ export default function Button({ label, onPress, variant = "primary", size = "md
 }
 
 const styles = StyleSheet.create({
-  base: { borderRadius: radii.md, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
+  base: { borderRadius: radii.lg, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
   sizeMd: { minHeight: dimensions.button, paddingVertical: spacing.xs },
   sizeSm: { minHeight: dimensions.touchTarget, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
   iconButton: { width: dimensions.touchTarget, minWidth: dimensions.touchTarget, paddingHorizontal: 0 },
@@ -64,6 +65,7 @@ const variantStyles: Record<ButtonVariant, ViewStyle> = {
   text: { backgroundColor: "transparent" },
   icon: { backgroundColor: "transparent" },
   dangerText: { backgroundColor: "transparent" },
+  dangerOutline: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.dangerStrong },
   google: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, ...shadows.card },
 };
 const textStyles: Record<ButtonVariant, TextStyle> = {
@@ -74,5 +76,6 @@ const textStyles: Record<ButtonVariant, TextStyle> = {
   text: { color: colors.textPrimary, textDecorationLine: "underline" },
   icon: { color: colors.textPrimary },
   dangerText: { color: colors.dangerStrong },
+  dangerOutline: { color: colors.dangerStrong },
   google: { color: colors.textPrimary },
 };

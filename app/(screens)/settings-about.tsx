@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import DocumentSurface from "@/components/common/DocumentSurface";
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -8,12 +9,13 @@ import { colors, fontFamily, spacing, typography } from "@/constants/theme";
 
 const FEATURES = [
   "Create and manage cat profiles",
-  "Explore mock image-based emotion interpretations",
-  "Keep mock scanned images during the current session",
+  "Explore image-based emotion interpretations",
+  "Save analyzed images to cat albums",
   "View emotion detection history by date",
 ];
 
 export default function AboutFeeline() {
+  useWellnessNavigationSafety(false);
   const router = useRouter();
   return (
     <ScreenContainer module="settings" edges={["left", "right", "bottom"]} padded={false}>
@@ -21,12 +23,12 @@ export default function AboutFeeline() {
       <ScrollView contentContainerStyle={styles.content}>
       <DocumentSurface>
         <Text style={styles.paragraph}>
-          FeELINE is an academic and research-oriented mobile prototype for an AI-powered cat emotion detection
+          FeELINE is an academic and research-oriented mobile application for an AI-powered cat emotion detection
           application. It is designed to help users interpret observable emotional cues in cat images.
         </Text>
         <Text style={styles.paragraph}>
-          This frontend demonstrates image-based interpretations using mock results in four categories: Happy,
-          Neutral, Fearful, and Angry. It does not perform real AI analysis.
+          FeELINE uses AI-based image interpretation in four categories: Happy,
+          Neutral, Fearful, and Angry. Results describe observable cues and may be inaccurate.
         </Text>
 
         <Text style={styles.subheading} accessibilityRole="header">The app allows users to:</Text>

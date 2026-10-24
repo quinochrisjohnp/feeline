@@ -22,7 +22,7 @@ test('HTTP 200 semantic outcomes remain structured; invalid response fails close
 });
 test('status messages use validated count and never parse errors',()=>{
  const {detectionOutcomeNotice,detectionFailureNotice}=require('../utils/cameraPresentation.ts');
- for(const [status,title] of [['rejected_non_cat','No cat detected'],['rejected_multiple_cats','Multiple cats detected'],['cannot_predict','Cat could not be analyzed'],['low_confidence','Emotion unclear']]){
+ for(const [status,title] of [['rejected_non_cat','No cat detected'],['rejected_multiple_cats','Multiple cats detected'],['cannot_predict','Emotion unclear'],['low_confidence','Emotion unclear']]){
   const result=service.parseDetectionResponse(fixture(status));const n=detectionOutcomeNotice(result);assert.equal(n.title,title);if(status==='rejected_multiple_cats')assert.match(n.message,/detected 2 cats/);
  }
  assert.equal(detectionFailureNotice(Error('rejected_multiple_cats 300')).title,'Detection unavailable');
@@ -76,7 +76,7 @@ test('exact status copy, dynamic counts and defensive multiple-cat fallback',()=
  rejected_non_cat:['No cat detected','FeELINE can only analyze photos containing one real domestic cat. Please take or upload another photo.'],
  rejected_multiple_cats:['Multiple cats detected','FeELINE detected 7 cats in this image. Please use a photo containing only one cat.'],
  low_confidence:['Emotion unclear','FeELINE detected a cat but could not confidently determine its emotion. Please try another clear photo.'],
- cannot_predict:['Cat could not be analyzed','FeELINE detected a cat, but the photo could not be analyzed clearly. Please use a clear, well-lit photo showing the cat’s face or body.']};
+ cannot_predict:['Emotion unclear','FeELINE detected a cat but could not confidently determine its emotion. Please try another clear photo.']};
  for(const [status,[title,message]] of Object.entries(expected)){
   const result=fixture(status);if(status==='rejected_multiple_cats')result.cat_count=7;
   const notice=detectionOutcomeNotice(service.parseDetectionResponse(result));assert.equal(notice.title,title);assert.equal(notice.message,message);
@@ -95,4 +95,12 @@ test('invalid-count API rejection stays an error but uses the count-free multipl
    assert.equal(notice.message,'FeELINE detected multiple cats in this image. Please use a photo containing only one cat.');return true;
   });
  }
+});
+
+test('AI rejection outcomes expose exactly three messages while preserving technical failures',()=>{
+ const {detectionOutcomeNotice,detectionFailureNotice}=require('../utils/cameraPresentation.ts');
+ const statuses=['rejected_non_cat','rejected_multiple_cats','low_confidence','cannot_predict'];
+ assert.equal(new Set(statuses.map(status=>detectionOutcomeNotice({status}).title)).size,3);
+ assert.deepEqual(detectionOutcomeNotice({status:'cannot_predict'}),detectionOutcomeNotice({status:'low_confidence'}));
+ assert.equal(detectionFailureNotice(Error('network')).title,'Detection unavailable');
 });

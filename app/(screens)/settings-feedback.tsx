@@ -1,4 +1,5 @@
-
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
+import DocumentSurface from "@/components/common/DocumentSurface";
 import React, { useRef, useState } from "react";
 import {
   Alert,
@@ -7,7 +8,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
 } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -22,7 +22,6 @@ import {
   colors,
   dimensions,
   fontFamily,
-  radii,
   spacing,
   typography,
 } from "@/constants/theme";
@@ -32,6 +31,7 @@ type Field = "title" | "email" | "subject" | "message";
 type FeedbackValues = Record<Field, string>;
 
 export default function GiveFeedback() {
+  useWellnessNavigationSafety(false);
   const router = useRouter();
 
   const [success, setSuccess] = useState(false);
@@ -184,7 +184,7 @@ export default function GiveFeedback() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <View style={styles.body}>
+        <DocumentSurface>
           <Text
             style={styles.heading}
             accessibilityRole="header"
@@ -251,7 +251,7 @@ export default function GiveFeedback() {
             disabled={loading || success}
             style={{ alignSelf: "flex-end" }}
           />
-        </View>
+        </DocumentSurface>
       </ScrollView>
 
       <ConfirmModal
@@ -263,22 +263,16 @@ export default function GiveFeedback() {
         onConfirm={goBack}
         onCancel={goBack}
       />
+
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
-  },
-  body: {
-    width: "100%",
-    maxWidth: dimensions.contentMaxWidth,
-    alignSelf: "center",
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderRadius: radii.lg,
   },
   heading: {
     ...typography.subheading,

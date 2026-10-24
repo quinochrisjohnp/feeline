@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 
 import React, { useCallback, useRef, useState } from "react";
 import {
@@ -26,6 +27,7 @@ import AddCatForm from "@/components/cats/AddCatForm";
 import { useCatData } from "@/context/CatDataContext";
 import {
   selectAlbumById,
+  selectCatById,
   selectAlbumName,
 } from "@/context/catDataSelectors";
 
@@ -103,6 +105,7 @@ export default function CameraSave() {
     null
   );
 
+  useWellnessNavigationSafety(step !== "select" || addingCat || catSavedNotice);
   const saved = useRef(false);
   const catSubmitted = useRef(false);
 
@@ -362,11 +365,7 @@ export default function CameraSave() {
             }}
           >
             <View style={styles.avatar}>
-              <Ionicons
-                name="paw"
-                size={dimensions.icon}
-                color={colors.textSecondary}
-              />
+<MockPhoto imageUri={album.catId ? selectCatById(state, album.catId)?.photoUri : null} icon="paw" size={dimensions.icon} label={`${selectAlbumName(state, album.id)} profile photo`} resizeMode="cover" />
             </View>
 
             <View style={styles.rowText}>
@@ -388,19 +387,12 @@ export default function CameraSave() {
             />
           </TouchableOpacity>
         )}
-        ListFooterComponent={
-          <Button
-            label="New Cat Profile"
-            variant="outline"
-            onPress={openAddCat}
-            disabled={step === "saving"}
-            style={styles.newCat}
-          />
-        }
       />
 
       <ConfirmModal
-        visible={step === "confirmSave"}
+        balanced
+        busy={step === "saving"}
+        visible={step === "confirmSave" || step === "saving"}
         title={`Save image in ${
           pendingAlbumId
             ? selectAlbumName(state, pendingAlbumId)
@@ -500,6 +492,7 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
+    overflow: "hidden",
     width: dimensions.touchTarget,
     height: dimensions.touchTarget,
     borderRadius: radii.md,

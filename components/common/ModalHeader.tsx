@@ -11,7 +11,7 @@ export default function ModalHeader({ title, onClose, onEdit, disabled = false }
     {onEdit ? <Button variant="icon" label="Edit reminder" disabled={disabled} onPress={onEdit}
       leftIcon={<Ionicons name="pencil-outline" size={20} color={colors.textPrimary} />} /> : null}
     <Button variant="icon" label="Close" disabled={disabled} onPress={onClose}
-      leftIcon={<Ionicons name="close" size={22} color={colors.textPrimary} />} />
+      leftIcon={<Ionicons name="close" size={18} color={colors.textPrimary} />} />
   </View>;
 }
 const styles = StyleSheet.create({
