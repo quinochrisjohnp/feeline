@@ -142,7 +142,7 @@ test('Calendar saved photo deletion is guarded and retains history through the e
  state.detectionRecords=[{id:'d',imageId:'i',catId:'cat',imageUri:'file:///cat.jpg',emotion:'happy',recordedAt:'2026-10-21T00:00:00Z',isSavedToAlbum:true}];
  const screen=mount('app/(screens)/album-photo.tsx',{params:{imageId:'i',from:'calendar'},dependencies:deps,context:()=>({state,deleteImage:async id=>{calls++;await new Promise(r=>release=r);state=catDataReducer(state,{type:'DELETE_IMAGE',imageId:id});}})});
  nodes(screen.render()).find(n=>n.props?.accessibilityLabel==='Delete').props.onPress();
- const confirm=modal(screen.render(),'Remove this Photo');const pending=confirm.props.onConfirm();await confirm.props.onConfirm();assert.equal(calls,1);release();await pending;
+ const confirm=modal(screen.render(),'Delete this Photo?');const pending=confirm.props.onConfirm();await confirm.props.onConfirm();assert.equal(calls,1);release();await pending;
  assert.equal(state.images.length,0);assert.equal(state.detectionRecords.length,1);assert.equal(state.detectionRecords[0].isSavedToAlbum,false);assert.ok(modal(screen.render(),'Removed from Album'));
 });
 test('Camera error modal uses shared shell, clears on retry and retains settings access',()=>{

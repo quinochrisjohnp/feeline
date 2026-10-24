@@ -72,7 +72,7 @@ test("AuthProvider restores the API session and clears it on logout; next restor
   assert.equal(restored.render().props.value.profile, null);
 });
 
-test("Feedback validates every required field and basic email, preserves input, then shows truthful mock success", () => {
+test("Feedback validates every required field and basic email, preserves input, then shows server-confirmed success", async () => {
   const routes = [];
   const screen = mount(feedbackFile, { router: { dismissTo: (route) => routes.push(route) } });
   const field = (label) => row(screen.render(), label);
@@ -90,11 +90,12 @@ test("Feedback validates every required field and basic email, preserves input, 
   }
   field("Email").props.onChangeText(" demo@example.com ");
   const submit = field("Submit");
+  const pending=submit.props.onPress();
   submit.props.onPress();
-  submit.props.onPress();
+  await pending;
   const success = modal(screen.render(), "Thank you for your Feedback!");
   assert.equal(success.props.visible, true);
-  assert.match(success.props.message, /nothing was sent or saved/);
+  assert.match(success.props.message, /submitted successfully/);
   assert.equal(field("Submit").props.disabled, true);
   success.props.onConfirm();
   assert.deepEqual(routes, ["/settings"]);

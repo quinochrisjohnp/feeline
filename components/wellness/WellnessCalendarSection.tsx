@@ -77,7 +77,7 @@ export default function WellnessCalendarSection({ date, catId, blocked, global =
         <WellnessCatHeader cat={reminderCat} />
         <View style={styles.row}><Ionicons name="paw-outline" size={18} color={colors.textSecondary} />
           <Text style={styles.label}>Check in with {reminderCat.name}</Text></View>
-        <Text style={styles.caption}>{new Date(item.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {item.status === "acknowledged" ? "Completed" : "Scheduled"}</Text>
+        <Text style={styles.caption}>{new Date(item.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · <Text style={[styles.status, item.status === "acknowledged" && styles.completedStatus]}>{item.status === "acknowledged" ? "Completed" : "Scheduled"}</Text></Text>
         {item.status === "scheduled" && item.notificationState !== "scheduled" ? <Text style={styles.caption}>Calendar reminder only · phone notifications {item.notificationState === "off" ? "off" : "not scheduled"}</Text> : null}
         <Text style={styles.link}>View reminder</Text>
       </TouchableOpacity>;
@@ -94,6 +94,8 @@ export default function WellnessCalendarSection({ date, catId, blocked, global =
   </>;
 }
 const styles = StyleSheet.create({
+  status: { fontFamily: fontFamily.semibold, fontWeight: "600" },
+  completedStatus: { color: colors.textPrimary },
   title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, textAlign: "center" },
   card: { backgroundColor: colors.background, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.sm },
   row: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },

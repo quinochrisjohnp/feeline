@@ -45,7 +45,7 @@ export default function WellnessReminderEditor({ cat, alert, reminder, onClose, 
     <WellnessCatHeader cat={cat} />
     <Text style={styles.body}>{wellnessGuidance(cat.name, alert.rule).summary}</Text>
     <Text style={styles.body}>{date.toLocaleString()}</Text>
-    {reminder ? <Text style={styles.caption}>Status: {reminder.status === "acknowledged" ? "Completed" : "Scheduled"}</Text> : null}
+    {reminder ? <Text style={styles.caption}>Status: <Text style={[styles.status, reminder.status === "acknowledged" && styles.completedStatus]}>{reminder.status === "acknowledged" ? "Completed" : "Scheduled"}</Text></Text> : null}
     {Platform.OS === "web" ? <TextInput accessibilityLabel="Reminder date and time (local)"
       placeholder="YYYY-MM-DDTHH:mm" defaultValue={date.getFullYear() + "-" + String(date.getMonth()+1).padStart(2,"0") + "-" + String(date.getDate()).padStart(2,"0") + "T" + String(date.getHours()).padStart(2,"0") + ":" + String(date.getMinutes()).padStart(2,"0")}
       onChangeText={value => setDate(new Date(value))} style={styles.input} /> : <View style={styles.actions}>
@@ -67,6 +67,8 @@ export default function WellnessReminderEditor({ cat, alert, reminder, onClose, 
   </ModalSurface></>;
 }
 const styles = StyleSheet.create({
+  status: { fontFamily: fontFamily.semibold, fontWeight: "600" },
+  completedStatus: { color: colors.textPrimary },
   title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, marginBottom: spacing.sm },
   body: { ...typography.body, fontSize: 15, lineHeight: 22, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.sm },
   caption: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textSecondary, marginVertical: spacing.sm },

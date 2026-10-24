@@ -266,14 +266,15 @@ export default function AlbumPhoto() {
         onBack={backToAlbum}
       />
 
-      <DraggableDetailsLayout imageUri={image.imageUri} footer={<View style={styles.toolbar}>
+      <DraggableDetailsLayout imageUri={image.imageUri} detailsVisible={showEmotion} onDismiss={() => setShowEmotion(false)} footer={<View style={styles.toolbar}>
         {/* Emotion */}
         <TouchableOpacity
-          style={styles.action}
+          style={[styles.action, showEmotion && styles.activeAction]}
           accessibilityRole="button"
           accessibilityLabel="Emotion"
           accessibilityState={{
             expanded: showEmotion,
+            selected: showEmotion,
           }}
           onPress={() =>
             setShowEmotion((value) => !value)
@@ -338,14 +339,14 @@ export default function AlbumPhoto() {
           </TouchableOpacity>
         ) : null}
       </View>}>
-        {record ? <EmotionResultCard embedded emotionKey={record.emotion} confidence={record.confidence} /> : <Text style={styles.missingText}>No detection result is available for this photo.</Text>}
-        {showEmotion && <Text style={styles.missingText}>Recorded {formatFullDate(image.capturedAt)} at {formatTime(image.capturedAt)}</Text>}
+        {showEmotion && (record ? <EmotionResultCard embedded emotionKey={record.emotion} confidence={record.confidence} /> : <Text style={styles.missingText}>No detection result is available for this photo.</Text>)}
       </DraggableDetailsLayout>
 
       {/* Confirmation before removing from Album */}
       <ConfirmModal
         visible={confirmingDelete}
-        title="Remove this Photo from Album?"
+        title="Delete this Photo?"
+        message="Remove photo from this album? Detection history will not be kept."
         confirmLabel={deleting ? "Removing..." : "Remove"}
         destructive
         onConfirm={handleDeleteConfirm}
@@ -394,6 +395,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.divider,
     backgroundColor: colors.surface,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
 
   action: {
@@ -404,6 +406,8 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
     paddingVertical: spacing.xs,
   },
+
+  activeAction: { backgroundColor: colors.card, borderTopWidth: 2, borderTopColor: colors.textPrimary },
 
   actionLabel: {
     ...typography.caption,
