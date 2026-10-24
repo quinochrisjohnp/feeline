@@ -157,7 +157,7 @@ export default function AlbumFolder() {
         </View>
       ) : null}
       <ConfirmModal visible={confirmingDelete} title="Delete these Photos?"
-        message={deleteError ?? `Remove ${selectedIds.length} selected photo(s) from this album? Detection history will be kept.`}
+        message={deleteError ?? `Remove ${selectedIds.length} selected photo(s) from this album? Detection history will not be kept.`}
         confirmLabel="Delete" destructive busy={deleting} onConfirm={handleDeleteSelected} onCancel={() => { if (!deleteLock.current) setConfirmingDelete(false); }} />
       <ConfirmModal visible={deletedNotice} title="Images Deleted" confirmLabel="Continue" hideCancel
         onConfirm={dismissNotice} onCancel={dismissNotice} />

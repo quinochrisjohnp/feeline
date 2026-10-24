@@ -3,7 +3,7 @@ import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
 import { dailyEmotion } from "@/utils/calendarEmotion";
 import React, { useEffect, useMemo, useState } from "react";
-import { Animated, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -12,7 +12,8 @@ import { useWellness, useWellnessNavigationSafety } from "@/context/WellnessCont
 import { remindersForDate } from "@/utils/wellnessState";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import CalendarDay from "@/components/calendar/CalendarDay";
-import { SheetHandle, usePanelProgress } from "@/components/common/DraggableDetailsLayout";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { CalendarDragHandle, CalendarWeek, useCalendarPanel } from "@/components/calendar/CalendarDragPanel";
 import DetectionListRow from "@/components/calendar/DetectionListRow";
 import CatFilterModal from "@/components/calendar/CatFilterModal";
 import EmptyState from "@/components/common/EmptyState";
@@ -38,7 +39,7 @@ export default function Calendar() {
   useWellnessNavigationSafety(filterVisible || datePickerOpen);
   // Keep the original day sizing on every phone: 60-point cell + theme row gap.
   const rowHeight = 60 + spacing.xs;
-  const panel = usePanelProgress(rowHeight * 5);
+  const panel = useCalendarPanel(rowHeight * 5);
 
   // Derive the fallback immediately, including the render before the effect runs.
   const filterId = filterOptions.some((option) => option.id === selectedCatId) ? selectedCatId : null;
@@ -78,7 +79,7 @@ export default function Calendar() {
 
   return (
     <ScreenContainer module="calendar" padded={false}>
-      <View style={styles.root}>
+      <GestureHandlerRootView style={styles.root}>
           <View style={styles.calendarSection}>
             <View style={styles.headerPadding}>
               <CalendarHeader onChooseDate={chooseDate} label={monthLabel(monthDate)} onPrev={() => moveMonth(-1)} onNext={() => moveMonth(1)} onToday={goToToday} />
@@ -90,17 +91,17 @@ export default function Calendar() {
               {Array.from({ length: cells.length / 7 }, (_, week) => {
                 if (panel.settledExpanded && week !== selectedWeek) return null;
                 const active = week === selectedWeek;
-                return <Animated.View key={week} style={{ flexDirection: "row", overflow: "hidden", height: active ? rowHeight : panel.progress.interpolate({ inputRange: [0, 1], outputRange: [rowHeight, 0] }), opacity: active ? 1 : panel.progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
+                return <CalendarWeek key={week} active={active} height={rowHeight} progress={panel.progress}>
                   {cells.slice(week * 7, week * 7 + 7).map(({ date, inCurrentMonth }) => <CalendarDay key={date.toISOString()} day={date.getDate()}
                     dateLabel={date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
                     inCurrentMonth={inCurrentMonth} isSelected={isSameDay(date, selectedDate)} isToday={isSameDay(date, new Date())}
                     {...activityForDate(date)} onPress={() => selectDate(date)} />)}
-                </Animated.View>;
+                </CalendarWeek>;
               })}
             </View>
           </View>
           <View style={styles.recordsSheet}>
-            <SheetHandle panel={panel} label="Expand events or show full calendar month" />
+            <CalendarDragHandle panel={panel} label="Expand events or show full calendar month" />
             <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: getTabBarClearance(0) + spacing.lg }}>
             <View style={styles.recordsHeader}>
               <Text style={styles.recordsHeading}>{dateHeading}</Text>
@@ -129,7 +130,7 @@ export default function Calendar() {
               message={hasHistory ? "Choose another date to view saved detections." : `Saved detections${filterId ? ` for ${selectedCatName}` : ""} will appear here.`} /> : null}
             </ScrollView>
           </View>
-      </View>
+      </GestureHandlerRootView>
       {Platform.OS === "ios" && datePickerOpen ? <ModalSurface visible onClose={() => setDatePickerOpen(false)}>
         <DateTimePicker value={pickerDate} mode="date" display="spinner" onChange={(_, date) => { if (date) setPickerDate(date); }} />
         <Button label="Done" onPress={() => { selectDate(pickerDate); setDatePickerOpen(false); }} />

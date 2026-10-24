@@ -104,7 +104,7 @@ test("single photo resolves imageId, exposes detection, and returns to its album
   action(tree, "Emotion").props.onPress();
   assert.equal(find(screen.render(), "/EmotionResultCard").props.confidence, 90);
   action(screen.render(), "Delete").props.onPress();
-  await modal(screen.render(), "Remove this Photo from Album?").props.onConfirm();
+  await modal(screen.render(), "Delete this Photo?").props.onConfirm();
   assert.equal(selectors.selectImageById(context().state, saved.image.id), null);
   assert.equal(selectors.selectDetectionForImage(context().state, saved.image.id).isSavedToAlbum, false);
   await modal(screen.render(), "Removed from Album").props.onConfirm();

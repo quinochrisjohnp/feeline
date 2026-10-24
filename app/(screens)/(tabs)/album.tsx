@@ -26,7 +26,6 @@ export default function Album() {
           onPress={() => open(album.id)} style={{ width: width ? (width - spacing.md) / 2 : "47%" }} />)}
       </View>
       {unknown ? <View style={styles.systemSection}>
-        <Text style={styles.systemTitle}>Unknown Cats</Text>
         <CatCoverCard name={selectAlbumName(state, unknown.id)} variant="bar"
           coverUri={selectAlbumCoverImage(state, unknown.id)?.imageUri ?? null}
           onPress={() => open(unknown.id)} style={styles.systemCard} />

@@ -249,7 +249,9 @@ export default function GiveFeedback() {
             label={loading ? "Submitting..." : "Submit"}
             onPress={handleSubmit}
             disabled={loading || success}
-            style={{ alignSelf: "flex-end" }}
+            variant="primary"
+            loading={loading}
+            style={styles.submit}
           />
         </DocumentSurface>
       </ScrollView>
@@ -269,6 +271,7 @@ export default function GiveFeedback() {
 }
 
 const styles = StyleSheet.create({
+  submit: { alignSelf: "center", minWidth: 160, marginTop: spacing.sm },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
