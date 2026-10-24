@@ -9,7 +9,6 @@ export default function FeelineLoadingOverlay() {
   const rotation = useRef(new Animated.Value(0)).current;
   const breath = useRef(new Animated.Value(0)).current;
   const drift = useRef(new Animated.Value(0)).current;
-  const light = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
   const size = Math.min(130, width * 0.33, height * 0.22);
   useEffect(() => {
@@ -29,14 +28,14 @@ export default function FeelineLoadingOverlay() {
     const animations = [
       Animated.loop(Animated.timing(rotation, { toValue: 1, duration: 14000, easing: Easing.linear, useNativeDriver: true })),
       Animated.loop(Animated.sequence([timing(breath, 1, 2800), timing(breath, 0, 2800)])),
-      cycle(drift, 7000), cycle(light, 9000),
+      cycle(drift, 7000),
     ];
     animations.forEach(a => a.start());
     return () => {
       animations.forEach(a => a.stop());
-      [rotation, breath, drift, light].forEach(value => { value.stopAnimation(); value.setValue(0); });
+      [rotation, breath, drift].forEach(value => { value.stopAnimation(); value.setValue(0); });
     };
-  }, [reducedMotion, rotation, breath, drift, light]);
+  }, [reducedMotion, rotation, breath, drift]);
   return (
     <View style={styles.overlay} accessibilityViewIsModal testID="feeline-loading">
       <StatusBar style="dark" />
@@ -48,10 +47,6 @@ export default function FeelineLoadingOverlay() {
             { scale: drift.interpolate({ inputRange: [0,1], outputRange: [0.975,1] }) }] }}>
           <Image source={require("../images/bg2.png")} resizeMode="contain" style={{ width: "100%", height: "100%" }} />
         </Animated.View>
-        <Animated.View style={[styles.glow, { width: width * 0.8, height: width * 0.8,
-          opacity: reducedMotion ? 0.04 : light.interpolate({ inputRange: [0,1], outputRange: [0.03,0.08] }),
-          transform: [{ translateX: light.interpolate({ inputRange: [0,1], outputRange: [-width * 0.2,width * 0.2] }) },
-            { translateY: light.interpolate({ inputRange: [0,1], outputRange: [-20,20] }) }] }]} />
       </View>
       <Animated.View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
         style={{ transform: [
@@ -73,5 +68,4 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.sm },
   title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, textAlign: "center", marginTop: spacing.lg },
   support: { ...typography.body, fontFamily: fontFamily.body, color: colors.textSecondary, textAlign: "center" },
-  glow: { position: "absolute", top: "25%", left: "10%", borderRadius: 999, backgroundColor: colors.primary },
 });

@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import { useCallback, type ReactNode } from "react";
 import { BackHandler, ScrollView, StyleSheet } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -9,6 +10,7 @@ import DetailScreenHeader from "./DetailScreenHeader";
 
 /** Public legal pages share a fixed header and a safe direct-link fallback. */
 export default function LegalScreen({ title, children }: { title: string; children: ReactNode }) {
+  useWellnessNavigationSafety(false);
   const router = useRouter();
   const { profile } = useAuth();
   const goBack = useCallback(() => {

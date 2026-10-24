@@ -35,13 +35,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./components/images/logo-no-bg.png",
-          "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#FFF7E9",
           "dark": {
-            "backgroundColor": "#FFF7E9"
-          }
+            "backgroundColor": "#FFF7E9",
+            "image": "./components/images/splash-blank.png"
+          },
+          "image": "./components/images/splash-blank.png"
         }
       ],
       "expo-secure-store",
@@ -63,7 +63,13 @@
       ],
       "@react-native-google-signin/google-signin",
       "@react-native-community/datetimepicker",
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "icon": "./components/images/notification-icon.png",
+          "color": "#3B2A20"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

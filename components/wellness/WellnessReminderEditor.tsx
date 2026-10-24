@@ -1,7 +1,9 @@
+import ConfirmModal from "@/components/common/ConfirmModal";
+import DialogActions from "@/components/common/DialogActions";
 import FormField from "@/components/common/FormField";
 import ModalHeader from "@/components/common/ModalHeader";
 import React, { useRef, useState } from "react";
-import { Alert, Platform, StyleSheet, Text, View, TextInput } from "react-native";
+import { Platform, StyleSheet, Text, View, TextInput } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
@@ -19,6 +21,7 @@ export default function WellnessReminderEditor({ cat, alert, reminder, onClose, 
   const [picker, setPicker] = useState<"date" | "time" | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const action = async (work: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError(null);
@@ -35,7 +38,9 @@ export default function WellnessReminderEditor({ cat, alert, reminder, onClose, 
     if (!Number.isFinite(date.getTime()) || date.getTime() <= Date.now()) throw new Error("Choose a future date and time.");
     await onSave(date.toISOString());
   });
-  return <ModalSurface visible onClose={() => { if (!busy) onClose(); }}>
+  return <>
+  <ConfirmModal visible={confirmDelete} title="Delete this reminder?" message="Only this local reminder will be removed. Your cat and detection history will stay unchanged." destructive busy={busy} confirmLabel="Delete" onCancel={() => setConfirmDelete(false)} onConfirm={() => action(async () => { await onDelete(); setConfirmDelete(false); })} />
+  <ModalSurface visible onClose={() => { if (!busy) onClose(); }}>
     <ModalHeader title={reminder ? "Edit reminder" : "Remind me later"} onClose={onClose} disabled={busy} />
     <WellnessCatHeader cat={cat} />
     <Text style={styles.body}>{wellnessGuidance(cat.name, alert.rule).summary}</Text>
@@ -54,22 +59,17 @@ export default function WellnessReminderEditor({ cat, alert, reminder, onClose, 
     <Text style={styles.caption}>{notificationExplanation}</Text>
     <Text style={styles.caption}>Reminders stay on this device. If notifications are off, your reminder will still appear in Calendar.</Text>
     {error ? <Text style={styles.body} accessibilityRole="alert">{error}</Text> : null}
-    <View style={styles.actions}>
-      <Button label={reminder ? "Save changes" : "Save reminder"} size="compact" onPress={save} loading={busy} />
-      <Button label="Cancel" variant="text" size="compact" onPress={onClose} disabled={busy} />
-      {reminder ? <>
-        <Button label="Delete reminder" variant="dangerText" size="compact" style={styles.deleteAction} disabled={busy} onPress={() => Alert.alert("Delete this reminder?",
-          "Only this local reminder will be removed. Your cat and detection history will stay unchanged.",
-          [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => action(onDelete) }])} />
-      </> : null}
-    </View>
-  </ModalSurface>;
+    <DialogActions first={reminder ? {
+      label: "Delete reminder", variant: "dangerOutline", disabled: busy,
+      onPress: () => setConfirmDelete(true),
+    } : { label: "Cancel", variant: "outline", onPress: onClose, disabled: busy }}
+      second={{ label: reminder ? "Save changes" : "Save reminder", onPress: save, loading: busy }} />
+  </ModalSurface></>;
 }
 const styles = StyleSheet.create({
   title: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, marginBottom: spacing.sm },
   body: { ...typography.body, fontSize: 15, lineHeight: 22, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.sm },
   caption: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textSecondary, marginVertical: spacing.sm },
-  deleteAction: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: spacing.md },
   actions: { gap: spacing.sm, marginVertical: spacing.sm },
   input: { ...typography.body, borderWidth: 1, borderColor: colors.border, minHeight: 48, padding: spacing.sm },
 });

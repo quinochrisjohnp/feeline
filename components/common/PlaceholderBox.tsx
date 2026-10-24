@@ -42,7 +42,7 @@ export default function PlaceholderBox({
       ]}
     >
       {emotion ? <EmotionIcon emotion={emotion} size={dimensions.iconLarge} /> :
-        <MockPhoto icon={icon} size={dimensions.iconLarge} color={labelColor} label={label ?? "Image (Placeholder)"} />}
+        <MockPhoto icon={icon} size={dimensions.iconLarge} color={labelColor} label={label ?? "Image unavailable"} />}
       {label ? <Text style={[styles.label, { color: labelColor }]}>{label}</Text> : null}
     </View>
   );

@@ -1,3 +1,4 @@
+import { usePresentationBlock } from "@/context/PresentationContext";
 import React from "react";
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ interface AlbumActionSheetProps {
 /** Contextual Rename/Delete sheet shown after long-pressing an album in
  * Cat Album. Not visible during normal browsing. */
 export default function AlbumActionSheet({ visible, albumName, onRename, onDelete, onClose }: AlbumActionSheetProps) {
+  usePresentationBlock(visible);
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

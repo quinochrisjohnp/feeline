@@ -16,6 +16,7 @@ import {
   typography,
 } from "@/constants/theme";
 interface EmotionResultCardProps {
+  embedded?: boolean;
   emotionKey?: EmotionKey;
   confidence?: number;
 
@@ -28,6 +29,7 @@ interface EmotionResultCardProps {
 }
 
 export default function EmotionResultCard({
+  embedded = false,
   emotionKey,
   confidence,
   recommendations,
@@ -71,8 +73,8 @@ export default function EmotionResultCard({
   // ========================================================
 
   return (
-    <View style={styles.card}>
-      <View style={styles.handle} />
+    <View style={[styles.card, embedded && { borderRadius: 0, shadowOpacity: 0, elevation: 0, paddingTop: 0 }]}>
+      {!embedded && <View style={styles.handle} />}
 
       <View style={styles.headerRow}>
         <View style={styles.emotionBadge}>
@@ -130,6 +132,7 @@ export default function EmotionResultCard({
         </>
       )}
 
+      <Text style={styles.confidenceCaption}>FeELINE interprets observable cues and does not provide a veterinary diagnosis.</Text>
       {onRetry ? (
         <Button
           label="Try Again"

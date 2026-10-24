@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import { parseDetectionRoute, normalizeEmotion, normalizeConfidence } from "@/services/detection";
 
 import React, {
@@ -17,6 +18,7 @@ import {
   useRouter,
 } from "expo-router";
 
+import DraggableDetailsLayout from "@/components/common/DraggableDetailsLayout";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import FullBleedScreen from "@/components/common/FullBleedScreen";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
@@ -59,6 +61,7 @@ function isEmotionKey(
 }
 
 export default function CameraResult() {
+  useWellnessNavigationSafety(false);
   const router = useRouter();
   const params = useLocalSearchParams();
   const leaving = useRef(false);
@@ -155,7 +158,7 @@ export default function CameraResult() {
     return (
       <FullBleedScreen statusBarStyle="dark">
         <ScreenContainer
-          edges={["left", "right", "bottom"]}
+          edges={["left", "right"]}
           padded={false}
           backgroundColor={colors.black}
         >
@@ -183,12 +186,6 @@ export default function CameraResult() {
                 The detection result is unavailable.
                 Please try again.
               </Text>
-
-              <Button
-                label="Try Again"
-                onPress={handleRetake}
-                fullWidth
-              />
             </View>
           </ScrollView>
         </ScreenContainer>
@@ -198,7 +195,7 @@ export default function CameraResult() {
 
   return (
     <ScreenContainer
-      edges={["left", "right", "bottom"]}
+      edges={["left", "right"]}
       padded={false}
     >
       <DetailScreenHeader
@@ -214,21 +211,15 @@ export default function CameraResult() {
         }
       />
 
-      <ScrollView
-        contentContainerStyle={styles.resultContent}
-      >
-        <View style={styles.photo}>
-          <MockCapturePhoto imageUri={imageUri} />
-        </View>
-
-        <EmotionResultCard
+      <DraggableDetailsLayout imageUri={imageUri}>
+        <EmotionResultCard embedded
           emotionKey={emotionParam}
           confidence={confidence}
           recommendations={recommendations}
           variant="normal"
           onRetry={handleRetake}
         />
-      </ScrollView>
+      </DraggableDetailsLayout>
     </ScreenContainer>
   );
 }

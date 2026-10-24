@@ -2,26 +2,19 @@ import { useEffect, useRef } from "react";
 import { Animated, StyleSheet } from "react-native";
 import EmotionLogoGrid from "./EmotionLogoGrid";
 import ScreenContainer from "./ScreenContainer";
-
-/** Runs alongside session restoration, never delaying it. */
-export default function BrandedSplash() {
-  const entrance = useRef(new Animated.Value(0)).current;
+/** A single root-owned logo fades away when auth/resources are ready. */
+export default function BrandedSplash({ ready = false, onComplete }: { ready?: boolean; onComplete?: () => void }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const complete = useRef(onComplete);
+  complete.current = onComplete;
   useEffect(() => {
-    const animation = Animated.timing(entrance, { toValue: 1, duration: 350, useNativeDriver: true });
-    animation.start();
+    if (!ready) return;
+    const animation = Animated.timing(opacity, { toValue: 0, duration: 350, useNativeDriver: true });
+    animation.start(({ finished }) => { if (finished) complete.current?.(); });
     return () => animation.stop();
-  }, [entrance]);
-  return (
-    <ScreenContainer contentContainerStyle={styles.content}>
-      <Animated.View style={{ opacity: entrance, transform: [{ scale: entrance.interpolate({
-        inputRange: [0, 1], outputRange: [0.92, 1],
-      }) }] }}>
-        <EmotionLogoGrid />
-      </Animated.View>
-    </ScreenContainer>
-  );
+  }, [ready, opacity]);
+  return <Animated.View style={[styles.root, { opacity }]}>
+    <ScreenContainer contentContainerStyle={styles.content}><EmotionLogoGrid /></ScreenContainer>
+  </Animated.View>;
 }
-
-const styles = StyleSheet.create({
-  content: { alignItems: "center", justifyContent: "center" },
-});
+const styles = StyleSheet.create({ root: { flex: 1 }, content: { alignItems: "center", justifyContent: "center" } });

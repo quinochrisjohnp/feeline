@@ -17,11 +17,13 @@ export interface CameraDetectionNotice {
 export function detectionOutcomeNotice(result: { status: import("@/services/detection").PredictionStatus; cat_count?: unknown }): CameraDetectionNotice {
   const count = result.cat_count;
   const validCount = typeof count === "number" && Number.isSafeInteger(count) && count >= 2;
+  // Both valid single-cat failures share one user-facing outcome; API statuses stay intact.
+  const unclearEmotion = ["Emotion unclear", "FeELINE detected a cat but could not confidently determine its emotion. Please try another clear photo."];
   const messages = {
     rejected_non_cat: ["No cat detected", "FeELINE can only analyze photos containing one real domestic cat. Please take or upload another photo."],
     rejected_multiple_cats: ["Multiple cats detected", validCount ? "FeELINE detected " + count + " cats in this image. Please use a photo containing only one cat." : "FeELINE detected multiple cats in this image. Please use a photo containing only one cat."],
-    cannot_predict: ["Cat could not be analyzed", "FeELINE detected a cat, but the photo could not be analyzed clearly. Please use a clear, well-lit photo showing the cat’s face or body."],
-    low_confidence: ["Emotion unclear", "FeELINE detected a cat but could not confidently determine its emotion. Please try another clear photo."],
+    cannot_predict: unclearEmotion,
+    low_confidence: unclearEmotion,
   };
   if (result.status === "success") return detectionFailureNotice();
   const [title, message] = messages[result.status];

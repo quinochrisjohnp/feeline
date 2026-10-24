@@ -1,3 +1,4 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, { useCallback, useRef, useState } from "react";
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -17,6 +18,8 @@ import { colors, dimensions, fontFamily, radii, spacing, typography } from "@/co
 const ALBUM_GRID_GAP = 4;
 
 export default function AlbumFolder() {
+  const [nativeNotice, setNativeNotice] = useState(false);
+  useWellnessNavigationSafety(nativeNotice);
   const [gridWidth, setGridWidth] = useState(0);
   // Round down slightly so fractional layout precision cannot wrap the third tile.
   const albumThumbnailSize = Math.max(0, Math.floor((gridWidth - ALBUM_GRID_GAP * 2) / 3 * 100) / 100);
@@ -79,7 +82,7 @@ export default function AlbumFolder() {
   const dismissNotice = () => { setDeletedNotice(false); exitSelectionMode(); };
 
   return (
-    <ScreenContainer module="album" edges={["left", "right", "bottom"]} padded={false}>
+    <ScreenContainer module="gallery" edges={["left", "right", "bottom"]} padded={false}>
       <DetailScreenHeader transparent title={album ? albumName : "Album unavailable"}
         subtitle={selectionMode ? `${selectedIds.length} selected` : undefined}
         titleFontFamily={fontFamily.heading}
@@ -91,8 +94,8 @@ export default function AlbumFolder() {
         <EmptyState icon="images-outline" title="Album unavailable" message="This album may have been deleted."
           actionLabel="Back to Cat Album" onAction={backToAlbums} />
       ) : folderImages.length === 0 ? (
-        <EmptyState icon="camera-outline" title="No photos yet" message={`Photos you save for ${albumName} will appear here.`}
-          actionLabel="Open Camera" onAction={() => router.dismissTo("/camera")} />
+        <View style={styles.empty}><EmptyState icon="camera-outline" title="No photos yet" message={`Photos you save for ${albumName} will appear here.`}
+          actionLabel="Open Camera" onAction={() => router.dismissTo("/camera")} /></View>
       ) : (
         <ScrollView contentContainerStyle={styles.gridContent}>
           <Text style={styles.hint}>Tap a photo to open it. Hold to select photos.</Text>
@@ -111,7 +114,7 @@ export default function AlbumFolder() {
                   ]}
                   accessibilityRole={selectionMode ? "checkbox" : "button"}
                   accessibilityState={{ checked: selectionMode ? isSelected : undefined }}
-                  accessibilityLabel={`Mock photo, ${formatFullDate(image.capturedAt)}, ${formatTime(image.capturedAt)}`}
+                  accessibilityLabel={`Photo, ${formatFullDate(image.capturedAt)}, ${formatTime(image.capturedAt)}`}
                   accessibilityHint={selectionMode ? "Toggle selection" : "Open photo. Hold to select."}
                   onPressIn={() => { longPressed.current = false; }}
                   onPress={() => handleTilePress(image.id)}
@@ -140,7 +143,8 @@ export default function AlbumFolder() {
           </TouchableOpacity>
           <TouchableOpacity style={[styles.action, !selectedIds.length && styles.disabled]} accessibilityRole="button" accessibilityLabel="Download"
             accessibilityState={{ disabled: !selectedIds.length }} disabled={!selectedIds.length}
-            onPress={() => Alert.alert("Mock download", `${selectedIds.length} photo(s) selected. No files were downloaded to your device.`)}>
+            onPress={() => { setNativeNotice(true); Alert.alert("Download unavailable", `${selectedIds.length} photo(s) selected. No files were downloaded to your device.`,
+              [{ text: "OK", onPress: () => setNativeNotice(false) }], { cancelable: true, onDismiss: () => setNativeNotice(false) }); }}>
             <Ionicons name="download-outline" size={22} color={colors.textPrimary} />
             <Text style={styles.actionLabel}>Download</Text>
           </TouchableOpacity>
@@ -162,6 +166,7 @@ export default function AlbumFolder() {
 }
 
 const styles = StyleSheet.create({
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.md },
   gridContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg },
   hint: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textSecondary, marginVertical: spacing.sm },
   photoGrid: { flexDirection: "row", flexWrap: "wrap" },

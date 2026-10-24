@@ -35,7 +35,7 @@ const Login = () => {
         }}>
       <View style={styles.content}>
         <EmotionLogoGrid size={logoSize} />
-        <Text style={styles.subtitle}>Understand your cat&apos;s emotional cues</Text>
+        <Text style={styles.subtitle}>Recognize your cat&apos;s emotion</Text>
 
         <Image source={require("@/components/images/illustration.png")} resizeMode="contain"
           style={[styles.illustration, { width: illustrationHeight * illustrationRatio, height: illustrationHeight }]} accessible={false} importantForAccessibility="no" />

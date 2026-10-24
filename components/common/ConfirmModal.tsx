@@ -1,3 +1,4 @@
+import DialogActions from "./DialogActions";
 import React from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Button from "./Button";
@@ -6,6 +7,7 @@ import { colors, dimensions, fontFamily, spacing, typography } from "@/constants
 
 interface ConfirmModalProps {
   visible: boolean;
+  balanced?: boolean;
   title: string;
   message?: string;
   confirmLabel?: string;
@@ -21,6 +23,7 @@ interface ConfirmModalProps {
 
 export default function ConfirmModal({
   visible,
+  balanced = true,
   title,
   message,
   confirmLabel = "Confirm",
@@ -37,7 +40,9 @@ export default function ConfirmModal({
     <ModalSurface visible={visible} onClose={() => { if (!busy) onCancel(); }}>
           <Text style={styles.title} accessibilityRole="header">{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
-          <View style={[styles.actions, stacked && styles.stacked]}>
+          {balanced && !hideCancel ? <DialogActions
+            first={{ label: cancelLabel, variant: "outline", onPress: onCancel, disabled: busy }}
+            second={{ label: confirmLabel, onPress: onConfirm, loading: busy, variant: destructive ? "danger" : "primary" }} /> : <View style={[styles.actions, stacked && styles.stacked]}>
             {(!hideCancel || destructive) && (
               <Button label={cancelLabel} variant="text" size="compact" onPress={onCancel} disabled={busy} style={!stacked && styles.actionButton} />
             )}
@@ -48,7 +53,7 @@ export default function ConfirmModal({
               loading={busy}
               style={!stacked && styles.actionButton}
             />
-          </View>
+          </View>}
     </ModalSurface>
   );
 }
