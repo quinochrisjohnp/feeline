@@ -5,9 +5,9 @@ require.extensions[".png"] = (module, filename) => { module.exports = filename; 
 const backgroundImage = tree => tree.props.children || undefined;
 const config = require("../constants/moduleBackgrounds.ts");
 
-test("all six modules resolve the supplied asset mapping", () => {
+test("all seven modules resolve the supplied asset mapping", () => {
   for (const [module, file] of Object.entries({ auth: "bg3.png", settings: "bg3.png", camera: "bg3.png",
-    calendar: "bg3.png", album: "bg4.png", catProfile: "bg4.png" })) {
+    calendar: "bg3.png", album: "bg3.png", catProfile: "bg3.png", gallery: "bg3.png" })) {
     assert.ok(config.moduleBackgroundConfig[module].image.endsWith(file));
   }
 });
@@ -41,7 +41,8 @@ test("individual and global switches restore cream without affecting other modul
   settings.ENABLE_MODULE_BACKGROUNDS = true;
   assert.equal(backgroundImage(render("album")), undefined);
   settings.moduleBackgroundConfig.album.mode = "image";
-  assert.ok(backgroundImage(render("album")).props.nextSource.endsWith("bg5.png"));
+  assert.ok(backgroundImage(render("album")).props.source.endsWith("bg3.png"));
+  assert.equal(backgroundImage(render("album")).props.style.opacity, 0.55);
 });
 
 test("screen background stays outside the keyboard and scroll content", () => {
@@ -80,5 +81,20 @@ test("all backgrounds fit measured viewport bounds and stay anchored during keyb
       assert.deepEqual(backgroundImage(screen.render()).props.style, style);
       keyboardVisible = false;
     }
+  }
+});
+
+
+test("each module opacity affects only its image and clamps to the supported range", () => {
+  for (const [input, expected] of [[0,0],[0.45,0.45],[1,1],[-1,0],[2,1]]) {
+    const settings={...config,moduleBackgroundConfig:{...config.moduleBackgroundConfig,album:{...config.moduleBackgroundConfig.album,opacity:input}}};
+    const tree=mount("components/common/ModuleBackground.tsx",{props:{module:"album"},dependencies:{
+      "@/constants/moduleBackgrounds":settings,
+      "react-native":{Image:Object.assign(function Image(){},{resolveAssetSource:()=>({width:853,height:1844})}),View:"View",StyleSheet:{create:s=>s},Keyboard:{isVisible:()=>false},useWindowDimensions:()=>({width:390,height:844})}
+    }}).render();
+    assert.equal(tree.props.style.opacity,undefined);
+    assert.equal(backgroundImage(tree).props.style.opacity,expected);
+    assert.equal(backgroundImage(tree).props.resizeMode,"contain");
+    assert.equal(config.moduleBackgroundConfig.catProfile.opacity,0.7);
   }
 });

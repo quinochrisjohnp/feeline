@@ -5,15 +5,16 @@ import { colors, radii, spacing, typography } from "@/constants/theme";
 
 interface CalendarHeaderProps {
   label: string;
+  onChooseDate: () => void;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
 }
 
-export default function CalendarHeader({ label, onPrev, onNext, onToday }: CalendarHeaderProps) {
+export default function CalendarHeader({ label, onPrev, onNext, onToday, onChooseDate }: CalendarHeaderProps) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label} accessibilityRole="header">{label}</Text>
+      <TouchableOpacity onPress={onChooseDate} style={styles.dateButton} accessibilityRole="button" accessibilityLabel={`Choose calendar date, ${label}`}><Text style={styles.label}>{label}</Text></TouchableOpacity>
       <View style={styles.controls}>
         <TouchableOpacity style={styles.today} onPress={onToday} accessibilityRole="button" accessibilityLabel="Go to today">
           <Text style={styles.todayLabel}>Today</Text>
@@ -38,6 +39,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
   },
+  dateButton: { minHeight: 44, justifyContent: "center", flexShrink: 1 },
   label: { ...typography.subheading, color: colors.textPrimary, flexShrink: 1 },
   controls: { flexDirection: "row", gap: spacing.xxs },
   today: { minHeight: 44, minWidth: 44, paddingHorizontal: spacing.xs, justifyContent: "center" },

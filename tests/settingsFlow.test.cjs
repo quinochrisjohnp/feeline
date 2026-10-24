@@ -94,7 +94,7 @@ test("Feedback validates every required field and basic email, preserves input, 
   submit.props.onPress();
   const success = modal(screen.render(), "Thank you for your Feedback!");
   assert.equal(success.props.visible, true);
-  assert.match(success.props.message, /not sent or saved/);
+  assert.match(success.props.message, /nothing was sent or saved/);
   assert.equal(field("Submit").props.disabled, true);
   success.props.onConfirm();
   assert.deepEqual(routes, ["/settings"]);
@@ -109,7 +109,7 @@ test("About and Feedback have a safe internal Settings return; legal content rem
   }
   const about = JSON.stringify(mount("app/(screens)/settings-about.tsx").render());
   assert.match(about, /observable emotional cues/);
-  assert.match(about, /does not perform real AI analysis/);
+  assert.match(about, /uses AI-based image interpretation/);
   for (const [file, count] of [["settings-privacy", 7], ["settings-terms", 9]]) {
     const tree = mount(`app/(screens)/${file}.tsx`).render();
     assert.equal(nodes(tree).filter((node) => node.type === "@/components/common/PolicySection").length, count);

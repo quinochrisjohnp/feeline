@@ -13,13 +13,14 @@ require.extensions[".ts"] = (module, filename) => {
 
 // A small hook harness exercises the actual route callbacks and provider/reducer.
 // It does not simulate native layout, gestures, or React scheduling.
-function mount(file, { params = {}, context, router = {}, globals = {}, props = {}, navigation = { setOptions() {} }, dependencies = {} } = {}) {
+function mount(file, { componentName, params = {}, context, router = {}, globals = {}, props = {}, navigation = { setOptions() {} }, dependencies = {} } = {}) {
   const slots = [];
   let cursor = 0;
   const focus = [];
   const effects = [];
   const cleanups = new Map();
   const hardwareBack = [];
+  let datePicker;
   const effect = (fn, deps) => { const index = cursor++; if (!slots[index] || deps.some((dep, i) => dep !== slots[index][i])) { slots[index] = deps; effects.push(() => { cleanups.get(index)?.(); const cleanup = fn(); if (typeof cleanup === "function") cleanups.set(index, cleanup); else cleanups.delete(index); }); } };
   const memo = (fn, deps) => {const index=cursor++;const previous=slots[index];if(!previous || !deps || deps.some((dep,i)=>dep!==previous.deps[i]))slots[index]={deps,value:fn()};return slots[index].value;};
   const mocks = {
@@ -41,15 +42,16 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
       useEffect: effect, useLayoutEffect: effect,
       useMemo: memo, useCallback: (fn,deps) => memo(()=>fn,deps),
     },
-    "expo-router": { useNavigation: () => navigation, useLocalSearchParams: () => params, useRouter: () => router,
+    "expo-router": { usePathname: () => "/calendar", useNavigation: () => navigation, useLocalSearchParams: () => params, useRouter: () => router,
       useFocusEffect: (fn) => { focus.push(fn); } },
     "react-native": { StyleSheet: { create: (styles) => styles },
       BackHandler: { addEventListener: (_event, fn) => { hardwareBack.push(fn); return { remove() {} }; } },
-      Alert: { alert() {} }, Keyboard: { dismiss() {} }, useWindowDimensions: () => ({ width: 320, fontScale: 1 }),
+      Alert: { alert() {} }, Keyboard: { dismiss() {} }, useWindowDimensions: () => ({ width: 320, height: 800, fontScale: 1 }),
       Platform: { OS: "android" }, Modal: "Modal", KeyboardAvoidingView: "KeyboardAvoidingView",
       View: "View", Text: "Text", TouchableOpacity: "TouchableOpacity", Pressable: "Pressable",
-      Image: "Image", TextInput: "TextInput",
+      Animated: { View: "AnimatedView" }, Image: "Image", TextInput: "TextInput",
       ScrollView: "ScrollView", FlatList: "FlatList", ActivityIndicator: "ActivityIndicator" },
+    "@/components/common/DraggableDetailsLayout": { __esModule:true, default:"@/components/common/DraggableDetailsLayout", SheetHandle:"SheetHandle", usePanelProgress: () => { const [expanded,setExpanded]=mocks.react.useState(false);return { expanded, settledExpanded:expanded, snap:v=>setExpanded(v===1), progress:{interpolate:({outputRange})=>outputRange[expanded?1:0]},handlers:{} }; } },
     "@expo/vector-icons": { Ionicons: "Icon" },
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
     "@/constants/theme": { colors: {}, spacing: {}, dimensions: {}, radii: {}, shadows: {}, typography: {}, interaction: {},
@@ -59,9 +61,10 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
       requestMediaLibraryPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
       launchImageLibraryAsync: async () => ({ canceled: true, assets: null }) },
     "@react-native-community/datetimepicker": { __esModule: true, default: "DateTimePicker",
-      DateTimePickerAndroid: { open() {} } },
+      DateTimePickerAndroid: { open(options) { datePicker=options; } } },
     "@/services/feedback": { submitFeedback: async () => ({ ok: true }) },
     "@/hooks/useCameraTipsPreference": { useCameraTipsPreference: () => ({ enabled: true, ready: true, saving: false, error: null, setEnabled: async () => {} }) },
+    "@/context/PresentationContext": { usePresentationBlock() {}, usePresentationBlocked: () => false, ReminderPresentationScope: "ReminderPresentationScope" },
     "@/context/WellnessContext": { useWellnessNavigationSafety() {}, useWellness: () => ({ state:{reminders:[],checkIns:[]}, setCameraSafe() {} }) },
     "@/services/cats": {},
     "@/services/detection": require("./predictionFixture.cjs").service,
@@ -72,7 +75,8 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
   const source = ts.transpileModule(fs.readFileSync(path.join(root, file), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(source, { exports, setTimeout, clearTimeout, requestAnimationFrame:fn=>{fn();return 1;}, cancelAnimationFrame:()=>{}, performance, console, process: { env: {} }, ...globals, require: (id) => {
+  if (componentName && !/^[A-Za-z][A-Za-z0-9]*$/.test(componentName)) throw Error("Invalid test component name");
+  vm.runInNewContext(source + (componentName ? `;exports.__subject = ${componentName};` : ""), { exports, setTimeout, clearTimeout, requestAnimationFrame:fn=>{fn();return 1;}, cancelAnimationFrame:()=>{}, performance, console, process: { env: {} }, ...globals, require: (id) => {
     if (id in mocks) return mocks[id];
     if (id === "react/jsx-runtime") return require(id);
     if (id.includes("components/") || (file.startsWith("components/") && id.startsWith("./"))) return { __esModule: true, default: id };
@@ -80,11 +84,14 @@ function mount(file, { params = {}, context, router = {}, globals = {}, props = 
     if (id.startsWith("./")) return require(path.join(path.dirname(path.join(root, file)), id) + ".ts");
     throw new Error("Unexpected dependency: " + id);
   } }, { filename: file });
-  return { render: () => { cursor = 0; focus.length = 0; const tree = (exports.default ?? exports.CatDataProvider ?? exports.AuthProvider)({ children: null, ...props }); effects.splice(0).forEach((fn) => fn()); return tree; }, focus, hardwareBack, unmount: () => { [...cleanups.values()].reverse().forEach(fn => fn()); cleanups.clear(); } };
+  return { pickDate: date => datePicker.onChange({type:"set"},date), render: () => { cursor = 0; focus.length = 0; const tree = (exports.__subject ?? exports.default ?? exports.CatDataProvider ?? exports.AuthProvider)({ children: null, ...props }); effects.splice(0).forEach((fn) => fn()); return tree; }, focus, hardwareBack, unmount: () => { [...cleanups.values()].reverse().forEach(fn => fn()); cleanups.clear(); } };
 }
 
 function nodes(node) {
-  return [node, ...React.Children.toArray(node?.props?.children).flatMap(nodes)];
+  if (typeof node?.type === "string" && node.type.endsWith("DialogActions")) {
+    return [node, ...[node.props.first, node.props.second].map(props => React.createElement("@/components/common/Button", {size: "compact", ...props}))];
+  }
+  return [node, ...React.Children.toArray(node?.props?.children).flatMap(nodes), ...React.Children.toArray(node?.props?.footer).flatMap(nodes)];
 }
 function find(tree, name) {
   return nodes(tree).find((node) => typeof node.type === "string" && node.type.endsWith(name));

@@ -10,9 +10,8 @@ const rows = (tree) => nodes(tree).filter((node) => node.type === "@/components/
 const days = (tree) => nodes(tree).filter((node) => node.type === "@/components/calendar/CalendarDay");
 const filter = (screen, id) => find(screen.render(), "/CatFilterModal").props.onSelect(id);
 const select = (screen, date) => {
-  // Use the compact strip's actual date-selection callback to select any test date.
-  find(screen.render(), "ScrollView").props.onScroll({ nativeEvent: { contentOffset: { y: 600 } } });
-  find(screen.render(), "/CompactWeekStrip").props.onSelectDate(date);
+  find(screen.render(), "/CalendarHeader").props.onChooseDate();
+  screen.pickDate(date);
 };
 
 function emptyContext() {
@@ -108,11 +107,11 @@ test("date navigation, Today, filtered markers, compact week, and deleted-filter
   let tree = screen.render();
   assert.equal(rows(tree).length, 1);
   assert.equal(rows(tree)[0].props.emotion, "happy");
-  const strip = find(tree, "/CompactWeekStrip");
-  assert.equal(strip.props.activityForDate(date).recordCount, 1);
-  assert.equal(strip.props.activityForDate(date).emotion, "happy");
-  assert.equal(days(tree).find((day) => day.props.isSelected).props.emotion, "happy");
-  strip.props.onExpand();
+  assert.equal(days(tree).find(day=>day.props.isSelected).props.recordCount,1);
+  find(tree,"SheetHandle").props.panel.snap(1);
+  assert.equal(days(screen.render()).length,7);
+  assert.equal(days(screen.render()).find(day=>day.props.isSelected).props.emotion,"happy");
+  find(screen.render(),"SheetHandle").props.panel.snap(0);
   assert.equal(find(screen.render(), "/CompactWeekStrip"), undefined);
   find(screen.render(), "/CalendarHeader").props.onNext();
   tree = screen.render();
@@ -127,7 +126,7 @@ test("date navigation, Today, filtered markers, compact week, and deleted-filter
   assert.equal(find(screen.render(), "/CatFilterModal").props.selectedCatId, null);
   select(screen, date);
   assert.equal(rows(screen.render())[0].props.catName, "Unknown Cats");
-  find(screen.render(), "ScrollView").props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } });
+  find(screen.render(), "SheetHandle").props.panel.snap(0);
   assert.equal(find(screen.render(), "/CompactWeekStrip"), undefined);
 });
 

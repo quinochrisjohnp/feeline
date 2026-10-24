@@ -45,6 +45,24 @@ export class LocalWellnessReminders {
       }
     });
   }
+  /** Claim before presenting, serialized with scheduling and persisted across launches. */
+  claimPresentation(signature: string) {
+    return this.run(async () => {
+      const alert = this.state.alerts.find(a => a.signature === signature);
+      if (!alert || alert.status === "acknowledged") return false;
+      const reminder = this.state.reminders.find(r => r.alertSignature === signature);
+      if (alert.status === "snoozed") {
+        if (!reminder || reminder.status !== "scheduled" || Date.parse(reminder.scheduledAt) > this.ports.now().getTime()) return false;
+        const key = reminder.id + ":" + reminder.scheduledAt;
+        if (reminder.presentedOccurrence === key) return false;
+        await this.commit({ ...this.state, reminders: this.state.reminders.map(r => r.id === reminder.id ? { ...r, presentedOccurrence: key } : r) });
+      } else {
+        if (alert.presentedAt) return false;
+        await this.commit({ ...this.state, alerts: this.state.alerts.map(a => a.signature === signature ? { ...a, presentedAt: this.ports.now().toISOString() } : a) });
+      }
+      return true;
+    });
+  }
   saveReminder(signature: string, scheduledAt: string, catName: string) {
     return this.run(async () => {
       const now = this.ports.now();
@@ -57,7 +75,7 @@ export class LocalWellnessReminders {
       await this.ports.cancel(previous?.notificationId);
       await this.ports.cancel(alert.notificationId);
       const id = await this.ports.notificationId(signature, "reminder");
-      const reminder = { id, alertSignature: signature, catId: alert.catId, scheduledAt,
+      const reminder = { presentedOccurrence: previous?.scheduledAt === scheduledAt ? previous.presentedOccurrence : undefined, id, alertSignature: signature, catId: alert.catId, scheduledAt,
         notificationId: id, notificationState: "failed" as const, status: "scheduled" as const,
         createdAt: previous?.createdAt ?? now.toISOString(), updatedAt: now.toISOString() };
       // Persist the in-app reminder before requesting/scheduling any phone notification.
@@ -76,9 +94,9 @@ export class LocalWellnessReminders {
         } else notificationState = "off";
       } catch { /* The in-app reminder remains saved and can be edited/retried. */ }
       await this.commit({ ...this.state, reminders: this.state.reminders.map(r => r.id === id ? { ...r, notificationState } : r) });
-      return notificationState === "scheduled" ? "Reminder saved. Phone delivery follows your device notification settings."
-        : notificationState === "off" ? "Reminder saved in Calendar. Phone notifications are off; you can enable them in Settings."
-        : "Reminder saved in Calendar, but the phone notification could not be scheduled. Edit the reminder to retry.";
+      return notificationState === "scheduled" ? ""
+        : notificationState === "off" ? "Phone notifications are off; you can enable them in Settings."
+        : "Phone notification could not be scheduled. Edit the reminder to retry.";
     });
   }
   acknowledge(signature: string, removeReminder = false) {

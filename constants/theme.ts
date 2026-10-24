@@ -63,7 +63,7 @@ export const typography: Record<string, TextStyle> = {
 // a new weight here. Currently applied to the Album module only; other
 // screens still use the system default font.
 export const fontFamily = {
-  heading: "Comfortaa_700Bold",     // Comfortaa_600SemiBold not yet loaded — add to useFonts first if needed
+  heading: "Poppins_700Bold",     // Comfortaa_600SemiBold not yet loaded — add to useFonts first if needed
   body: "Poppins_400Regular",
   medium: "Poppins_500Medium",
   semibold: "Poppins_600SemiBold",

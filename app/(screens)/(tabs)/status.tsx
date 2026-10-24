@@ -524,6 +524,11 @@ export default function Status() {
           </View>
         </ScrollView>
 
+        <TouchableOpacity style={[styles.backButton, { left: undefined, right: spacing.md, top: insets.top + spacing.sm }]} accessibilityRole="button" accessibilityLabel={`Edit ${selectedCat.name} profile`} onPress={() => { setEditTarget(selectedCat.id); setEditingCat(true); }}>
+          <Ionicons name="pencil" size={20} color={colors.white} />
+        </TouchableOpacity>
+        <AddCatForm visible={editingCat} initialCat={editingProfile} onCancel={() => setEditingCat(false)} onSave={handleSaveEditedCat} />
+        <ConfirmModal visible={updatedNotice} title="Cat Profile Updated!" hideCancel confirmLabel="Continue" onConfirm={() => setUpdatedNotice(false)} onCancel={() => setUpdatedNotice(false)} />
         {/* BACK BUTTON */}
         <TouchableOpacity
           style={[

@@ -28,6 +28,11 @@ export function wellnessGuidance(name: string, rule: WellnessRule) {
     summary: rule === "similar_time_pattern"
       ? "These detections appeared around similar times on several days. Could a routine or environmental change be influencing how " + name + " responds?"
       : "FeELINE noticed several Angry or Fearful detections for " + name + ". This does not confirm a health problem, but it may be helpful to check what was happening around those times.",
+    sections: [
+      { heading: "How is your cat feeling?", questions: general },
+      { heading: "What might be happening nearby?", questions: environment },
+      { heading: "How can I help?", questions: interaction },
+    ],
     primary: rule === "similar_time_pattern" ? [environment[0], environment[1], environment[4], general[1]] : general.slice(0,4),
     more: rule === "similar_time_pattern" ? [...general.filter((_,i) => i !== 1), ...environment.filter((_,i) => ![0,1,4].includes(i)), ...interaction]
       : [general[4], ...environment, ...interaction],

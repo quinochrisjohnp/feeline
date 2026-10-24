@@ -1,4 +1,5 @@
-import Button from "@/components/common/Button";
+import { usePresentationBlock } from "@/context/PresentationContext";
+import DialogActions from "@/components/common/DialogActions";
 import {
   colors,
   dimensions,
@@ -41,8 +42,8 @@ interface AddCatFormProps {
   onSave: (cat: Cat) => void | Promise<void>;
 }
 
-const COVER_HEIGHT = 104;
-const AVATAR_SIZE = 68;
+const COVER_HEIGHT = 128;
+const AVATAR_SIZE = 84;
 
 const IMAGE_ERROR =
   "We couldn't open your photos right now. Please try again.";
@@ -76,6 +77,7 @@ export default function AddCatForm({
   onCancel,
   onSave,
 }: AddCatFormProps) {
+  usePresentationBlock(visible);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
@@ -133,10 +135,14 @@ export default function AddCatForm({
     };
   }, []);
 
+  const editSession = useRef<{ visible: boolean; id?: string }>({ visible: false });
   // Prefill fields when editing an existing cat.
   // Clear fields when adding a new cat.
   useEffect(() => {
-    if (!visible) return;
+    const previous = editSession.current;
+    editSession.current = { visible, id: initialCat?.id };
+    // Refetches must not overwrite an open, unsaved draft. Reopening reads fresh data.
+    if (!visible || (previous.visible && previous.id === initialCat?.id)) return;
 
     submitted.current = false;
 
@@ -157,7 +163,7 @@ export default function AddCatForm({
     setSaveError(null);
     setImageError(null);
     setIosPickerOpen(false);
-  }, [visible, initialCat?.id]);
+  }, [visible, initialCat]);
 
   const todayIso = toDateOnly(new Date());
 
@@ -443,9 +449,6 @@ export default function AddCatForm({
                   </View>
                 )}
 
-                <Button variant="icon" label="Close cat form" onPress={handleCancel} disabled={saving}
-                  style={{ position: "absolute", top: spacing.xs, left: spacing.xs, backgroundColor: colors.surface }}
-                  leftIcon={<Ionicons name="close" size={22} color={colors.textPrimary} />} />
                 <Pressable
                   style={styles.coverCamera}
                   hitSlop={8}
@@ -806,8 +809,8 @@ export default function AddCatForm({
             </ScrollView>
 
             <View style={styles.actions}>
-              <Button label="Cancel" variant="text" size="compact" onPress={handleCancel} disabled={saving} />
-              <Button label={initialCat ? "Save changes" : "Save"} size="compact" onPress={handleSave} loading={saving} />
+              <DialogActions first={{ label: "Cancel", variant: "outline", onPress: handleCancel, disabled: saving }}
+                second={{ label: initialCat ? "Save changes" : "Save", onPress: handleSave, loading: saving }} />
             </View>
           </View>
         </View>
@@ -856,8 +859,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: spacing.sm,
     bottom: spacing.sm,
-    width: 44,
-    height: 44,
+    width: 34,
+    height: 34,
     borderRadius: radii.pill,
     backgroundColor: colors.white,
     borderWidth: 1,
@@ -890,8 +893,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: -2,
     bottom: -2,
-    width: 44,
-    height: 44,
+    width: 28,
+    height: 28,
     borderRadius: radii.pill,
     backgroundColor: colors.white,
     borderWidth: 1,
@@ -937,7 +940,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     backgroundColor: colors.surface,
@@ -952,7 +955,7 @@ const styles = StyleSheet.create({
 
   descriptionInput: {
     height: 92,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
@@ -980,7 +983,7 @@ const styles = StyleSheet.create({
   pill: {
     flex: 1,
     minHeight: 44,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -1039,10 +1042,9 @@ const styles = StyleSheet.create({
   },
 
   actions: {
-    flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: colors.divider,
-    justifyContent: "flex-end", gap: spacing.xs, padding: spacing.sm,
+    padding: spacing.sm,
   },
 
   bold: {

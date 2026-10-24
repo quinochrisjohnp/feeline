@@ -1,7 +1,6 @@
 import { Stack } from "expo-router";
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
-import BrandedSplash from "@/components/common/BrandedSplash";
 
 /**
  * Hosts the auth flow, the tabbed app, and any "deep" screens that should
@@ -12,7 +11,7 @@ import BrandedSplash from "@/components/common/BrandedSplash";
  */
 export default function ScreensLayout() {
   const { profile, isLoading } = useAuth();
-  if (isLoading) return <BrandedSplash />;
+  if (isLoading) return null;
   return (
     <Stack
       screenOptions={{

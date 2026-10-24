@@ -1,4 +1,3 @@
-import CrossfadeBackground from "./CrossfadeBackground";
 import React, { useState } from "react";
 import { Image, Keyboard, StyleSheet, useWindowDimensions, View } from "react-native";
 import { colors } from "@/constants/theme";
@@ -29,11 +28,8 @@ export default function ModuleBackground({ module }: { module: BackgroundModule 
           ? previous : { width: layout.width, height: layout.height });
       }}>
       {ENABLE_MODULE_BACKGROUNDS && config.mode === "image" && scale > 0 ? (
-        config.crossfadeImage ? <CrossfadeBackground source={config.image} nextSource={config.crossfadeImage}
-          testID={"module-background-" + module} style={{ position: "absolute", width, height,
-            left: (viewport.width - width) / 2, top: (viewport.height - height) / 2 }} /> :
         <Image source={config.image} resizeMode="contain" testID={`module-background-${module}`}
-          style={{ position: "absolute", width, height, left: (viewport.width - width) / 2, top: (viewport.height - height) / 2 }}
+          style={{ opacity: Number.isFinite(config.opacity) ? Math.max(0, Math.min(1, config.opacity)) : 1, position: "absolute", width, height, left: (viewport.width - width) / 2, top: (viewport.height - height) / 2 }}
           accessible={false} importantForAccessibility="no" />
       ) : null}
     </View>

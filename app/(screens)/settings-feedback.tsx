@@ -1,16 +1,19 @@
+import { useWellnessNavigationSafety } from "@/context/WellnessContext";
+import DocumentSurface from "@/components/common/DocumentSurface";
 import React, { useRef, useState } from "react";
-import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, ScrollView, StyleSheet, Text, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import FormField from "@/components/common/FormField";
 import Button from "@/components/common/Button";
 import ConfirmModal from "@/components/common/ConfirmModal";
-import { colors, dimensions, fontFamily, radii, spacing, typography } from "@/constants/theme";
+import { colors, dimensions, fontFamily, spacing, typography } from "@/constants/theme";
 
 type Field = "title" | "email" | "subject" | "message";
 
 export default function GiveFeedback() {
+  useWellnessNavigationSafety(false);
   const router = useRouter();
   const [success, setSuccess] = useState(false);
   const [values, setValues] = useState({ title: "", email: "", subject: "", message: "" });
@@ -47,9 +50,9 @@ export default function GiveFeedback() {
     <ScreenContainer module="settings" keyboardAware edges={["left", "right", "bottom"]} padded={false}>
       <DetailScreenHeader transparent title="Give us Feedback" onBack={goBack} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        <View style={styles.body}>
+        <DocumentSurface>
           <Text style={styles.heading} accessibilityRole="header">Feedback Form</Text>
-          <Text style={styles.note}>Mock feedback only. Nothing entered here is sent or saved.</Text>
+          <Text style={styles.note}>Feedback delivery is not available yet. Nothing entered here is sent or saved.</Text>
           <FormField ref={titleRef} label="Title" value={values.title} error={errors.title}
             onChangeText={(text) => change("title", text)} placeholder="Title" returnKeyType="next"
             onSubmitEditing={() => emailRef.current?.focus()} />
@@ -64,19 +67,17 @@ export default function GiveFeedback() {
             onChangeText={(text) => change("message", text)} placeholder="Tell us what's on your mind..."
             multiline scrollEnabled style={styles.message} />
           <Button label="Submit" onPress={handleSubmit} disabled={success} style={{ alignSelf: "flex-end" }} />
-        </View>
+        </DocumentSurface>
       </ScrollView>
       <ConfirmModal visible={success} title="Thank you for your Feedback!"
-        message="This was a mock submission. Your feedback was not sent or saved."
+        message="Your entries passed validation. Feedback delivery is not available yet; nothing was sent or saved."
         confirmLabel="Continue" hideCancel onConfirm={goBack} onCancel={goBack} />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  body: { width: "100%", maxWidth: dimensions.contentMaxWidth, alignSelf: "center", backgroundColor: colors.surface,
-    padding: spacing.md, borderRadius: radii.lg },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl },
   heading: { ...typography.subheading, fontFamily: fontFamily.heading, color: colors.textPrimary, textAlign: "center", marginBottom: spacing.sm },
   note: { ...typography.caption, fontFamily: fontFamily.body, color: colors.textSecondary, marginBottom: spacing.lg },
   message: { minHeight: dimensions.messageInput, maxHeight: 240 },

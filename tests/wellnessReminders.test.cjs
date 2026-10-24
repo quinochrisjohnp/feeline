@@ -58,3 +58,17 @@ test("rapid identical reminder saves schedule only one phone reminder",async()=>
   assert.equal(calls.filter(x=>x.schedule).length,1);
   assert.equal(calls.filter(x=>x==="permission:true").length,1);
 });
+
+test("persisted claims serialize races, survive restart and permit only a new due occurrence",async()=>{
+ const {repo,ports}=await setup();
+ assert.deepEqual(await Promise.all([repo.claimPresentation(candidate.signature),repo.claimPresentation(candidate.signature)]),[true,false]);
+ let restored=new LocalWellnessReminders(ports,()=>{});await restored.load();assert.equal(await restored.claimPresentation(candidate.signature),false);
+ await restored.saveReminder(candidate.signature,"2026-10-22T00:00:00Z","Mimi");assert.equal(await restored.claimPresentation(candidate.signature),false);
+ ports.now=()=>new Date("2026-10-22T01:00:00Z");
+ assert.deepEqual(await Promise.all([restored.claimPresentation(candidate.signature),restored.claimPresentation(candidate.signature)]),[true,false]);
+ restored=new LocalWellnessReminders(ports,()=>{});await restored.load();assert.equal(await restored.claimPresentation(candidate.signature),false);
+ const id=restored.state.reminders[0].id;await restored.saveReminder(candidate.signature,"2026-10-23T00:00:00Z","Mimi");assert.equal(restored.state.reminders.length,1);assert.equal(restored.state.reminders[0].id,id);
+ ports.now=()=>new Date("2026-10-23T01:00:00Z");assert.equal(await restored.claimPresentation(candidate.signature),true);
+ await restored.acknowledge(candidate.signature);assert.equal(await restored.claimPresentation(candidate.signature),false);
+});
+test("failed presentation persistence never grants a claim",async()=>{const {repo,ports}=await setup();ports.write=async()=>{throw Error("disk");};await assert.rejects(repo.claimPresentation(candidate.signature),/disk/);assert.equal(repo.state.alerts[0].presentedAt,undefined);});

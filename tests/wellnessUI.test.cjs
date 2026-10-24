@@ -19,30 +19,30 @@ test("wellness modal names the cat, asks relevant questions, expands safely, and
   const header=mount("components/wellness/WellnessCatHeader.tsx",{props:{cat}}).render();
   const photo=find(header,"/MockPhoto");assert.equal(photo.props.imageUri,null);assert.equal(photo.props.icon,"paw");
 });
-test("due check-in opens only once per foreground session and waits for Calendar/filter safety",()=>{
+test("global due check-in opens once and waits for screen/modal safety",async()=>{
   let focused=true,blocked=true;const presented=new Set(),reminders=[];
-  const wellness={ready:true,state:{alerts:[alert],reminders},now:Date.now(),requestedSignature:null,error:null,
-    hasPresented:s=>presented.has(s),markPresented:s=>presented.add(s),consumeRequest(){},acknowledge:async()=>{},saveReminder:async()=>""};
-  const props={date:new Date(),catId:null,blocked,onOpenContext(){}};
+  const wellness={get canPresent(){return focused && !props.blocked;},ready:true,state:{alerts:[alert],reminders},now:Date.now(),requestedSignature:null,error:null,
+    hasPresented:s=>presented.has(s),markPresented:s=>presented.add(s),claimPresentation:async s=>{if(presented.has(s))return false;presented.add(s);return true;},consumeRequest(){},acknowledge:async()=>{},saveReminder:async()=>""};
+  const props={global:true,date:new Date(),catId:null,blocked,onOpenContext(){}};
   const create=()=>mount("components/wellness/WellnessCalendarSection.tsx",{props,context:()=>({state:{cats:[cat]}}),
     dependencies:{"@/context/WellnessContext":{useWellness:()=>wellness},"@react-navigation/native":{useIsFocused:()=>focused},
       "react-native":{AppState:{currentState:"active"},StyleSheet:{create:s=>s},View:"View",Text:"Text",TouchableOpacity:"TouchableOpacity"}}});
   const screen=create();screen.render();assert.equal(find(screen.render(),"./WellnessCheckInModal"),undefined);
-  props.blocked=false;screen.render();
+  props.blocked=false;screen.render();await new Promise(setImmediate);
   const modal=find(screen.render(),"./WellnessCheckInModal");assert.ok(modal);modal.props.onClose();
   assert.equal(find(screen.render(),"./WellnessCheckInModal"),undefined);
   const remount=create();remount.render();assert.equal(find(remount.render(),"./WellnessCheckInModal"),undefined);
-  presented.clear();remount.render();assert.ok(find(remount.render(),"./WellnessCheckInModal"));
+  presented.clear();remount.render();await new Promise(setImmediate);assert.ok(find(remount.render(),"./WellnessCheckInModal"));
   focused=false;assert.equal(find(remount.render(),"./WellnessCheckInModal"),undefined);
 });
-test("notification context selects its reminder date and cat, then consumes the queued response",()=>{
+test("notification opens the same reminder globally without navigating to Calendar",()=>{
   let target=null,consumed=0;
-  const wellness={ready:true,state:{alerts:[alert],reminders:[{id:"rem",alertSignature:"pattern",catId:"cat",scheduledAt:"2026-10-25T08:00:00Z",status:"scheduled"}]},
+  const wellness={canPresent:true,ready:true,state:{alerts:[alert],reminders:[{id:"rem",alertSignature:"pattern",catId:"cat",scheduledAt:"2026-10-25T08:00:00Z",status:"scheduled"}]},
     now:Date.now(),requestedSignature:"pattern",hasPresented:()=>true,markPresented(){},consumeRequest(){consumed++;this.requestedSignature=null;}};
-  const screen=mount("components/wellness/WellnessCalendarSection.tsx",{props:{date:new Date(),catId:null,blocked:false,onOpenContext:(date,id)=>target=[date,id]},
+  const screen=mount("components/wellness/WellnessCalendarSection.tsx",{props:{global:true,date:new Date(),catId:null,blocked:false,onOpenContext:(date,id)=>target=[date,id]},
     context:()=>({state:{cats:[cat]}}),dependencies:{"@/context/WellnessContext":{useWellness:()=>wellness},"@react-navigation/native":{useIsFocused:()=>true},
       "react-native":{AppState:{currentState:"active"},StyleSheet:{create:s=>s},View:"View",Text:"Text",TouchableOpacity:"TouchableOpacity"}}});
-  screen.render();const tree=screen.render();assert.ok(find(tree,"./WellnessReminderDetails"));assert.equal(find(tree,"./WellnessCheckInModal"),undefined);assert.equal(consumed,1);assert.equal(target[1],"cat");assert.equal(target[0].toISOString(),"2026-10-25T08:00:00.000Z");
+  screen.render();const tree=screen.render();assert.equal(find(tree,"./WellnessReminderDetails"),undefined);assert.equal(find(tree,"./WellnessCheckInModal"),undefined);assert.equal(consumed,1);assert.equal(target,null);
 });
 test("reminder editor rejects past times, preserves cat header, and confirms deletion",async()=>{
   let saved=0,deleted=0,confirmation;
@@ -52,5 +52,5 @@ test("reminder editor rejects past times, preserves cat header, and confirms del
   await nodes(tree).find(n=>n.props?.label==="Save changes").props.onPress();assert.equal(saved,0);
   assert.match(nodes(screen.render()).find(n=>n.props?.accessibilityRole==="alert").props.children,/future/);
   nodes(screen.render()).find(n=>n.props?.label==="Delete reminder").props.onPress();assert.equal(deleted,0);
-  await confirmation.find(b=>b.text==="Delete").onPress();assert.equal(deleted,1);
+  await find(screen.render(),"/ConfirmModal").props.onConfirm();assert.equal(deleted,1);
 });

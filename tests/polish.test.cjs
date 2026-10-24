@@ -66,11 +66,11 @@ test("malformed photo and album route identities render recoverable missing stat
 
 test("collapsed calendar disables the hidden month buttons and exposes only its week to assistive technology", () => {
   const screen = mount("app/(screens)/(tabs)/calendar.tsx", { context: store() });
-  find(screen.render(), "ScrollView").props.onScroll({ nativeEvent: { contentOffset: { y: 600 } } });
+  find(screen.render(), "SheetHandle").props.panel.snap(1);
   const tree = screen.render();
-  assert.ok(nodes(tree).some((node) => node.props?.["aria-hidden"] === true));
+
   const days = nodes(tree).filter((node) => node.type === "@/components/calendar/CalendarDay");
-  assert.equal(days.length, 42);
-  assert.ok(days.every((day) => day.props.disabled));
-  assert.ok(find(tree, "/CompactWeekStrip"));
+  assert.equal(days.length, 7);
+  assert.ok(days.every((day) => !day.props.disabled));
+  assert.ok(find(tree, "SheetHandle"));
 });

@@ -40,9 +40,9 @@ const TERMS = [
 export default function TermsAndConditions() {
   return (
     <LegalScreen title="Terms and Conditions">
-      <PolicySection title="About this prototype">
-        This frontend uses mock results, not AI analysis. Image upload is not available.
-        The established terms below describe the intended app.
+      <PolicySection title="About FeELINE">
+        FeELINE interprets observable emotional cues from submitted cat photos.
+        Predictions are informational and may be inaccurate.
       </PolicySection>
       {TERMS.map((term) => (
         <PolicySection key={term.title} title={term.title}>{term.body}</PolicySection>
