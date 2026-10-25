@@ -56,14 +56,9 @@ export const typography: Record<string, TextStyle> = {
   button: { fontSize: 16, fontWeight: "700", lineHeight: 20 },
 };
 
-// Centralized font-family tokens. Kept separate from `typography` (which
-// holds size/weight/line-height presets typed as TextStyle) since these
-// are plain fontFamily strings. Only these 4 weights are currently loaded
-// in app/_layout.tsx's useFonts call — add more there before referencing
-// a new weight here. Currently applied to the Album module only; other
-// screens still use the system default font.
+// Font-family tokens are registered in app/_layout.tsx before screens render.
 export const fontFamily = {
-  heading: "Poppins_700Bold",     // Comfortaa_600SemiBold not yet loaded — add to useFonts first if needed
+  heading: "Poppins_800ExtraBold",
   body: "Poppins_400Regular",
   medium: "Poppins_500Medium",
   semibold: "Poppins_600SemiBold",

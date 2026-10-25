@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, marginBottom: spacing.xs },
   title: { ...typography.subheading, color: colors.textPrimary, flexShrink: 1, textAlign: "center" },
   subtitle: { ...typography.caption, color: colors.textMuted, textAlign: "center", marginBottom: spacing.xs },
-  grid: { flex: 1, minHeight: 0, gap: spacing.xxs },
+  grid: { flex: 1, minHeight: 0, gap: spacing.xxs, marginBottom: spacing.md },
   row: { flex: 1, minHeight: 0, flexDirection: "row", justifyContent: "center", gap: spacing.xs },
   card: { width: "48%", minHeight: 0, alignItems: "center" },
   cardImage: {
