@@ -36,7 +36,7 @@ export default function CalendarDay({
   return (
     <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.7} disabled={disabled}
       accessibilityRole="button" accessibilityState={{ selected: isSelected, disabled }}
-      accessibilityLabel={`${dateLabel}${reminderCount ? ", " + reminderCount + " wellness reminder(s)" : ""}${isToday ? ", today" : ""}, ${recordCount} detection${recordCount === 1 ? "" : "s"}${key ? `, latest ${EMOTIONS[key].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthday${birthdayCount === 1 ? "" : "s"}` : ""}`}>
+      accessibilityLabel={`${dateLabel}${reminderCount ? ", " + reminderCount + " wellness reminder(s)" : ""}${isToday ? ", today" : ""}, ${recordCount} detection${recordCount === 1 ? "" : "s"}${key ? `, most frequent ${EMOTIONS[key].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthday${birthdayCount === 1 ? "" : "s"}` : ""}`}>
       <View
         style={[
           styles.circle,

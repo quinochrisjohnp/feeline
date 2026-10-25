@@ -42,6 +42,7 @@ import {
 import {
   colors,
   dimensions,
+  radii,
   fontFamily,
   spacing,
   typography,
@@ -269,7 +270,7 @@ export default function AlbumPhoto() {
       <DraggableDetailsLayout imageUri={image.imageUri} detailsVisible={showEmotion} onDismiss={() => setShowEmotion(false)} footer={<View style={styles.toolbar}>
         {/* Emotion */}
         <TouchableOpacity
-          style={[styles.action, showEmotion && styles.activeAction]}
+          style={styles.action}
           accessibilityRole="button"
           accessibilityLabel="Emotion"
           accessibilityState={{
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
 
-  activeAction: { backgroundColor: colors.card, borderTopWidth: 2, borderTopColor: colors.textPrimary },
+  activeAction: { position: "absolute", width: 72, height: 72, borderRadius: radii.pill, backgroundColor: colors.primary },
 
   actionLabel: {
     ...typography.caption,
