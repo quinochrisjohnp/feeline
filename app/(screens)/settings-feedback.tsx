@@ -101,20 +101,20 @@ export default function GiveFeedback() {
       next.email = "Please enter a valid email address.";
     }
 
-    if (values.title.trim().length > 150) {
-      next.title = "Title must be 150 characters or less.";
+    if (values.title.trim().length > 50) {
+      next.title = "Title must be 50 characters or less.";
     }
 
-    if (values.email.trim().length > 255) {
-      next.email = "Email must be 255 characters or less.";
+    if (values.email.trim().length > 50) {
+      next.email = "Email must be 50 characters or less.";
     }
 
-    if (values.subject.trim().length > 255) {
-      next.subject = "Subject must be 255 characters or less.";
+    if (values.subject.trim().length > 50) {
+      next.subject = "Subject must be 50 characters or less.";
     }
 
-    if (values.message.trim().length > 5000) {
-      next.message = "Message must be 5000 characters or less.";
+    if (values.message.trim().length > 255) {
+      next.message = "Message must be 255 characters or less.";
     }
 
     setErrors(next);
@@ -200,6 +200,7 @@ export default function GiveFeedback() {
           <FormField
             ref={titleRef}
             label="Title"
+            maxLength={50}
             value={values.title}
             error={errors.title}
             onChangeText={(text) => change("title", text)}
@@ -211,6 +212,7 @@ export default function GiveFeedback() {
           <FormField
             ref={emailRef}
             label="Email"
+            maxLength={50}
             value={values.email}
             error={errors.email}
             onChangeText={(text) => change("email", text)}
@@ -225,6 +227,7 @@ export default function GiveFeedback() {
           <FormField
             ref={subjectRef}
             label="Subject"
+            maxLength={50}
             value={values.subject}
             error={errors.subject}
             onChangeText={(text) => change("subject", text)}
@@ -236,6 +239,7 @@ export default function GiveFeedback() {
           <FormField
             ref={messageRef}
             label="Message"
+            maxLength={255}
             value={values.message}
             error={errors.message}
             onChangeText={(text) => change("message", text)}
