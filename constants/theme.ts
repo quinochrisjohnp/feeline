@@ -58,7 +58,7 @@ export const typography: Record<string, TextStyle> = {
 
 // Font-family tokens are registered in app/_layout.tsx before screens render.
 export const fontFamily = {
-  heading: "Poppins_800ExtraBold",
+  heading: "Poppins_700Bold",
   body: "Poppins_400Regular",
   medium: "Poppins_500Medium",
   semibold: "Poppins_600SemiBold",

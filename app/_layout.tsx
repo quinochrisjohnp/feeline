@@ -8,7 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import { Comfortaa_700Bold } from "@expo-google-fonts/comfortaa";
-import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from "@expo-google-fonts/poppins";
+import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from "@expo-google-fonts/poppins";
 import { CatDataProvider } from "../context/CatDataContext";
 import { WellnessProvider } from "@/context/WellnessContext";
 import BrandedSplash from "@/components/common/BrandedSplash";
@@ -52,7 +52,6 @@ export default function RootLayout() {
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
-    Poppins_800ExtraBold,
   });
 
   return <SafeAreaProvider><PresentationProvider><AuthProvider>
