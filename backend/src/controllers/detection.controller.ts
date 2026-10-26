@@ -53,6 +53,12 @@ export const getDetectionHistory = async (req: AuthRequest, res: Response) => {
         confidence: detection.confidence_score
           ? Number(detection.confidence_score)
           : 0,
+        recommendations: Array.isArray(detection.selected_recommendations)
+          ? detection.selected_recommendations.filter(
+              (item): item is string =>
+                typeof item === "string" && item.trim().length > 0
+            )
+          : [],
         capturedAt: (
           detection.cat_images!.created_at ??
           detection.detected_at ??
@@ -350,6 +356,7 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
           image_id: catImage.image_id,
           emotion_id: emotionCategory.emotion_id,
           confidence_score: detectionResult.confidence,
+          selected_recommendations: detectionResult.recommendations,
         },
       });
 
@@ -792,6 +799,13 @@ export const removeDetectionFromAlbum = async (
 // Removed album images are automatically excluded.
 // ============================================================
 
+// ============================================================
+// GET /api/detection/calendar
+//
+// Return only images saved to Unknown or Created Albums.
+// Removed album images are automatically excluded.
+// ============================================================
+
 export const getCalendarImages = async (
   req: AuthRequest,
   res: Response
@@ -834,16 +848,32 @@ export const getCalendarImages = async (
         catName: detection.cats.name,
         isUnknown:
           detection.cats.name === UNKNOWN_ALBUM_NAME,
+
         emotion: detection.emotion_categories.emotion_name,
+
         confidence: detection.confidence_score
           ? Number(detection.confidence_score)
           : 0,
+
+        // Original recommendations selected during detection.
+        // Do not randomly generate new recommendations here.
+        recommendations: Array.isArray(
+          detection.selected_recommendations
+        )
+          ? detection.selected_recommendations.filter(
+              (item): item is string =>
+                typeof item === "string" &&
+                item.trim().length > 0
+            )
+          : [],
+
         capturedAt: (
           detection.cat_images!.created_at ??
           detection.detected_at ??
           detection.created_at ??
           new Date()
         ).toISOString(),
+
         detectedAt: (
           detection.detected_at ??
           detection.created_at ??

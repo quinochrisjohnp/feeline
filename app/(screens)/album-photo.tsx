@@ -397,7 +397,19 @@ export default function AlbumPhoto() {
           </TouchableOpacity>
         ) : null}
       </View>}>
-        {showEmotion && (record ? <EmotionResultCard embedded emotionKey={record.emotion} confidence={record.confidence} /> : <Text style={styles.missingText}>No detection result is available for this photo.</Text>)}
+        {showEmotion &&
+          (record ? (
+            <EmotionResultCard
+              embedded
+              emotionKey={record.emotion}
+              confidence={record.confidence}
+              recommendations={record.recommendations}
+            />
+          ) : (
+            <Text style={styles.missingText}>
+              No detection result is available for this photo.
+            </Text>
+          ))}
       </DraggableDetailsLayout>
 
       {/* Confirmation before removing from Album */}
