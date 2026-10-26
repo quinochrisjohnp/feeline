@@ -123,6 +123,8 @@ interface BackendHistoryItem {
 
   capturedAt: string;
   detectedAt: string;
+
+  recommendations?: string[];
 }
 
 interface DetectionHistoryResponse {
@@ -323,9 +325,17 @@ export async function fetchDetectionHistory(): Promise<DetectionHistory> {
       id: item.detectionId,
       imageId: item.imageId,
       emotion,
-      confidence: normalizeConfidence(
-        item.confidence
-      ),
+
+      confidence: normalizeConfidence(item.confidence),
+
+      recommendations: Array.isArray(item.recommendations)
+        ? item.recommendations.filter(
+            (recommendation): recommendation is string =>
+              typeof recommendation === "string" &&
+              recommendation.trim().length > 0
+          )
+        : [],
+
       recordedAt: item.detectedAt,
 
       // Original Cloudinary image URL.
