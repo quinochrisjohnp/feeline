@@ -37,8 +37,6 @@ import {
   selectDetectionForImage,
 } from "@/context/catDataSelectors";
 
-
-
 import {
   colors,
   dimensions,
@@ -47,6 +45,9 @@ import {
   spacing,
   typography,
 } from "@/constants/theme";
+
+import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
 
 export default function AlbumPhoto() {
   const [nativeNotice, setNativeNotice] = useState(false);
@@ -98,6 +99,8 @@ export default function AlbumPhoto() {
   // Prevent duplicate deletion requests.
   const [deleting, setDeleting] = useState(false);
   const deleteLock = useRef(false);
+  // Prevent duplicate download requests.
+  const downloading = useRef(false);
 
   // Preserve the parent Album for navigation.
   const [parentAlbumId] = useState(
@@ -147,13 +150,67 @@ export default function AlbumPhoto() {
   );
 
   // Download functionality is still a placeholder.
-  const handleDownload = () => {
-    setNativeNotice(true);
-    Alert.alert(
-      "Download unavailable",
-      "Downloading photos is not available yet. No file was downloaded to your device.",
-      [{ text: "OK", onPress: () => setNativeNotice(false) }], { cancelable: true, onDismiss: () => setNativeNotice(false) }
-    );
+  const handleDownload = async () => {
+    if (!image?.imageUri) {
+      Alert.alert(
+        "Download Failed",
+        "No cat picture is available to download."
+      );
+      return;
+    }
+
+    if (downloading.current) return;
+    downloading.current = true;
+
+    try {
+      const permission =
+        await MediaLibrary.requestPermissionsAsync(true, [
+          "photo",
+        ]);
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Please allow FeELINE to save pictures to your Gallery."
+        );
+        return;
+      }
+
+      const imageUrl = image.imageUri;
+
+      const extension =
+        imageUrl.split("?")[0].match(/\.(jpg|jpeg|png|webp)$/i)?.[1] ??
+        "jpg";
+
+      const localUri =
+        FileSystem.cacheDirectory +
+        `feeline-cat-${Date.now()}.${extension}`;
+
+      const result = await FileSystem.downloadAsync(
+        imageUrl,
+        localUri
+      );
+
+      if (result.status < 200 || result.status >= 300) {
+        throw new Error("Image download failed.");
+      }
+
+      await MediaLibrary.saveToLibraryAsync(result.uri);
+
+      Alert.alert(
+        "Download Successful",
+        "Cat picture saved to your Gallery!"
+      );
+    } catch (error) {
+      console.error("Cat picture download failed:", error);
+
+      Alert.alert(
+        "Download Failed",
+        "Unable to save the cat picture. Please try again."
+      );
+    } finally {
+      downloading.current = false;
+    }
   };
 
   // Remove a photo from an Album, not Detection History.

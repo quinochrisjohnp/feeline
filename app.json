@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "FeELINE",
@@ -59,6 +60,16 @@
           "cameraPermission": "Allow FeELINE to use the camera to capture cat images.",
           "photosPermission": "Allow FeELINE to access a photo selected by you for observable emotional-cue interpretation.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow FeELINE to access your photos.",
+          "savePhotosPermission": "Allow FeELINE to save downloaded cat pictures to your photo gallery.",
+          "granularPermissions": [
+            "photo"
+          ]
         }
       ],
       "@react-native-google-signin/google-signin",

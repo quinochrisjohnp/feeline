@@ -4,11 +4,15 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 import ScreenContainer from "@/components/common/ScreenContainer";
@@ -22,24 +26,38 @@ import {
   colors,
   dimensions,
   fontFamily,
+  radii,
   spacing,
   typography,
 } from "@/constants/theme";
 
-type Field = "title" | "email" | "subject" | "message";
+// ============================================================
+// FEEDBACK SUBJECT OPTIONS
+// ============================================================
+
+const SUBJECT_OPTIONS = [
+  "Bug Report",
+  "Feature Suggestion",
+  "Emotion Detection Concern",
+  "App Experience",
+  "Others",
+] as const;
+
+type Field = "title" | "subject" | "message";
 
 type FeedbackValues = Record<Field, string>;
 
 export default function GiveFeedback() {
-  useWellnessNavigationSafety(false);
   const router = useRouter();
 
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [subjectVisible, setSubjectVisible] = useState(false);
+
+  useWellnessNavigationSafety(subjectVisible);
 
   const [values, setValues] = useState<FeedbackValues>({
     title: "",
-    email: "",
     subject: "",
     message: "",
   });
@@ -51,18 +69,13 @@ export default function GiveFeedback() {
   const submitting = useRef(false);
 
   const titleRef = useRef<TextInput>(null);
-  const emailRef = useRef<TextInput>(null);
-  const subjectRef = useRef<TextInput>(null);
   const messageRef = useRef<TextInput>(null);
 
-  const refs = {
-    title: titleRef,
-    email: emailRef,
-    subject: subjectRef,
-    message: messageRef,
-  };
-
   const goBack = () => router.dismissTo("/settings");
+
+  // ============================================================
+  // UPDATE FORM VALUES
+  // ============================================================
 
   const change = (field: Field, value: string) => {
     setValues((current) => ({
@@ -76,6 +89,10 @@ export default function GiveFeedback() {
     }));
   };
 
+  // ============================================================
+  // SUBMIT FEEDBACK
+  // ============================================================
+
   const handleSubmit = async () => {
     if (submitting.current || success) return;
 
@@ -83,7 +100,6 @@ export default function GiveFeedback() {
 
     for (const field of [
       "title",
-      "email",
       "subject",
       "message",
     ] as const) {
@@ -92,25 +108,17 @@ export default function GiveFeedback() {
       }
     }
 
-    if (
-      values.email.trim() &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        values.email.trim()
-      )
-    ) {
-      next.email = "Please enter a valid email address.";
-    }
-
     if (values.title.trim().length > 50) {
       next.title = "Title must be 50 characters or less.";
     }
 
-    if (values.email.trim().length > 50) {
-      next.email = "Email must be 50 characters or less.";
-    }
-
-    if (values.subject.trim().length > 50) {
-      next.subject = "Subject must be 50 characters or less.";
+    if (
+      values.subject &&
+      !SUBJECT_OPTIONS.some(
+        (option) => option === values.subject
+      )
+    ) {
+      next.subject = "Please select a valid subject.";
     }
 
     if (values.message.trim().length > 255) {
@@ -119,10 +127,19 @@ export default function GiveFeedback() {
 
     setErrors(next);
 
-    const first = (Object.keys(next) as Field[])[0];
+    if (next.title) {
+      titleRef.current?.focus();
+      return;
+    }
 
-    if (first) {
-      refs[first].current?.focus();
+    if (next.subject) {
+      Keyboard.dismiss();
+      setSubjectVisible(true);
+      return;
+    }
+
+    if (next.message) {
+      messageRef.current?.focus();
       return;
     }
 
@@ -135,7 +152,6 @@ export default function GiveFeedback() {
         method: "POST",
         body: JSON.stringify({
           title: values.title.trim(),
-          email: values.email.trim(),
           subject: values.subject.trim(),
           message: values.message.trim(),
         }),
@@ -151,7 +167,6 @@ export default function GiveFeedback() {
         );
       }
 
-      // Show success only after the backend confirms saving.
       setSuccess(true);
     } catch (error) {
       const message =
@@ -165,6 +180,10 @@ export default function GiveFeedback() {
       setLoading(false);
     }
   };
+
+  // ============================================================
+  // FEEDBACK FORM
+  // ============================================================
 
   return (
     <ScreenContainer
@@ -197,6 +216,7 @@ export default function GiveFeedback() {
             improve FeELINE.
           </Text>
 
+          {/* TITLE */}
           <FormField
             ref={titleRef}
             label="Title"
@@ -204,38 +224,27 @@ export default function GiveFeedback() {
             value={values.title}
             error={errors.title}
             onChangeText={(text) => change("title", text)}
-            placeholder="Title"
+            placeholder="Enter feedback title"
             returnKeyType="next"
-            onSubmitEditing={() => emailRef.current?.focus()}
+            onSubmitEditing={() => {
+              Keyboard.dismiss();
+              setSubjectVisible(true);
+            }}
           />
 
+          {/* SUBJECT DROPDOWN */}
           <FormField
-            ref={emailRef}
-            label="Email"
-            maxLength={50}
-            value={values.email}
-            error={errors.email}
-            onChangeText={(text) => change("email", text)}
-            placeholder="you@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-            onSubmitEditing={() => subjectRef.current?.focus()}
-          />
-
-          <FormField
-            ref={subjectRef}
             label="Subject"
-            maxLength={50}
             value={values.subject}
             error={errors.subject}
-            onChangeText={(text) => change("subject", text)}
-            placeholder="Subject"
-            returnKeyType="next"
-            onSubmitEditing={() => messageRef.current?.focus()}
+            placeholder="Select a subject"
+            onSelect={() => {
+              Keyboard.dismiss();
+              setSubjectVisible(true);
+            }}
           />
 
+          {/* MESSAGE */}
           <FormField
             ref={messageRef}
             label="Message"
@@ -249,6 +258,7 @@ export default function GiveFeedback() {
             style={styles.message}
           />
 
+          {/* SUBMIT */}
           <Button
             label={loading ? "Submitting..." : "Submit"}
             onPress={handleSubmit}
@@ -260,6 +270,73 @@ export default function GiveFeedback() {
         </DocumentSurface>
       </ScrollView>
 
+      {/* SUBJECT SELECTION MODAL */}
+      <Modal
+        visible={subjectVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSubjectVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSubjectVisible(false)}
+            accessibilityLabel="Close subject selection"
+          />
+
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Select a Subject
+            </Text>
+
+            {SUBJECT_OPTIONS.map((option) => (
+              <Pressable
+                key={option}
+                style={({ pressed }) => [
+                  styles.subjectOption,
+                  values.subject === option &&
+                    styles.selectedOption,
+                  pressed && styles.pressedOption,
+                ]}
+                onPress={() => {
+                  change("subject", option);
+                  setSubjectVisible(false);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: values.subject === option,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.subjectText,
+                    values.subject === option &&
+                      styles.selectedText,
+                  ]}
+                >
+                  {option}
+                </Text>
+
+                {values.subject === option && (
+                  <Ionicons
+                    name="checkmark"
+                    size={20}
+                    color={colors.primaryDark}
+                  />
+                )}
+              </Pressable>
+            ))}
+
+            <Button
+              label="Cancel"
+              variant="text"
+              onPress={() => setSubjectVisible(false)}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* SUCCESS MODAL */}
       <ConfirmModal
         visible={success}
         title="Thank you for your Feedback!"
@@ -269,18 +346,27 @@ export default function GiveFeedback() {
         onConfirm={goBack}
         onCancel={goBack}
       />
-
     </ScreenContainer>
   );
 }
 
+// ============================================================
+// STYLES
+// ============================================================
+
 const styles = StyleSheet.create({
-  submit: { alignSelf: "center", minWidth: 160, marginTop: spacing.sm },
+  submit: {
+    alignSelf: "center",
+    minWidth: 160,
+    marginTop: spacing.sm,
+  },
+
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl,
   },
+
   heading: {
     ...typography.subheading,
     fontFamily: fontFamily.heading,
@@ -288,14 +374,66 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing.sm,
   },
+
   note: {
     ...typography.caption,
     fontFamily: fontFamily.body,
     color: colors.textSecondary,
     marginBottom: spacing.lg,
   },
+
   message: {
     minHeight: dimensions.messageInput,
     maxHeight: 240,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+  },
+
+  modalTitle: {
+    ...typography.subheading,
+    fontFamily: fontFamily.heading,
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: spacing.md,
+  },
+
+  subjectOption: {
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  selectedOption: {
+    backgroundColor: colors.background,
+  },
+
+  pressedOption: {
+    opacity: 0.7,
+  },
+
+  subjectText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+
+  selectedText: {
+    fontFamily: fontFamily.medium,
+    color: colors.primaryDark,
   },
 });

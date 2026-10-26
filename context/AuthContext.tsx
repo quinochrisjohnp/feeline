@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useCallback,
@@ -56,11 +57,15 @@ export function AuthProvider({
   const [profile, setProfile] = useState<FeelineProfile | null>(
     null
   );
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Restore an existing FeELINE session.
+  // ============================================================
+  // RESTORE EXISTING FEELINE SESSION
+  // ============================================================
+
   const restoreSession = useCallback(async () => {
     setIsLoading(true);
 
@@ -81,9 +86,13 @@ export function AuthProvider({
       }
 
       const data = await response.json();
+
       setProfile(data.profile);
     } catch (err) {
-      console.error("Failed to restore FeELINE session:", err);
+      console.error(
+        "Failed to restore FeELINE session:",
+        err
+      );
 
       await clearToken();
       setProfile(null);
@@ -96,13 +105,16 @@ export function AuthProvider({
     restoreSession();
   }, [restoreSession]);
 
-  // Sign in with Google, then exchange the Google ID token
-  // for a FeELINE JWT from the backend.
+  // ============================================================
+  // GOOGLE SIGN-IN
+  // ============================================================
+
   const signIn = useCallback(async () => {
     if (!googleWebClientId) {
       console.error(
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB is not configured."
       );
+
       setError("Google Sign-In is not configured.");
       return;
     }
@@ -111,10 +123,12 @@ export function AuthProvider({
     setIsSigningIn(true);
 
     try {
+      // Check Google Play Services.
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,
       });
 
+      // Open Google Sign-In.
       const response = await GoogleSignin.signIn();
 
       if (isCancelledResponse(response)) {
@@ -127,11 +141,18 @@ export function AuthProvider({
         );
       }
 
+      // Retrieve Google ID token.
       const idToken = response.data.idToken;
 
       if (!idToken) {
-        throw new Error("Google did not return an ID token.");
+        throw new Error(
+          "Google did not return an ID token."
+        );
       }
+
+      // ============================================================
+      // AUTHENTICATE WITH FEELINE BACKEND
+      // ============================================================
 
       const backendResponse = await apiFetch(
         "/api/auth/google",
@@ -164,7 +185,15 @@ export function AuthProvider({
         );
       }
 
+      // ============================================================
+      // SAVE FEELINE JWT TOKEN
+      // ============================================================
+
       await saveToken(data.token);
+
+      // ============================================================
+      // COMPLETE GOOGLE LOGIN
+      // ============================================================
 
       setProfile(data.profile);
       setError(null);
@@ -173,7 +202,10 @@ export function AuthProvider({
         "FeELINE authentication completed successfully."
       );
     } catch (err) {
-      console.error("Google Sign-In failed:", err);
+      console.error(
+        "Google Sign-In failed:",
+        err
+      );
 
       setError(
         "Could not sign in with Google. Please try again."
@@ -183,7 +215,10 @@ export function AuthProvider({
     }
   }, []);
 
-  // Sign out from Google and remove the local FeELINE JWT.
+  // ============================================================
+  // GOOGLE SIGN-OUT
+  // ============================================================
+
   const signOut = useCallback(async () => {
     try {
       try {
@@ -197,12 +232,19 @@ export function AuthProvider({
 
       await clearToken();
     } catch (err) {
-      console.error("FeELINE Sign-Out failed:", err);
+      console.error(
+        "FeELINE Sign-Out failed:",
+        err
+      );
     } finally {
       setProfile(null);
       setError(null);
     }
   }, []);
+
+  // ============================================================
+  // AUTH CONTEXT PROVIDER
+  // ============================================================
 
   return (
     <AuthContext.Provider
@@ -219,6 +261,10 @@ export function AuthProvider({
     </AuthContext.Provider>
   );
 }
+
+// ============================================================
+// CUSTOM AUTH HOOK
+// ============================================================
 
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);

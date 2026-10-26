@@ -2,9 +2,9 @@ import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/d
 import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
 import { dailyEmotion } from "@/utils/calendarEmotion";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import WellnessCalendarSection from "@/components/wellness/WellnessCalendarSection";
@@ -27,8 +27,14 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function Calendar() {
   const router = useRouter();
-  const { state } = useCatData();
+  const { state, refreshDetections } = useCatData();
   const wellness = useWellness();
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshDetections();
+    }, [refreshDetections])
+  );
   const filterOptions = selectCalendarFilterOptions(state);
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
