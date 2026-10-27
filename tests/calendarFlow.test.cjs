@@ -213,3 +213,36 @@ test("birthday and reminder markers occupy separate corners without widening the
  assert.match(tree.props.accessibilityLabel, /1 wellness reminder/);
  assert.match(tree.props.accessibilityLabel, /1 birthday/);
 });
+
+test("horizontal calendar navigation advances months or seven days without expanding week view", () => {
+ const context = emptyContext();
+ const screen = mount(calendarFile, { context });
+ select(screen, new Date(2026, 11, 31, 12));
+ const swipe = offset => find(screen.render(), "CalendarSwipeArea").props.onSwipe(offset);
+ swipe(1);
+ assert.match(find(screen.render(), "/CalendarHeader").props.label, /2027/);
+ assert.equal(days(screen.render()).find(d => d.props.isSelected).props.day, 1);
+ swipe(-1);
+ assert.match(find(screen.render(), "/CalendarHeader").props.label, /2026/);
+ select(screen, new Date(2026, 11, 31, 12));
+ find(screen.render(), "SheetHandle").props.panel.snap(1);
+ swipe(1);
+ assert.equal(days(screen.render()).length, 7);
+ assert.equal(days(screen.render()).find(d => d.props.isSelected).props.day, 7);
+ assert.match(find(screen.render(), "/CalendarHeader").props.label, /2027/);
+ swipe(-1);
+ assert.equal(days(screen.render()).length, 7);
+ assert.equal(days(screen.render()).find(d => d.props.isSelected).props.day, 31);
+ const cat = context().state.cats[0];
+ context().updateCat(cat.id, { name: "Very long cat name that should not displace calendar controls" });
+ filter(screen, cat.id);
+ const chip = nodes(screen.render()).find(n => n.props?.accessibilityLabel?.startsWith("Filter calendar:"));
+ assert.equal(chip.props.style.maxWidth, "60%");
+ assert.equal(chip.props.children[0].props.numberOfLines, 1);
+});
+test("Cat Album heading stays outside the scrolling cards", () => {
+ const tree = mount("app/(screens)/(tabs)/album.tsx", { context: emptyContext() }).render();
+ const scroll = find(tree, "ScrollView");
+ assert.ok(nodes(tree).some(n => n.props?.children === "Cat Album"));
+ assert.equal(nodes(scroll).some(n => n.props?.children === "Cat Album"), false);
+});

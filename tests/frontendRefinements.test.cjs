@@ -87,7 +87,7 @@ test("failed detection stays on Camera, opens tips, and clears on the next galle
 });
 
 test("Add/Edit and Rename share limits without slicing existing server values", () => {
-  assert.deepEqual(CAT_FORM_LIMITS, { name: 50, breed: 50, description: 500 });
+  assert.deepEqual(CAT_FORM_LIMITS, { name: 20, breed: 25, description: 255 });
   for (const initialCat of [null, { id: "cat", name: "n".repeat(80), breed: "b".repeat(70), description: "d".repeat(650), birthdate: "2020-01-01" }]) {
     const form = mount("components/cats/AddCatForm.tsx", { props: { visible: true, initialCat, onCancel() {}, onSave() {} } });
     form.render();

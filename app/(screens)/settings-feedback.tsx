@@ -120,8 +120,8 @@ export default function GiveFeedback() {
       next.subject = "Please select a valid subject.";
     }
 
-    if (values.message.trim().length > 255) {
-      next.message = "Message must be 255 characters or less.";
+    if (values.message.trim().length > 1000) {
+      next.message = "Message must be 1000 characters or less.";
     }
 
     setErrors(next);
@@ -293,7 +293,8 @@ export default function GiveFeedback() {
             ref={messageRef}
             label="Message"
             onFocus={() => setSubjectVisible(false)}
-            maxLength={255}
+            maxLength={1000}
+            hint={`${values.message.length}/1000 characters`}
             value={values.message}
             error={errors.message}
             onChangeText={(text) => change("message", text)}
