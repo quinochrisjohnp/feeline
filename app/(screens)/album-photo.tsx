@@ -49,6 +49,7 @@ import {
 import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 
+
 export default function AlbumPhoto() {
   const [nativeNotice, setNativeNotice] = useState(false);
   useWellnessNavigationSafety(nativeNotice);
@@ -149,7 +150,7 @@ export default function AlbumPhoto() {
     }, [backToAlbum])
   );
 
-  // Download functionality is still a placeholder.
+
   const handleDownload = async () => {
     if (!image?.imageUri) {
       Alert.alert(
@@ -163,50 +164,70 @@ export default function AlbumPhoto() {
     downloading.current = true;
 
     try {
+      const imageUrl = image.imageUri;
+
+      if (!/^https?:\/\//i.test(imageUrl)) {
+        throw new Error(
+          "The image URL is invalid or unavailable."
+        );
+      }
+
       const permission =
-        await MediaLibrary.requestPermissionsAsync(true, [
-          "photo",
-        ]);
+        await MediaLibrary.requestPermissionsAsync();
 
       if (!permission.granted) {
         Alert.alert(
           "Permission Required",
-          "Please allow FeELINE to save pictures to your Gallery."
+          "Please allow FeELINE to access your photos so it can save the image to your Gallery."
         );
         return;
       }
 
-      const imageUrl = image.imageUri;
-
       const extension =
-        imageUrl.split("?")[0].match(/\.(jpg|jpeg|png|webp)$/i)?.[1] ??
+        imageUrl
+          .split("?")[0]
+          .match(/\.(jpg|jpeg|png|webp)$/i)?.[1] ??
         "jpg";
 
       const localUri =
-        FileSystem.cacheDirectory +
-        `feeline-cat-${Date.now()}.${extension}`;
+        `${FileSystem.cacheDirectory}feeline-cat-${Date.now()}.${extension}`;
 
       const result = await FileSystem.downloadAsync(
         imageUrl,
         localUri
       );
 
-      if (result.status < 200 || result.status >= 300) {
-        throw new Error("Image download failed.");
+      if (
+        result.status < 200 ||
+        result.status >= 300
+      ) {
+        throw new Error(
+          `Image download failed (HTTP ${result.status}).`
+        );
       }
 
-      await MediaLibrary.saveToLibraryAsync(result.uri);
+      await MediaLibrary.saveToLibraryAsync(
+        result.uri
+      );
 
       Alert.alert(
         "Download Successful",
         "Cat picture saved to your Gallery!"
       );
     } catch (error) {
-      console.error("Cat picture download failed:", error);
+      console.error(
+        "Cat picture download failed:",
+        error
+      );
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown download error.";
 
       Alert.alert(
         "Download Failed",
-        "Unable to save the cat picture. Please try again."
+        `Unable to save the cat picture.\n\n${message}`
       );
     } finally {
       downloading.current = false;

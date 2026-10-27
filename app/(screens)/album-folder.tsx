@@ -13,6 +13,8 @@ import { selectAlbumById, selectAlbumName, selectImagesForAlbum, selectDetection
 import MockPhoto from "@/components/common/MockPhoto";
 import { formatFullDate, formatTime } from "@/utils/date";
 import { colors, dimensions, fontFamily, radii, spacing, typography } from "@/constants/theme";
+import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
 
 // Small, consistent gap between thumbnails; Album-module only.
 const ALBUM_GRID_GAP = 4;
@@ -41,8 +43,114 @@ export default function AlbumFolder() {
   // Only IDs still present in this album can be acted on, even after another view changes state.
   const selectedIds = selectionMode ? folderImages.filter((image) => selection.ids.includes(image.id)).map((image) => image.id) : [];
   const allSelected = folderImages.length > 0 && selectedIds.length === folderImages.length;
+  
   const exitSelectionMode = useCallback(() => setSelection(null), []);
   const backToAlbums = () => router.dismissTo("/album");
+
+  const [downloading, setDownloading] = useState(false);
+  const downloadLock = useRef(false);
+
+  const handleDownloadSelected = async () => {
+    if (downloadLock.current || selectedIds.length === 0) {
+      return;
+    }
+
+    downloadLock.current = true;
+    setDownloading(true);
+
+    try {
+      const permission = await MediaLibrary.requestPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Please allow FeELINE to save photos to your Gallery."
+        );
+        return;
+      }
+
+      const cacheDirectory = FileSystem.cacheDirectory;
+
+      if (!cacheDirectory) {
+        throw new Error("Temporary storage is unavailable.");
+      }
+
+      // Snapshot the selected photos before starting downloads.
+      const selectedImages = folderImages.filter((image) =>
+        selectedIds.includes(image.id)
+      );
+
+      let successCount = 0;
+      const failedImages: string[] = [];
+
+      for (let index = 0; index < selectedImages.length; index++) {
+        const image = selectedImages[index];
+
+        try {
+          const imageUrl = image.imageUri;
+
+          if (!/^https?:\/\//i.test(imageUrl)) {
+            throw new Error("Invalid image URL");
+          }
+
+          const extension =
+            imageUrl
+              .split("?")[0]
+              .match(/\.(jpg|jpeg|png|webp)$/i)?.[1] ?? "jpg";
+
+          // Unique temporary filename for each selected image.
+          const localUri =
+            `${cacheDirectory}feeline-cat-${Date.now()}-${index}.${extension}`;
+
+          const result = await FileSystem.downloadAsync(
+            imageUrl,
+            localUri
+          );
+
+          if (result.status < 200 || result.status >= 300) {
+            throw new Error(`HTTP ${result.status}`);
+          }
+
+          await MediaLibrary.saveToLibraryAsync(result.uri);
+
+          successCount++;
+        } catch (error) {
+          console.error(
+            `Failed to download image ${image.id}:`,
+            error
+          );
+
+          failedImages.push(image.id);
+        }
+      }
+
+      if (failedImages.length === 0) {
+        Alert.alert(
+          "Download Successful",
+          `${successCount} photo(s) saved to your Gallery.`
+        );
+      } else {
+        Alert.alert(
+          successCount > 0
+            ? "Download Partially Completed"
+            : "Download Failed",
+          `${successCount} photo(s) saved.\n${failedImages.length} photo(s) could not be downloaded.`
+        );
+      }
+    } catch (error) {
+      console.error("Selected photo download failed:", error);
+
+      Alert.alert(
+        "Download Failed",
+        error instanceof Error
+          ? error.message
+          : "Unable to download the selected photos."
+      );
+    } finally {
+      downloadLock.current = false;
+      setDownloading(false);
+    }
+  };
 
   useFocusEffect(useCallback(() => {
     if (!selectionMode) return;
@@ -141,12 +249,28 @@ export default function AlbumFolder() {
             <Ionicons name="checkmark-done-outline" size={22} color={colors.textPrimary} />
             <Text style={styles.actionLabel}>{allSelected ? "Deselect All" : "Select All"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.action, !selectedIds.length && styles.disabled]} accessibilityRole="button" accessibilityLabel="Download"
-            accessibilityState={{ disabled: !selectedIds.length }} disabled={!selectedIds.length}
-            onPress={() => { setNativeNotice(true); Alert.alert("Download unavailable", `${selectedIds.length} photo(s) selected. No files were downloaded to your device.`,
-              [{ text: "OK", onPress: () => setNativeNotice(false) }], { cancelable: true, onDismiss: () => setNativeNotice(false) }); }}>
-            <Ionicons name="download-outline" size={22} color={colors.textPrimary} />
-            <Text style={styles.actionLabel}>Download</Text>
+          <TouchableOpacity
+            style={[
+              styles.action,
+              (!selectedIds.length || downloading) && styles.disabled,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Download"
+            accessibilityState={{
+              disabled: !selectedIds.length || downloading,
+              busy: downloading,
+            }}
+            disabled={!selectedIds.length || downloading}
+            onPress={handleDownloadSelected}
+          >
+            <Ionicons
+              name="download-outline"
+              size={22}
+              color={colors.textPrimary}
+            />
+            <Text style={styles.actionLabel}>
+              {downloading ? "Downloading..." : "Download"}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.action, !selectedIds.length && styles.disabled]} accessibilityRole="button" accessibilityLabel="Delete"
             accessibilityState={{ disabled: !selectedIds.length }} disabled={!selectedIds.length}
