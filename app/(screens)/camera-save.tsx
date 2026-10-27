@@ -307,44 +307,44 @@ export default function CameraSave() {
         }
       />
 
+      <View style={styles.intro}>
+        <Text
+          style={styles.question}
+          accessibilityRole="header"
+        >
+          Which cat should this image be saved to?
+        </Text>
+
+        <View style={styles.preview}>
+          <View style={styles.thumbnail}>
+            <MockPhoto
+              imageUri={imageUri}
+              size={dimensions.iconLarge}
+              label="Detected cat image"
+            />
+          </View>
+
+          <Text style={styles.note}>
+            Choose a cat album to save this cat image to.
+            Recommendation and emotion detection will also be stored.
+          </Text>
+        </View>
+
+        {saveError ? (
+          <Text
+            style={styles.error}
+            accessibilityRole="alert"
+          >
+            {saveError}
+          </Text>
+        ) : null}
+      </View>
+
       <FlatList
+        style={styles.albumList}
         data={state.albums}
         keyExtractor={(album) => album.id}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.intro}>
-            <Text
-              style={styles.question}
-              accessibilityRole="header"
-            >
-              Which cat should this image be saved to?
-            </Text>
-
-            <View style={styles.preview}>
-              <View style={styles.thumbnail}>
-                <MockPhoto
-                  imageUri={imageUri}
-                  size={dimensions.iconLarge}
-                  label="Detected cat image"
-                />
-              </View>
-
-              <Text style={styles.note}>
-                Image and detection are already stored.
-                Choose an album to save this image to.
-              </Text>
-            </View>
-
-            {saveError ? (
-              <Text
-                style={styles.error}
-                accessibilityRole="alert"
-              >
-                {saveError}
-              </Text>
-            ) : null}
-          </View>
-        }
         renderItem={({ item: album }) => (
           <TouchableOpacity
             style={styles.row}
@@ -441,12 +441,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  albumList: { flex: 1 },
+
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
 
   intro: {
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
 
@@ -487,8 +490,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderRadius: radii.lg,
+    marginBottom: spacing.xs,
   },
 
   avatar: {

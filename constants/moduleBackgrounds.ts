@@ -15,7 +15,7 @@ export const moduleBackgroundConfig: Record<BackgroundModule, {
   /** Image-only opacity, clamped to 0..1 by the renderer. */
   opacity: number;
 }> = {
-  auth: { mode: "image", image: BG3, opacity: 0.6 },
+  auth: { mode: "image", image: require("../components/images/bg1.png"), opacity: 1 },
   settings: { mode: "image", image: BG3, opacity: 0.6 },
   camera: { mode: "image", image: BG3, opacity: 0.6 },
   calendar: { mode: "color", image: BG3, opacity: 0 },

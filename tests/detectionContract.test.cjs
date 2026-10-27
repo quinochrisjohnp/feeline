@@ -47,7 +47,7 @@ test('every non-success stays on Camera without result navigation or persistence
    '@/hooks/useCameraTipsPreference':{useCameraTipsPreference:()=>({enabled:false,ready:true})},'@/context/WellnessContext':{useWellness:()=>({setCameraSafe(){}})},
    '@react-navigation/native':{useIsFocused:()=>true},'expo-camera':{CameraView:'CameraView',useCameraPermissions:()=>[{granted:true},async()=>{},async()=>{}]},
    'react-native':{StyleSheet:{create:s=>s},AppState:{currentState:'active',addEventListener:()=>({remove(){}})},View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',Platform:{OS:'android'}}}});
-  screen.render();screen.focus[0]();const preview=find(screen.render(),'CameraView');preview.props.ref.current={takePictureAsync:async()=>({uri:'file:///cat.jpg'})};preview.props.onCameraReady();await find(screen.render(),'/CaptureButton').props.onPress();assert.equal(routes.length,0);assert.ok(find(screen.render(),'/CameraErrorModal'));assert.equal(find(screen.render(),'/CaptureButton').props.disabled,false);
+  screen.render();screen.focus[0]();nodes(screen.render()).find(n=>n.props?.testID==='camera-preview-surface').props.onLayout({nativeEvent:{layout:{width:390,height:844}}});const preview=find(screen.render(),'CameraView');preview.props.ref.current={takePictureAsync:async()=>({uri:'file:///cat.jpg'})};preview.props.onCameraReady();await find(screen.render(),'/CaptureButton').props.onPress();assert.equal(routes.length,0);assert.ok(find(screen.render(),'/CameraErrorModal'));assert.equal(find(screen.render(),'/CaptureButton').props.disabled,false);
   assert.ok(find(screen.render(),'/MockPhoto'),'failed photo is in session thumbnail before reset');
   const errorModal=find(screen.render(),'/CameraErrorModal');
   const rendered=mount('components/camera/CameraErrorModal.tsx',{props:errorModal.props}).render();
@@ -82,7 +82,7 @@ test('exact status copy, dynamic counts and defensive multiple-cat fallback',()=
   const notice=detectionOutcomeNotice(service.parseDetectionResponse(result));assert.equal(notice.title,title);assert.equal(notice.message,message);
  }
  for(const cat_count of [undefined,null,'3',0,1,-1,2.5,NaN,Infinity])assert.equal(detectionOutcomeNotice({...fixture('rejected_multiple_cats'),cat_count}).message,'FeELINE detected multiple cats in this image. Please use a photo containing only one cat.');
- for(const error of [Error('timeout'),Error('server error'),Error('malformed response')])assert.deepEqual(detectionFailureNotice(error),{title:'Detection unavailable',message:"We couldn't analyze this photo right now. Check your connection, then try again.",photoTips:false});
+ for(const error of [Error('timeout'),Error('server error'),Error('malformed response')])assert.deepEqual(detectionFailureNotice(error),{title:'Detection error',message:"We couldn't analyze this cat photo properly. Please try again.",photoTips:false});
 });
 
 test('invalid-count API rejection stays an error but uses the count-free multiple-cat modal',async()=>{

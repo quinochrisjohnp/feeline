@@ -34,5 +34,5 @@ export function detectionFailureNotice(error?: unknown): CameraDetectionNotice {
   if (error && typeof error === "object" && "status" in error && error.status === "rejected_multiple_cats") {
     return detectionOutcomeNotice({ status: "rejected_multiple_cats" });
   }
-  return { title: "Detection unavailable", message: "We couldn't analyze this photo right now. Check your connection, then try again.", photoTips: false };
+  return { title: "Detection error", message: "We couldn't analyze this cat photo properly. Please try again.", photoTips: false };
 }
