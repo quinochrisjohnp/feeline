@@ -18,8 +18,8 @@ export default function Album() {
   const unknown = state.albums.find(a => a.kind === "unknown");
   const open = (albumId: string) => router.push({ pathname: "/album-folder", params: { albumId } });
   return <ScreenContainer module="album" tabBar>
+    <Text style={styles.title} accessibilityRole="header">Cat Album</Text>
     <ScrollView showsVerticalScrollIndicator={false}>
-      <Text style={styles.title} accessibilityRole="header">Cat Album</Text>
       <View style={styles.grid} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
         {normal.map(album => <CatCoverCard key={album.id} variant="tile"
           name={selectAlbumName(state, album.id)} coverUri={selectAlbumCoverImage(state, album.id)?.imageUri ?? null}

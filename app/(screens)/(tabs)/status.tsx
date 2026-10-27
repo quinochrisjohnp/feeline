@@ -290,7 +290,7 @@ export default function Status() {
           />
 
           <View style={styles.profileBody}>
-            <Text style={styles.catName}>
+            <Text style={styles.catName} numberOfLines={2} ellipsizeMode="tail" accessibilityLabel={selectedCat.name}>
               {selectedCat.name}
             </Text>
 

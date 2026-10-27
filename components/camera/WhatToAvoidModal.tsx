@@ -35,7 +35,7 @@ export default function WhatToAvoidModal({ visible, onClose }: WhatToAvoidModalP
 
       <View style={[styles.grid, !compact && { flex: 0 }]}>
         {[CATEGORIES.slice(0, 2), CATEGORIES.slice(2, 4), CATEGORIES.slice(4)].map((row, index) => (
-          <View key={index} style={[styles.row, !compact && { flex: 0, height: 144 }]}>
+          <View key={index} style={[styles.row, !compact && { flex: 0, height: 175 }]}>
           {row.map((category) => (
           <View key={category.key} style={styles.card}>
             <View style={styles.cardImage}>
