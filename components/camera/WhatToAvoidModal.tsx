@@ -48,8 +48,7 @@ export default function WhatToAvoidModal({ visible, onClose }: WhatToAvoidModalP
         ))}
       </View>
 
-      <Text style={styles.note}>Avoid photos with multiple cats. FeELINE needs one clearly visible domestic cat in each image.</Text>
-      <Text style={styles.note}>Examples illustrate image limitations. Physical differences do not make a cat invalid;
+      <Text style={styles.note}>Avoid photos with multiple cats. FeELINE needs one clearly visible domestic cat in each image. Examples illustrate image limitations. Physical differences do not make a cat invalid;
         the system may have difficulty interpreting some images.</Text>
       <Pressable style={styles.preference} accessibilityRole="checkbox" accessibilityLabel="Don’t show automatically again"
         accessibilityState={{ checked: !preference.enabled, disabled: !preference.ready || preference.saving }}
