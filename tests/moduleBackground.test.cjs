@@ -6,7 +6,7 @@ const backgroundImage = tree => tree.props.children || undefined;
 const config = require("../constants/moduleBackgrounds.ts");
 
 test("all seven modules resolve the supplied asset mapping", () => {
-  for (const [module, file] of Object.entries({ auth: "bg3.png", settings: "bg3.png", camera: "bg3.png",
+  for (const [module, file] of Object.entries({ auth: "bg1.png", settings: "bg3.png", camera: "bg3.png",
     calendar: "bg3.png", album: "bg3.png", catProfile: "bg3.png", gallery: "bg3.png" })) {
     assert.ok(config.moduleBackgroundConfig[module].image.endsWith(file));
   }

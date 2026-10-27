@@ -31,12 +31,12 @@ const FormField = forwardRef<TextInput, FormFieldProps>(function FormField({
       {onSelect ? (
         <Pressable onPress={onSelect} disabled={inactive} accessibilityRole="button"
           accessibilityLabel={`${accessibilityLabel ?? label}: ${props.value || props.placeholder || "Select"}`}
-          accessibilityHint={description} accessibilityState={{ disabled: inactive }}
+          accessibilityHint={description} accessibilityState={{ ...props.accessibilityState, disabled: inactive }}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           style={({ pressed }) => [styles.chrome, inactive && styles.inactiveSurface,
             focused && styles.focused, !!error && styles.invalid, styles.select, pressed && styles.pressed]}>
           <Text style={[styles.value, !props.value && styles.placeholder]}>{props.value || props.placeholder || "Select"}</Text>
-          <Ionicons name="chevron-down" size={dimensions.iconSmall} color={colors.textSecondary} />
+          <Ionicons name={props.accessibilityState?.expanded ? "chevron-up" : "chevron-down"} size={dimensions.iconSmall} color={colors.textSecondary} />
         </Pressable>
       ) : (
         <TextInput {...props} ref={ref} editable={!inactive} multiline={multiline}

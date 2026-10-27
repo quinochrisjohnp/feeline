@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { useRouter } from "expo-router";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import GoogleButton from "@/components/common/GoogleButton";
 import EmotionLogoGrid from "@/components/common/EmotionLogoGrid";
@@ -13,19 +13,16 @@ const Login = () => {
   const router = useRouter();
   const scroll = useRef<ScrollView>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
-  const illustrationRatio = 1122 / 1402;
+  const [contentHeight, setContentHeight] = useState(0);
   const logoSize = viewport.height > 0
     ? Math.max(0, Math.min(dimensions.logo, viewport.height * 0.26, viewport.width - spacing.lg * 2))
     : dimensions.logo;
-  const illustrationHeight = viewport.height > 0
-    ? Math.min(220, viewport.height * 0.23,
-      Math.max(0, Math.min(viewport.width, dimensions.contentMaxWidth) - spacing.lg * 2) * 0.75 / illustrationRatio)
-    : 160;
 
   return (
     <ScreenContainer module="auth" keyboardAware padded={false}>
       <ScrollView ref={scroll} style={styles.scroll} contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false} scrollEnabled={viewport.height > 0 && contentHeight > viewport.height + 1}
+        onContentSizeChange={(_, height) => setContentHeight(height)} bounces={false} alwaysBounceVertical={false}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
         onLayout={({ nativeEvent: { layout } }) => {
           // Restore the top after keyboard dismissal or a taller viewport.
@@ -34,11 +31,13 @@ const Login = () => {
             ? previous : { width: layout.width, height: layout.height });
         }}>
       <View style={styles.content}>
+        <View style={styles.branding}>
         <EmotionLogoGrid size={logoSize} />
         <Text style={styles.subtitle}>Recognize your cat&apos;s emotion</Text>
 
-        <Image source={require("@/components/images/illustration.png")} resizeMode="contain"
-          style={[styles.illustration, { width: illustrationHeight * illustrationRatio, height: illustrationHeight }]} accessible={false} importantForAccessibility="no" />
+        </View>
+
+        <View style={styles.controls}>
 
         <GoogleButton onPress={signIn} loading={isSigningIn} />
 
@@ -55,6 +54,7 @@ const Login = () => {
             <Text style={styles.termsLink}>Privacy Policy</Text>
           </TouchableOpacity>
         </View>
+        </View>
       </View>
       </ScrollView>
     </ScreenContainer>
@@ -67,8 +67,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1, width: "100%", maxWidth: dimensions.contentMaxWidth, alignSelf: "center",
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  content: { flexGrow: 1, alignItems: "center", justifyContent: "center" },
-  title: { ...typography.display, color: colors.textPrimary, marginTop: spacing.md },
+  content: { flexGrow: 1, justifyContent: "space-between", gap: spacing.lg },
+  branding: { alignItems: "center" },
+  controls: { width: "100%", alignItems: "center" },
   subtitle: {
     ...typography.body,
     fontFamily: fontFamily.body,
@@ -77,8 +78,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     textAlign: "center",
   },
-  illustration: { marginBottom: spacing.sm },
-  mockNote: { ...typography.caption, color: colors.textSecondary, textAlign: "center", marginTop: spacing.sm },
   error: { ...typography.caption, color: colors.danger, marginTop: spacing.sm, textAlign: "center" },
   terms: {
     ...typography.caption,

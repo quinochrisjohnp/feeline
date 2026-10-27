@@ -15,7 +15,12 @@ function cameraHarness({capture=async()=>({uri:'file:///cache/cat.jpg'}),gallery
  'expo-image-picker':{launchImageLibraryAsync:async o=>{requests.push(o);return gallery();}},
  'react-native':{StyleSheet:{create:s=>s},AppState:{currentState:'active',addEventListener:()=>({remove(){}})},Linking:{openSettings:async()=>{settings++;}},Platform:{OS:'android'},View:'View',Text:'Text',TouchableOpacity:'TouchableOpacity',ScrollView:'ScrollView',ActivityIndicator:'ActivityIndicator'}
  }});
- screen.render();let cleanup=screen.focus[0]();const render=()=>screen.render();
+ screen.render();let cleanup=screen.focus[0]();const render=()=>{
+ const tree=screen.render();
+ const surface=nodes(tree).find(n=>n.props?.testID==='camera-preview-surface');
+ if(surface) surface.props.onLayout({nativeEvent:{layout:{width:390,height:844}}});
+ return screen.render();
+};
  return {render,routes,uploads,requests,
  ready:()=>{const preview=find(render(),'CameraView');preview.props.ref.current={takePictureAsync:capture};preview.props.onCameraReady();},
  capture:()=>find(render(),'/CaptureButton').props.onPress(),
@@ -46,7 +51,7 @@ test('leaving cancels late native input and API response navigation',async()=>{
  for(const stage of ['camera','gallery','upload']){const late=deferred();const c=cameraHarness(stage==='camera'?{capture:()=>late.promise}:stage==='gallery'?{gallery:()=>late.promise}:{upload:()=>late.promise});c.ready();const run=stage==='gallery'?c.gallery():c.capture();await Promise.resolve();c.blur();assert.equal(find(c.render(),'CameraView'),undefined);c.focus();late.resolve(stage==='camera'?{uri:'file:///late.jpg'}:stage==='gallery'?{canceled:false,assets:[{uri:'file:///late.jpg'}]}:service.parseDetectionResponse(fixture()));await run;assert.equal(c.routes.length,0);assert.equal(find(c.render(),'/CaptureButton').props.disabled,true);}
 });
 test('returning remounts the full-screen preview and permits a second capture',async()=>{
- const c=cameraHarness();const first=find(c.render(),'CameraView');assert.ok(first);c.ready();await c.capture();c.blur();assert.equal(find(c.render(),'CameraView'),undefined);c.focus();const second=find(c.render(),'CameraView');assert.ok(second);assert.equal(find(c.render(),'/CaptureButton').props.disabled,true);assert.deepEqual(second.props.style,first.props.style);c.ready();await c.capture();assert.equal(c.routes.length,2);
+ const c=cameraHarness();const first=find(c.render(),'CameraView');assert.ok(first);c.ready();await c.capture();c.blur();assert.equal(find(c.render(),'CameraView'),undefined);c.focus();const second=find(c.render(),'CameraView');assert.ok(second);assert.equal(find(c.render(),'/CaptureButton').props.disabled,true);assert.deepEqual(second.props.style,first.props.style);assert.notEqual(second.key,first.key);assert.equal(second.props.style.width,390);assert.equal(second.props.style.height,844);c.ready();await c.capture();assert.equal(c.routes.length,2);
 });
 test('permission states require explicit action and keep gallery available; mount errors retry',async()=>{
  for(const permission of [null,{granted:false,canAskAgain:true},{granted:false,canAskAgain:false}]){const c=cameraHarness({permission});assert.equal(find(c.render(),'CameraView'),undefined);assert.equal(c.requested,0);await c.gallery();assert.equal(c.requests.length,1);if(permission){nodes(c.render()).find(n=>n.props?.label===(permission.canAskAgain?'Allow Camera Access':'Open Settings')).props.onPress();assert.equal(permission.canAskAgain?c.requested:c.settings,1);}}

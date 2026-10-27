@@ -4,7 +4,6 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -238,57 +237,15 @@ export default function GiveFeedback() {
             value={values.subject}
             error={errors.subject}
             placeholder="Select a subject"
+            accessibilityState={{ expanded: subjectVisible }}
             onSelect={() => {
               Keyboard.dismiss();
-              setSubjectVisible(true);
+              setSubjectVisible(current => !current);
             }}
           />
 
-          {/* MESSAGE */}
-          <FormField
-            ref={messageRef}
-            label="Message"
-            maxLength={255}
-            value={values.message}
-            error={errors.message}
-            onChangeText={(text) => change("message", text)}
-            placeholder="Tell us what's on your mind..."
-            multiline
-            scrollEnabled
-            style={styles.message}
-          />
-
-          {/* SUBMIT */}
-          <Button
-            label={loading ? "Submitting..." : "Submit"}
-            onPress={handleSubmit}
-            disabled={loading || success}
-            variant="primary"
-            loading={loading}
-            style={styles.submit}
-          />
-        </DocumentSurface>
-      </ScrollView>
-
-      {/* SUBJECT SELECTION MODAL */}
-      <Modal
-        visible={subjectVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSubjectVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setSubjectVisible(false)}
-            accessibilityLabel="Close subject selection"
-          />
-
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Select a Subject
-            </Text>
-
+          {subjectVisible && (
+            <View style={styles.subjectDropdown} accessibilityLabel="Subject choices">
             {SUBJECT_OPTIONS.map((option) => (
               <Pressable
                 key={option}
@@ -327,14 +284,36 @@ export default function GiveFeedback() {
               </Pressable>
             ))}
 
-            <Button
-              label="Cancel"
-              variant="text"
-              onPress={() => setSubjectVisible(false)}
-            />
-          </View>
-        </View>
-      </Modal>
+
+            </View>
+          )}
+
+          {/* MESSAGE */}
+          <FormField
+            ref={messageRef}
+            label="Message"
+            onFocus={() => setSubjectVisible(false)}
+            maxLength={255}
+            value={values.message}
+            error={errors.message}
+            onChangeText={(text) => change("message", text)}
+            placeholder="Tell us what's on your mind..."
+            multiline
+            scrollEnabled
+            style={styles.message}
+          />
+
+          {/* SUBMIT */}
+          <Button
+            label={loading ? "Submitting..." : "Submit"}
+            onPress={handleSubmit}
+            disabled={loading || success}
+            variant="primary"
+            loading={loading}
+            style={styles.submit}
+          />
+        </DocumentSurface>
+      </ScrollView>
 
       {/* SUCCESS MODAL */}
       <ConfirmModal
@@ -387,24 +366,13 @@ const styles = StyleSheet.create({
     maxHeight: 240,
   },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
-    justifyContent: "center",
-    paddingHorizontal: spacing.lg,
-  },
-
-  modalContent: {
+  subjectDropdown: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-  },
-
-  modalTitle: {
-    ...typography.subheading,
-    fontFamily: fontFamily.heading,
-    color: colors.textPrimary,
-    textAlign: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: spacing.xxs,
+    marginTop: -spacing.xs,
     marginBottom: spacing.md,
   },
 
