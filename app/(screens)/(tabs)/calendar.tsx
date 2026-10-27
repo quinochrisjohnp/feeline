@@ -117,6 +117,8 @@ export default function Calendar() {
                 <Ionicons name="chevron-down" size={16} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
+            <WellnessCalendarSection date={selectedDate} catId={filterId} blocked={filterVisible}
+              onOpenContext={(date, catId) => { selectDate(date); setSelectedCatId(catId); }} />
             {birthdays.map((cat) => (
               <View key={cat.id} style={styles.birthday} accessible accessibilityLabel={`${cat.name}, Birthday, All Day`}>
                 <Ionicons name="gift-outline" size={22} color={colors.textPrimary} />
@@ -124,8 +126,6 @@ export default function Calendar() {
                 <Text style={styles.allDay}>All Day</Text>
               </View>
             ))}
-            <WellnessCalendarSection date={selectedDate} catId={filterId} blocked={filterVisible}
-              onOpenContext={(date, catId) => { selectDate(date); setSelectedCatId(catId); }} />
             {records.map((record) => (
               <DetectionListRow key={record.id} catName={selectCatForDetection(state, record)?.name ?? "Unknown Cats"}
                 emotion={record.emotion} time={formatTime(record.recordedAt)}
