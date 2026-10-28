@@ -110,8 +110,11 @@ test("About and Feedback have a safe internal Settings return; legal content rem
   }
   const about = JSON.stringify(mount("app/(screens)/settings-about.tsx").render());
   assert.match(about, /observable emotional cues/);
-  assert.match(about, /uses AI-based image interpretation/);
-  for (const [file, count] of [["settings-privacy", 7], ["settings-terms", 9]]) {
+  assert.match(about, /connected AI service/);
+  assert.match(about, /Puspin/);
+  assert.match(about, /not a guarantee of accuracy/);
+  assert.match(about, /does not diagnose illness/);
+  for (const [file, count] of [["settings-privacy", 8], ["settings-terms", 12]]) {
     const tree = mount(`app/(screens)/${file}.tsx`).render();
     assert.equal(nodes(tree).filter((node) => node.type === "@/components/common/PolicySection").length, count);
     assert.ok(find(tree, "/LegalScreen"));

@@ -20,7 +20,7 @@ export function detectionOutcomeNotice(result: { status: import("@/services/dete
   // Both valid single-cat failures share one user-facing outcome; API statuses stay intact.
   const unclearEmotion = ["Emotion unclear", "FeELINE detected a cat but could not confidently determine its emotion. Please try another clear photo."];
   const messages = {
-    rejected_non_cat: ["No cat detected", "FeELINE can only analyze photos containing one real domestic cat. Please take or upload another photo."],
+    rejected_non_cat: ["We couldn’t find a cat in this photo", "Make sure one cat is clearly visible, well-lit, and facing the camera, then try again."],
     rejected_multiple_cats: ["Multiple cats detected", validCount ? "FeELINE detected " + count + " cats in this image. Please use a photo containing only one cat." : "FeELINE detected multiple cats in this image. Please use a photo containing only one cat."],
     cannot_predict: unclearEmotion,
     low_confidence: unclearEmotion,
