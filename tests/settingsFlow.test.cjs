@@ -7,15 +7,15 @@ const profile = { firstName: "Demo", lastName: "User", email: "demo.user@feeline
 const auth = (signOut = async () => {}, value = profile) => ({ "@/context/AuthContext": { useAuth: () => ({ profile: value, signOut }) } });
 const row = (tree, label) => nodes(tree).find((node) => node.props?.label === label);
 
-test("Settings uses session account data, keeps the five menu destinations, and cancels logout without side effects", () => {
+test("Settings shows its title, keeps account management and menu destinations, and cancels logout without side effects", () => {
   const routes = [];
   let calls = 0;
   const screen = mount(settingsFile, { dependencies: auth(async () => { calls++; }), router: { push: (route) => routes.push(route) } });
   const tree = screen.render();
-  assert.ok(nodes(tree).some((node) => node.props?.children === profile.email));
-  assert.ok(nodes(tree).some((node) => node.props?.children === "Demo User"));
-  for (const name of ["About", "Give us Feedback", "Privacy Policy", "Terms and Conditions"]) row(tree, name).props.onPress();
-  assert.deepEqual(routes, ["/settings-about", "/settings-feedback", "/settings-privacy", "/settings-terms"]);
+  assert.ok(nodes(tree).some((node) => node.props?.children === "Settings"));
+  assert.equal(nodes(tree).some((node) => node.props?.children === profile.email), false);
+  for (const name of ["Account Management", "About", "Give us Feedback", "Privacy Policy", "Terms and Conditions"]) row(tree, name).props.onPress();
+  assert.deepEqual(routes, ["/settings-account", "/settings-about", "/settings-feedback", "/settings-privacy", "/settings-terms"]);
   row(tree, "Log out").props.onPress();
   assert.equal(calls, 0);
   assert.equal(modal(screen.render(), "Log out?").props.visible, true);
@@ -23,7 +23,7 @@ test("Settings uses session account data, keeps the five menu destinations, and 
   assert.equal(modal(screen.render(), "Log out?").props.visible, false);
   assert.equal(calls, 0);
   const missing = mount(settingsFile, { dependencies: auth(undefined, null) }).render();
-  assert.ok(nodes(missing).some((node) => node.props?.children === "No email available"));
+  assert.ok(nodes(missing).some((node) => node.props?.children === "Settings"));
 });
 
 test("confirmed logout waits for the existing session clear, prevents duplicate taps, and allows retry after failure", async () => {
