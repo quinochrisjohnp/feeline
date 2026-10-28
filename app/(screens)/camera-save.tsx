@@ -1,3 +1,5 @@
+import CatProfileLimitModal from "@/components/cats/CatProfileLimitModal";
+import { MAX_CAT_PROFILES } from "@/constants/catLimits";
 import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 
 import React, { useCallback, useRef, useState } from "react";
@@ -98,6 +100,7 @@ export default function CameraSave() {
     string | null
   >(null);
 
+  const [limitVisible, setLimitVisible] = useState(false);
   const [addingCat, setAddingCat] = useState(false);
   const [catSavedNotice, setCatSavedNotice] = useState(false);
 
@@ -229,6 +232,7 @@ export default function CameraSave() {
       return;
     }
 
+    if (state.cats.filter(cat => cat.id !== "unknown-cats").length >= MAX_CAT_PROFILES) { setLimitVisible(true); return; }
     catSubmitted.current = false;
     setAddingCat(true);
   };
@@ -404,6 +408,7 @@ export default function CameraSave() {
         onCancel={() => setStep("select")}
       />
 
+      <CatProfileLimitModal visible={limitVisible} onClose={() => setLimitVisible(false)} />
       <AddCatForm
         visible={addingCat}
         onCancel={() => setAddingCat(false)}
