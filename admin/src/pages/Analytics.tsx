@@ -4,7 +4,6 @@ import {
   Activity,
   ChartNoAxesCombined,
   Percent,
-  ScanFace,
 } from "lucide-react";
 import {
   Bar,
@@ -39,10 +38,10 @@ type AnalyticsData = {
 const API_URL = import.meta.env.VITE_API_URL;
 
 const EMOTION_COLORS: Record<string, string> = {
-  Angry: "#ef4444",
-  Neutral: "#64748b",
-  Fearful: "#f59e0b",
-  Happy: "#22c55e",
+  Angry: "#E97866",
+  Neutral: "#FEDEA1",
+  Fearful: "#B7A6D9",
+  Happy: "#A8D8B9",
 };
 
 function formatDate(date: string) {
@@ -137,13 +136,6 @@ export default function Analytics() {
 
   const summaryCards = [
     {
-      title: "Total Detections",
-      value: analytics?.totalDetections.toLocaleString() ?? "0",
-      icon: ScanFace,
-      iconBg: "bg-purple-100",
-      iconColor: "text-purple-600",
-    },
-    {
       title: "Average Confidence",
       value:
         analytics?.averageConfidence == null
@@ -166,17 +158,17 @@ export default function Analytics() {
     <div className="space-y-6">
       {/* Page heading */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h2 className="text-xl font-semibold text-ink-900">
           Analytics & Reports
-        </h1>
+        </h2>
 
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-ink-500">
           Analyze FeELINE system activity and emotion detection trends.
         </p>
       </div>
 
       {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-ink-200 bg-white p-12 text-center text-sm text-ink-500">
           Loading analytics...
         </div>
       ) : error ? (
@@ -189,17 +181,17 @@ export default function Analytics() {
       ) : analytics ? (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {summaryCards.map((card) => {
               const Icon = card.icon;
 
               return (
                 <div
                   key={card.title}
-                  className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                  className="rounded-xl border border-ink-200 bg-white p-6 shadow-sm"
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-slate-500">
+                    <p className="text-sm font-medium text-ink-500">
                       {card.title}
                     </p>
 
@@ -208,7 +200,7 @@ export default function Analytics() {
                     </div>
                   </div>
 
-                  <p className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+                  <p className="mt-4 text-3xl font-bold tracking-tight text-ink-900">
                     {card.value}
                   </p>
                 </div>
@@ -219,20 +211,20 @@ export default function Analytics() {
           {/* Charts */}
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             {/* Emotion distribution */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="min-w-0 rounded-xl border border-ink-200 bg-white p-6 shadow-sm">
               <div className="mb-6 flex items-center gap-2">
                 <ChartNoAxesCombined
                   size={20}
-                  className="text-purple-600"
+                  className="text-brand-600"
                 />
 
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-ink-900">
                   Emotion Distribution
                 </h2>
               </div>
 
               {analytics.emotionDistribution.length === 0 ? (
-                <p className="py-16 text-center text-sm text-slate-500">
+                <p className="py-16 text-center text-sm text-ink-500">
                   No emotion data available.
                 </p>
               ) : (
@@ -249,7 +241,7 @@ export default function Analytics() {
                     >
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#e2e8f0"
+                        stroke="#EFE1CE"
                         vertical={false}
                       />
 
@@ -276,7 +268,7 @@ export default function Analytics() {
                               key={item.emotion}
                               fill={
                                 EMOTION_COLORS[item.emotion] ??
-                                "#8b5cf6"
+                                "#91613D"
                               }
                             />
                           )
@@ -289,17 +281,17 @@ export default function Analytics() {
             </div>
 
             {/* Daily detection trends */}
-            <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="min-w-0 rounded-xl border border-ink-200 bg-white p-6 shadow-sm">
               <div className="mb-6 flex items-center gap-2">
-                <Activity size={20} className="text-purple-600" />
+                <Activity size={20} className="text-brand-600" />
 
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-ink-900">
                   Daily Detection Trends
                 </h2>
               </div>
 
               {analytics.dailyTrends.length === 0 ? (
-                <p className="py-16 text-center text-sm text-slate-500">
+                <p className="py-16 text-center text-sm text-ink-500">
                   No detection trend data available.
                 </p>
               ) : (
@@ -316,7 +308,7 @@ export default function Analytics() {
                     >
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#e2e8f0"
+                        stroke="#EFE1CE"
                         vertical={false}
                       />
 
@@ -342,7 +334,7 @@ export default function Analytics() {
                         type="monotone"
                         dataKey="count"
                         name="Detections"
-                        stroke="#8b5cf6"
+                        stroke="#91613D"
                         strokeWidth={3}
                         dot={{ r: 3 }}
                         activeDot={{ r: 6 }}
@@ -354,7 +346,7 @@ export default function Analytics() {
             </div>
           </div>
 
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-500">
             Analytics are calculated from recorded FeELINE emotion
             detections. Daily trends use UTC dates and show days with
             recorded activity.

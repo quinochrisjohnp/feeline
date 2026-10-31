@@ -1,3 +1,5 @@
+import Pagination from "@/components/Pagination";
+import { paginate } from "@/lib/pagination";
 
 import { useEffect, useMemo, useState } from "react";
 import { Cat, Search } from "lucide-react";
@@ -23,6 +25,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 export default function Cats() {
   const [cats, setCats] = useState<CatRecord[]>([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -118,32 +121,34 @@ export default function Cats() {
     });
   }
 
+  const pagination = paginate(filteredCats, page);
+
   return (
     <div className="space-y-6">
       {/* Page heading */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-bold tracking-tight text-ink-900">
           Cat Management
         </h1>
 
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-ink-500">
           View registered cats and their owners in FeELINE.
         </p>
       </div>
 
       {/* Cats table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-ink-200 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <Cat size={20} className="text-purple-600" />
+              <Cat size={20} className="text-brand-600" />
 
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-ink-900">
                 Registered Cats
               </h2>
             </div>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-ink-500">
               {loading
                 ? "Loading cats..."
                 : `${cats.length} total registered cats`}
@@ -153,22 +158,22 @@ export default function Cats() {
           <div className="relative w-full sm:w-72">
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
             />
 
             <input
               type="text"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               placeholder="Search cats or owners..."
               aria-label="Search cats or owners"
-              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+              className="w-full rounded-lg border border-ink-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-sm text-slate-500">
+          <div className="p-12 text-center text-sm text-ink-500">
             Loading registered cats...
           </div>
         ) : error ? (
@@ -178,7 +183,7 @@ export default function Cats() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-500">
                 <tr>
                   <th className="px-6 py-4 font-semibold">Cat</th>
                   <th className="px-6 py-4 font-semibold">Breed</th>
@@ -189,8 +194,8 @@ export default function Cats() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
-                {filteredCats.map((cat) => {
+              <tbody className="divide-y divide-ink-100">
+                {pagination.items.map((cat) => {
                   const ownerName =
                     [
                       cat.profiles?.first_name,
@@ -202,7 +207,7 @@ export default function Cats() {
                   return (
                     <tr
                       key={cat.cat_id}
-                      className="transition hover:bg-slate-50"
+                      className="transition hover:bg-ink-50"
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -214,42 +219,42 @@ export default function Cats() {
                               className="h-10 w-10 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-600">
                               <Cat size={20} />
                             </div>
                           )}
 
-                          <span className="font-medium text-slate-900">
+                          <span className="font-medium text-ink-900">
                             {cat.name}
                           </span>
                         </div>
                       </td>
 
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-ink-600">
                         {cat.breed || "N/A"}
                       </td>
 
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-ink-600">
                         {cat.sex || "N/A"}
                       </td>
 
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-ink-600">
                         {cat.age ?? "N/A"}
                       </td>
 
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-slate-900">
+                          <p className="font-medium text-ink-900">
                             {ownerName}
                           </p>
 
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-ink-500">
                             {cat.profiles?.email ?? "N/A"}
                           </p>
                         </div>
                       </td>
 
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-6 py-4 text-ink-500">
                         {formatDate(cat.created_at)}
                       </td>
                     </tr>
@@ -259,12 +264,13 @@ export default function Cats() {
             </table>
 
             {filteredCats.length === 0 && (
-              <div className="p-12 text-center text-sm text-slate-500">
+              <div className="p-12 text-center text-sm text-ink-500">
                 No cats found.
               </div>
             )}
           </div>
         )}
+        {!loading && !error && <Pagination {...pagination} onPageChange={setPage} />}
       </div>
     </div>
   );

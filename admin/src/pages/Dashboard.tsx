@@ -1,3 +1,4 @@
+import Analytics from "@/pages/Analytics";
 
 import { useEffect, useState } from "react";
 import {
@@ -94,8 +95,8 @@ export default function Dashboard() {
       title: "Total Cats",
       value: stats?.totalCats,
       icon: Cat,
-      iconBg: "bg-purple-100",
-      iconColor: "text-purple-600",
+      iconBg: "bg-brand-100",
+      iconColor: "text-brand-600",
     },
     {
       title: "Emotion Detections",
@@ -117,27 +118,27 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Page heading */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-bold tracking-tight text-ink-900">
           Dashboard
         </h1>
 
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-ink-500">
           Welcome to the FeELINE Admin Dashboard.
         </p>
       </div>
 
       {/* Statistics heading */}
       <div className="flex items-center gap-2">
-        <LayoutDashboard size={20} className="text-purple-600" />
+        <LayoutDashboard size={20} className="text-brand-600" />
 
-        <h2 className="text-lg font-semibold text-slate-900">
+        <h2 className="text-lg font-semibold text-ink-900">
           Dashboard Overview
         </h2>
       </div>
 
       {/* Loading state */}
       {loading && (
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-ink-200 bg-white p-8 text-center text-sm text-ink-500">
           Loading dashboard statistics...
         </div>
       )}
@@ -161,10 +162,10 @@ export default function Dashboard() {
             return (
               <div
                 key={card.title}
-                className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-xl border border-ink-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-500">
+                  <p className="text-sm font-medium text-ink-500">
                     {card.title}
                   </p>
 
@@ -173,7 +174,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+                <p className="mt-4 text-3xl font-bold tracking-tight text-ink-900">
                   {card.value?.toLocaleString() ?? "—"}
                 </p>
               </div>
@@ -181,6 +182,7 @@ export default function Dashboard() {
           })}
         </div>
       )}
+      <Analytics />
     </div>
   );
 }

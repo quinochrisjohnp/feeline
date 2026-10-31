@@ -1,3 +1,5 @@
+import Pagination from "@/components/Pagination";
+import { paginate } from "@/lib/pagination";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -21,6 +23,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 export default function Users() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -109,32 +112,34 @@ export default function Users() {
     });
   }
 
+  const pagination = paginate(filteredUsers, page);
+
   return (
     <div className="space-y-6">
       {/* Page heading */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-bold tracking-tight text-ink-900">
           User Management
         </h1>
 
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-ink-500">
           View registered FeELINE users and account information.
         </p>
       </div>
 
       {/* Users table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-ink-200 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <UsersRound size={20} className="text-purple-600" />
+              <UsersRound size={20} className="text-brand-600" />
 
-              <h2 className="text-lg font-semibold text-slate-900">
+              <h2 className="text-lg font-semibold text-ink-900">
                 Registered Users
               </h2>
             </div>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-ink-500">
               {loading
                 ? "Loading users..."
                 : `${users.length} total registered accounts`}
@@ -144,22 +149,22 @@ export default function Users() {
           <div className="relative w-full sm:w-72">
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
             />
 
             <input
               type="text"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               placeholder="Search users..."
               aria-label="Search users"
-              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+              className="w-full rounded-lg border border-ink-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-sm text-slate-500">
+          <div className="p-12 text-center text-sm text-ink-500">
             Loading registered users...
           </div>
         ) : error ? (
@@ -169,7 +174,7 @@ export default function Users() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-500">
                 <tr>
                   <th className="px-6 py-4 font-semibold">User</th>
                   <th className="px-6 py-4 font-semibold">Email</th>
@@ -178,8 +183,8 @@ export default function Users() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
-                {filteredUsers.map((user) => {
+              <tbody className="divide-y divide-ink-100">
+                {pagination.items.map((user) => {
                   const fullName =
                     [user.first_name, user.last_name]
                       .filter(Boolean)
@@ -188,7 +193,7 @@ export default function Users() {
                   return (
                     <tr
                       key={user.profile_id}
-                      className="transition hover:bg-slate-50"
+                      className="transition hover:bg-ink-50"
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -200,18 +205,18 @@ export default function Users() {
                               className="h-10 w-10 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 font-semibold text-purple-600">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-600">
                               {fullName.charAt(0).toUpperCase()}
                             </div>
                           )}
 
-                          <span className="font-medium text-slate-900">
+                          <span className="font-medium text-ink-900">
                             {fullName}
                           </span>
                         </div>
                       </td>
 
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-ink-600">
                         {user.email}
                       </td>
 
@@ -219,8 +224,8 @@ export default function Users() {
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
                             user.role === "admin"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-slate-100 text-slate-600"
+                              ? "bg-brand-100 text-brand-700"
+                              : "bg-ink-100 text-ink-600"
                           }`}
                         >
                           {user.role === "admin" && (
@@ -231,7 +236,7 @@ export default function Users() {
                         </span>
                       </td>
 
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-6 py-4 text-ink-500">
                         {formatDate(user.created_at)}
                       </td>
                     </tr>
@@ -241,12 +246,13 @@ export default function Users() {
             </table>
 
             {filteredUsers.length === 0 && (
-              <div className="p-12 text-center text-sm text-slate-500">
+              <div className="p-12 text-center text-sm text-ink-500">
                 No users found.
               </div>
             )}
           </div>
         )}
+        {!loading && !error && <Pagination {...pagination} onPageChange={setPage} />}
       </div>
     </div>
   );

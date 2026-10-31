@@ -1,3 +1,5 @@
+import Pagination from "@/components/Pagination";
+import { paginate } from "@/lib/pagination";
 
 import { useEffect, useMemo, useState } from "react";
 import { Eye, MessageSquare, Search, X } from "lucide-react";
@@ -16,6 +18,15 @@ type FeedbackRecord = {
     email: string;
   } | null;
 };
+
+// Keep aligned with the mobile feedback form's subject choices.
+const SUBJECT_OPTIONS = [
+  "Bug Report",
+  "Feature Suggestion",
+  "Emotion Detection Concern",
+  "App Experience",
+  "Others",
+];
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -37,6 +48,8 @@ function formatDate(date: string | null) {
 export default function Feedback() {
   const [feedback, setFeedback] = useState<FeedbackRecord[]>([]);
   const [search, setSearch] = useState("");
+  const [subject, setSubject] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<FeedbackRecord | null>(null);
@@ -104,9 +117,11 @@ export default function Feedback() {
   const filteredFeedback = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    if (!query) return feedback;
+    if (!query && !subject) return feedback;
 
     return feedback.filter((item) => {
+      if (subject && item.subject !== subject) return false;
+      if (!query) return true;
       const name = [
         item.profiles?.first_name,
         item.profiles?.last_name,
@@ -122,53 +137,66 @@ export default function Feedback() {
         name,
       ].some((value) => value?.toLowerCase().includes(query));
     });
-  }, [feedback, search]);
+  }, [feedback, search, subject]);
+
+  const pagination = paginate(filteredFeedback, page);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-bold tracking-tight text-ink-900">
           Feedback Management
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-ink-500">
           Review and monitor feedback submitted by FeELINE users.
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-ink-200 p-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <MessageSquare size={20} className="text-purple-600" />
-              <h2 className="text-lg font-semibold text-slate-900">
+              <MessageSquare size={20} className="text-brand-600" />
+              <h2 className="text-lg font-semibold text-ink-900">
                 User Feedback
               </h2>
             </div>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-ink-500">
               {loading
                 ? "Loading feedback..."
                 : `${feedback.length} total feedback submissions`}
             </p>
           </div>
 
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="w-full sm:w-64">
+              <label htmlFor="feedback-subject" className="mb-1 block text-sm font-medium text-ink-600">Subject</label>
+              <select id="feedback-subject" value={subject}
+                onChange={(event) => { setSubject(event.target.value); setPage(1); }}
+                className="min-h-11 w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm text-ink-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100">
+                <option value="">All subjects</option>
+                {SUBJECT_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </div>
           <div className="relative w-full sm:w-72">
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
             />
             <input
               type="text"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               placeholder="Search feedback..."
               aria-label="Search feedback"
-              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+              className="w-full rounded-lg border border-ink-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
             />
+          </div>
           </div>
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-sm text-slate-500">
+          <div className="p-12 text-center text-sm text-ink-500">
             Loading feedback records...
           </div>
         ) : error ? (
@@ -178,7 +206,7 @@ export default function Feedback() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-ink-50 text-xs uppercase tracking-wide text-ink-500">
                 <tr>
                   <th className="px-6 py-4 font-semibold">User</th>
                   <th className="px-6 py-4 font-semibold">Title</th>
@@ -188,8 +216,8 @@ export default function Feedback() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
-                {filteredFeedback.map((item) => {
+              <tbody className="divide-y divide-ink-100">
+                {pagination.items.map((item) => {
                   const name =
                     [
                       item.profiles?.first_name,
@@ -201,26 +229,26 @@ export default function Feedback() {
                   return (
                     <tr
                       key={item.feedback_id}
-                      className="transition hover:bg-slate-50"
+                      className="transition hover:bg-ink-50"
                     >
                       <td className="px-6 py-4">
-                        <div className="font-medium text-slate-900">
+                        <div className="font-medium text-ink-900">
                           {name}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-ink-500">
                           {item.email}
                         </div>
                       </td>
 
-                      <td className="px-6 py-4 text-slate-700">
+                      <td className="px-6 py-4 text-ink-700">
                         {item.title || "Untitled"}
                       </td>
 
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-ink-600">
                         {item.subject || "No subject"}
                       </td>
 
-                      <td className="whitespace-nowrap px-6 py-4 text-slate-500">
+                      <td className="whitespace-nowrap px-6 py-4 text-ink-500">
                         {formatDate(item.created_at)}
                       </td>
 
@@ -228,7 +256,7 @@ export default function Feedback() {
                         <button
                           type="button"
                           onClick={() => setSelected(item)}
-                          className="inline-flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 font-medium text-purple-700 transition hover:bg-purple-100"
+                          className="inline-flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 font-medium text-brand-700 transition hover:bg-brand-100"
                         >
                           <Eye size={16} />
                           View
@@ -241,7 +269,7 @@ export default function Feedback() {
             </table>
 
             {filteredFeedback.length === 0 && (
-              <div className="p-12 text-center text-sm text-slate-500">
+              <div className="p-12 text-center text-sm text-ink-500">
                 {feedback.length === 0
                   ? "No feedback submissions yet."
                   : "No matching feedback found."}
@@ -249,6 +277,7 @@ export default function Feedback() {
             )}
           </div>
         )}
+        {!loading && !error && <Pagination {...pagination} onPageChange={setPage} />}
       </div>
 
       {selected && (
@@ -270,11 +299,11 @@ export default function Feedback() {
               <div>
                 <h2
                   id="feedback-dialog-title"
-                  className="text-xl font-semibold text-slate-900"
+                  className="text-xl font-semibold text-ink-900"
                 >
                   Feedback Details
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-ink-500">
                   Submitted {formatDate(selected.created_at)}
                 </p>
               </div>
@@ -283,7 +312,7 @@ export default function Feedback() {
                 type="button"
                 onClick={() => setSelected(null)}
                 aria-label="Close feedback details"
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                className="rounded-lg p-2 text-ink-500 hover:bg-ink-100"
               >
                 <X size={20} />
               </button>
@@ -291,29 +320,29 @@ export default function Feedback() {
 
             <div className="mt-6 space-y-4 text-sm">
               <div>
-                <p className="font-semibold text-slate-500">Email</p>
-                <p className="mt-1 text-slate-900">
+                <p className="font-semibold text-ink-500">Email</p>
+                <p className="mt-1 text-ink-900">
                   {selected.email}
                 </p>
               </div>
 
               <div>
-                <p className="font-semibold text-slate-500">Title</p>
-                <p className="mt-1 text-slate-900">
+                <p className="font-semibold text-ink-500">Title</p>
+                <p className="mt-1 text-ink-900">
                   {selected.title || "Untitled"}
                 </p>
               </div>
 
               <div>
-                <p className="font-semibold text-slate-500">Subject</p>
-                <p className="mt-1 text-slate-900">
+                <p className="font-semibold text-ink-500">Subject</p>
+                <p className="mt-1 text-ink-900">
                   {selected.subject || "No subject"}
                 </p>
               </div>
 
               <div>
-                <p className="font-semibold text-slate-500">Message</p>
-                <div className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 leading-relaxed text-slate-700">
+                <p className="font-semibold text-ink-500">Message</p>
+                <div className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-ink-50 p-4 leading-relaxed text-ink-700">
                   {selected.message}
                 </div>
               </div>
@@ -323,7 +352,7 @@ export default function Feedback() {
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700"
+                className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"
               >
                 Close
               </button>

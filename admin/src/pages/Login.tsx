@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
-import { Cat, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -78,29 +78,29 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
+    <div className="flex min-h-screen items-center justify-center bg-ink-50 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-ink-200 bg-white p-8 shadow-lg">
         <div className="flex flex-col items-center text-center">
-          <div className="mb-5 rounded-2xl bg-purple-100 p-4">
-            <Cat size={40} className="text-purple-600" />
+          <div className="mb-5 rounded-2xl bg-background p-2">
+            <img src="/feeline-logo.png" alt="FeELINE logo" className="h-20 w-20 rounded-2xl object-contain" />
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-bold tracking-tight text-ink-900">
             FeELINE
           </h1>
 
-          <p className="mt-2 text-sm font-medium text-purple-600">
+          <p className="mt-2 text-sm font-medium text-brand-600">
             Admin Dashboard
           </p>
 
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-ink-500">
             Sign in with your authorized Google account to continue.
           </p>
         </div>
 
         <div className="mt-8 flex flex-col items-center gap-4">
           {loading ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-ink-500">
               Verifying administrator access...
             </p>
           ) : (
@@ -133,7 +133,7 @@ export default function Login() {
           )}
         </div>
 
-        <div className="mt-8 flex items-center justify-center gap-2 border-t border-slate-100 pt-5 text-xs text-slate-400">
+        <div className="mt-8 flex items-center justify-center gap-2 border-t border-ink-100 pt-5 text-xs text-ink-400">
           <ShieldCheck size={16} />
           <span>Authorized FeELINE administrators only</span>
         </div>
