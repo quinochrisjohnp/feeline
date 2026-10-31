@@ -116,6 +116,12 @@ export default function EmotionResultCard({
         <>
           <Text style={styles.sectionTitle}>Recommended Actions:</Text>
 
+          {!isPlaceholder && typeof confidence === "number" && Number.isFinite(confidence) && confidence >= 0 && confidence < 50 ? (
+            <Text style={styles.caution} testID="confidence-caution">
+              Confidence is below 50%. Interpret this result with caution and consider taking another clear photo.
+            </Text>
+          ) : null}
+
           {actions.length > 0 ? (
             actions.map((action, index) => (
               <View key={`${index}-${action}`} style={styles.actionRow}>
@@ -217,6 +223,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.label,
     color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+
+  caution: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
+    padding: spacing.sm,
     marginBottom: spacing.sm,
   },
 

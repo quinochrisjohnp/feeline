@@ -46,7 +46,7 @@ export default function WellnessReminderEditor({ cat, alert, reminder, onClose, 
     <Text style={styles.body}>{wellnessGuidance(cat.name, alert.rule).summary}</Text>
     <Text style={styles.body}>{date.toLocaleString()}</Text>
     {reminder ? <Text style={styles.caption}>Status: <Text style={[styles.status, reminder.status === "acknowledged" && styles.completedStatus]}>{reminder.status === "acknowledged" ? "Completed" : "Scheduled"}</Text></Text> : null}
-    {Platform.OS === "web" ? <TextInput accessibilityLabel="Reminder date and time (local)"
+    {Platform.OS === "web" ? <TextInput maxLength={16} accessibilityLabel="Reminder date and time (local)"
       placeholder="YYYY-MM-DDTHH:mm" defaultValue={date.getFullYear() + "-" + String(date.getMonth()+1).padStart(2,"0") + "-" + String(date.getDate()).padStart(2,"0") + "T" + String(date.getHours()).padStart(2,"0") + ":" + String(date.getMinutes()).padStart(2,"0")}
       onChangeText={value => setDate(new Date(value))} style={styles.input} /> : <View style={styles.actions}>
       <FormField label="Date" value={date.toLocaleDateString()} onSelect={() => pick("date")} disabled={busy} />

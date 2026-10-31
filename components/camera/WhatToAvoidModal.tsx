@@ -35,7 +35,7 @@ export default function WhatToAvoidModal({ visible, onClose }: WhatToAvoidModalP
 
       <View style={[styles.grid, !compact && { flex: 0 }]}>
         {[CATEGORIES.slice(0, 2), CATEGORIES.slice(2, 4), CATEGORIES.slice(4)].map((row, index) => (
-          <View key={index} style={[styles.row, !compact && { flex: 0, height: 144 }]}>
+          <View key={index} style={[styles.row, !compact && { flex: 0, height: 175 }]}>
           {row.map((category) => (
           <View key={category.key} style={styles.card}>
             <View style={styles.cardImage}>
@@ -48,8 +48,7 @@ export default function WhatToAvoidModal({ visible, onClose }: WhatToAvoidModalP
         ))}
       </View>
 
-      <Text style={styles.note}>Avoid photos with multiple cats. FeELINE needs one clearly visible domestic cat in each image.</Text>
-      <Text style={styles.note}>Examples illustrate image limitations. Physical differences do not make a cat invalid;
+      <Text style={styles.note}>Avoid photos with multiple cats. FeELINE needs one clearly visible domestic cat in each image. Examples illustrate image limitations. Physical differences do not make a cat invalid;
         the system may have difficulty interpreting some images.</Text>
       <Pressable style={styles.preference} accessibilityRole="checkbox" accessibilityLabel="Don’t show automatically again"
         accessibilityState={{ checked: !preference.enabled, disabled: !preference.ready || preference.saving }}
@@ -69,7 +68,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, marginBottom: spacing.xs },
   title: { ...typography.subheading, color: colors.textPrimary, flexShrink: 1, textAlign: "center" },
   subtitle: { ...typography.caption, color: colors.textMuted, textAlign: "center", marginBottom: spacing.xs },
-  grid: { flex: 1, minHeight: 0, gap: spacing.xxs },
+  grid: { flex: 1, minHeight: 0, gap: spacing.xxs, marginBottom: spacing.md },
   row: { flex: 1, minHeight: 0, flexDirection: "row", justifyContent: "center", gap: spacing.xs },
   card: { width: "48%", minHeight: 0, alignItems: "center" },
   cardImage: {

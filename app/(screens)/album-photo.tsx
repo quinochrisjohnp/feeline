@@ -37,15 +37,18 @@ import {
   selectDetectionForImage,
 } from "@/context/catDataSelectors";
 
-
-
 import {
   colors,
   dimensions,
+  radii,
   fontFamily,
   spacing,
   typography,
 } from "@/constants/theme";
+
+import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
+
 
 export default function AlbumPhoto() {
   const [nativeNotice, setNativeNotice] = useState(false);
@@ -97,6 +100,8 @@ export default function AlbumPhoto() {
   // Prevent duplicate deletion requests.
   const [deleting, setDeleting] = useState(false);
   const deleteLock = useRef(false);
+  // Prevent duplicate download requests.
+  const downloading = useRef(false);
 
   // Preserve the parent Album for navigation.
   const [parentAlbumId] = useState(
@@ -145,14 +150,88 @@ export default function AlbumPhoto() {
     }, [backToAlbum])
   );
 
-  // Download functionality is still a placeholder.
-  const handleDownload = () => {
-    setNativeNotice(true);
-    Alert.alert(
-      "Download unavailable",
-      "Downloading photos is not available yet. No file was downloaded to your device.",
-      [{ text: "OK", onPress: () => setNativeNotice(false) }], { cancelable: true, onDismiss: () => setNativeNotice(false) }
-    );
+
+  const handleDownload = async () => {
+    if (!image?.imageUri) {
+      Alert.alert(
+        "Download Failed",
+        "No cat picture is available to download."
+      );
+      return;
+    }
+
+    if (downloading.current) return;
+    downloading.current = true;
+
+    try {
+      const imageUrl = image.imageUri;
+
+      if (!/^https?:\/\//i.test(imageUrl)) {
+        throw new Error(
+          "The image URL is invalid or unavailable."
+        );
+      }
+
+      const permission =
+        await MediaLibrary.requestPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Please allow FeELINE to access your photos so it can save the image to your Gallery."
+        );
+        return;
+      }
+
+      const extension =
+        imageUrl
+          .split("?")[0]
+          .match(/\.(jpg|jpeg|png|webp)$/i)?.[1] ??
+        "jpg";
+
+      const localUri =
+        `${FileSystem.cacheDirectory}feeline-cat-${Date.now()}.${extension}`;
+
+      const result = await FileSystem.downloadAsync(
+        imageUrl,
+        localUri
+      );
+
+      if (
+        result.status < 200 ||
+        result.status >= 300
+      ) {
+        throw new Error(
+          `Image download failed (HTTP ${result.status}).`
+        );
+      }
+
+      await MediaLibrary.saveToLibraryAsync(
+        result.uri
+      );
+
+      Alert.alert(
+        "Download Successful",
+        "Cat picture saved to your Gallery!"
+      );
+    } catch (error) {
+      console.error(
+        "Cat picture download failed:",
+        error
+      );
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown download error.";
+
+      Alert.alert(
+        "Download Failed",
+        `Unable to save the cat picture.\n\n${message}`
+      );
+    } finally {
+      downloading.current = false;
+    }
   };
 
   // Remove a photo from an Album, not Detection History.
@@ -269,7 +348,7 @@ export default function AlbumPhoto() {
       <DraggableDetailsLayout imageUri={image.imageUri} detailsVisible={showEmotion} onDismiss={() => setShowEmotion(false)} footer={<View style={styles.toolbar}>
         {/* Emotion */}
         <TouchableOpacity
-          style={[styles.action, showEmotion && styles.activeAction]}
+          style={styles.action}
           accessibilityRole="button"
           accessibilityLabel="Emotion"
           accessibilityState={{
@@ -339,7 +418,19 @@ export default function AlbumPhoto() {
           </TouchableOpacity>
         ) : null}
       </View>}>
-        {showEmotion && (record ? <EmotionResultCard embedded emotionKey={record.emotion} confidence={record.confidence} /> : <Text style={styles.missingText}>No detection result is available for this photo.</Text>)}
+        {showEmotion &&
+          (record ? (
+            <EmotionResultCard
+              embedded
+              emotionKey={record.emotion}
+              confidence={record.confidence}
+              recommendations={record.recommendations}
+            />
+          ) : (
+            <Text style={styles.missingText}>
+              No detection result is available for this photo.
+            </Text>
+          ))}
       </DraggableDetailsLayout>
 
       {/* Confirmation before removing from Album */}
@@ -407,7 +498,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
 
-  activeAction: { backgroundColor: colors.card, borderTopWidth: 2, borderTopColor: colors.textPrimary },
+  activeAction: { position: "absolute", width: 72, height: 72, borderRadius: radii.pill, backgroundColor: colors.primary },
 
   actionLabel: {
     ...typography.caption,

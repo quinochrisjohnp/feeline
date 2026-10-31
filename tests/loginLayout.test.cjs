@@ -1,36 +1,49 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { mount, find } = require("./helpers/frontendHarness.cjs");
+const { mount, find, nodes } = require("./helpers/frontendHarness.cjs");
 
-test("Login illustration responds to viewport width and height while keeping scroll fallback", () => {
+test("Login keeps two groups, scales branding and scrolls only when measured content overflows", () => {
+  let signIns = 0;
+  const routes = [];
   const login = mount("app/(screens)/(auth)/login.tsx", {
     dependencies: {
-      "@/context/AuthContext": { useAuth: () => ({ signIn() {}, error: null }) },
+      "expo-router": { useRouter: () => ({ push: path => routes.push(path) }) },
+      "@/context/AuthContext": { useAuth: () => ({ signIn() { signIns++; }, isSigningIn: true, error: "Please try again." }) },
       "@/constants/theme": { colors: {}, typography: {}, fontFamily: {},
         dimensions: { contentMaxWidth: 600, touchTarget: 44, logo: 200 },
         spacing: { lg: 24, md: 16, sm: 12, xs: 8 } },
     },
   });
-  // Measured viewport sizes after safe-area/keyboard avoidance, not native device simulations.
-  for (const [width, height] of [[360, 720], [390, 760], [430, 850], [320, 480], [760, 320], [390, 360]]) {
+  // Measured safe-area viewports, including smaller/taller portrait and constrained layouts.
+  for (const [width, height] of [[320, 520], [390, 760], [430, 850], [320, 480], [760, 320]]) {
     find(login.render(), "ScrollView").props.onLayout({ nativeEvent: { layout: { width, height } } });
-    const tree = login.render();
+    let tree = login.render();
     const logo = find(tree, "/EmotionLogoGrid");
     assert.ok(logo.props.size <= height * 0.26);
     assert.ok(logo.props.size <= 200);
     assert.ok(logo.props.size <= width - 48);
-    const image = find(tree, "Image");
-    const size = image.props.style[1];
-    assert.equal(image.props.resizeMode, "contain");
-    assert.ok(size.height <= height * 0.23);
-    assert.ok(size.height <= 220);
-    assert.ok(size.width <= (Math.min(width, 600) - 48) * 0.75 + 0.001);
-    assert.ok(Math.abs(size.width / size.height - 1122 / 1402) < 0.001);
-    assert.equal(tree.props.keyboardAware, true);
+    assert.equal(find(tree, "Image"), undefined, "no separate cat illustration");
     const scroll = find(tree, "ScrollView");
-    assert.notEqual(scroll.props.scrollEnabled, false);
-    assert.equal(scroll.props.bounces, false);
+    const content = scroll.props.children;
+    assert.equal(content.props.style.justifyContent, "space-between");
+    assert.equal(content.props.children.length, 2);
+    assert.equal(tree.props.module, "auth");
     assert.equal(scroll.props.contentContainerStyle.flexGrow, 1);
-    assert.equal(scroll.props.keyboardShouldPersistTaps, "handled");
+    scroll.props.onContentSizeChange(width, height);
+    assert.equal(find(login.render(), "ScrollView").props.scrollEnabled, false);
+    scroll.props.onContentSizeChange(width, height + 160);
+    assert.equal(find(login.render(), "ScrollView").props.scrollEnabled, true);
+    scroll.props.onContentSizeChange(width, height);
+    assert.equal(find(login.render(), "ScrollView").props.scrollEnabled, false);
   }
+  const tree = login.render();
+  const button = find(tree, "/GoogleButton");
+  assert.equal(button.props.loading, true);
+  button.props.onPress();
+  assert.equal(signIns, 1);
+  assert.ok(nodes(tree).some(node => node.type === "Text" && node.props.children === "Please try again."));
+  const links = nodes(tree).filter(node => node.props?.accessibilityRole === "link");
+  assert.equal(links.length, 2);
+  links.forEach(link => link.props.onPress());
+  assert.deepEqual(routes, ["/(screens)/settings-terms", "/(screens)/settings-privacy"]);
 });

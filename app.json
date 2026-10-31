@@ -1,8 +1,9 @@
+
 {
   "expo": {
     "name": "FeELINE",
     "slug": "feeline",
-    "owner": "feeline",
+    "owner": "feeline_app",
     "icon": "./components/images/logo-only.png",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -61,6 +62,16 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow FeELINE to access your photos.",
+          "savePhotosPermission": "Allow FeELINE to save downloaded cat pictures to your photo gallery.",
+          "granularPermissions": [
+            "photo"
+          ]
+        }
+      ],
       "@react-native-google-signin/google-signin",
       "@react-native-community/datetimepicker",
       [
@@ -79,7 +90,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "41df5527-c8b4-4d80-8b39-d2de3d7051ce"
+        "projectId": "dc1d0afb-cf10-479b-b02e-50fdd0835de2"
       }
     }
   }
