@@ -1,8 +1,12 @@
+
 import type { Response } from "express";
 
 import prisma from "../config/db.config.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
-import { uploadImageToCloudinary } from "../services/cloudinary.service.js";
+import {
+  uploadImageToCloudinary,
+  deleteImageFromCloudinary,
+} from "../services/cloudinary.service.js";
 import { UNKNOWN_ALBUM_NAME } from "../utils/constants.js";
 import { parseIdParam } from "../utils/validators.js";
 
@@ -78,7 +82,22 @@ const findDuplicateName = (
     },
   });
 
-export const createCat = async (req: AuthRequest, res: Response) => {
+// ============================================================
+// CREATE CAT
+// ============================================================
+
+export interface CreateCatDependencies {
+  findDuplicate: typeof findDuplicateName;
+  createRecord: typeof prisma.cats.create;
+  uploadImage: typeof uploadImageToCloudinary;
+  deleteImage: typeof deleteImageFromCloudinary;
+}
+
+export const createCreateCatHandler = (
+  dependencies: CreateCatDependencies
+) => async (req: AuthRequest, res: Response) => {
+  const uploadedPublicIds: string[] = [];
+
   try {
     if (!req.profileId) {
       return res.status(401).json({
@@ -134,7 +153,7 @@ export const createCat = async (req: AuthRequest, res: Response) => {
     // CHECK DUPLICATE NAME
     // ========================================================
 
-    const duplicateCat = await findDuplicateName(
+    const duplicateCat = await dependencies.findDuplicate(
       req.profileId,
       name
     );
@@ -159,31 +178,31 @@ export const createCat = async (req: AuthRequest, res: Response) => {
     const profileImage = files?.profile_image?.[0];
     const coverImage = files?.cover_image?.[0];
 
-    // Upload profile image to Cloudinary
     if (profileImage) {
-      const uploadedImage = await uploadImageToCloudinary(
+      const uploadedImage = await dependencies.uploadImage(
         profileImage.buffer,
         `feeline/${req.profileId}`
       );
 
       profileImageUrl = uploadedImage.url;
+      uploadedPublicIds.push(uploadedImage.publicId);
     }
 
-    // Upload cover image to Cloudinary
     if (coverImage) {
-      const uploadedImage = await uploadImageToCloudinary(
+      const uploadedImage = await dependencies.uploadImage(
         coverImage.buffer,
         `feeline/${req.profileId}`
       );
 
       coverImageUrl = uploadedImage.url;
+      uploadedPublicIds.push(uploadedImage.publicId);
     }
 
     // ========================================================
     // CREATE CAT IN DATABASE
     // ========================================================
 
-    const cat = await prisma.cats.create({
+    const cat = await dependencies.createRecord({
       data: {
         profile_id: req.profileId,
         name,
@@ -210,14 +229,35 @@ export const createCat = async (req: AuthRequest, res: Response) => {
     return res.status(201).json({
       cat,
     });
+
   } catch (error) {
     console.error("Create cat error:", error);
+
+    for (const publicId of uploadedPublicIds) {
+      try {
+        await dependencies.deleteImage(publicId);
+        console.log("Rolled back cat image:", publicId);
+      } catch (cleanupError) {
+        console.error(
+          "Failed to roll back cat image:",
+          publicId,
+          cleanupError
+        );
+      }
+    }
 
     return res.status(500).json({
       error: "Failed to create cat",
     });
   }
 };
+
+export const createCat = createCreateCatHandler({
+  findDuplicate: findDuplicateName,
+  createRecord: (args) => prisma.cats.create(args),
+  uploadImage: uploadImageToCloudinary,
+  deleteImage: deleteImageFromCloudinary,
+});
 
 // ============================================================
 // GET ALL CATS
@@ -338,7 +378,19 @@ export const getCatDetections = async (req: AuthRequest, res: Response) => {
 // UPDATE CAT
 // ============================================================
 
-export const updateCat = async (req: AuthRequest, res: Response) => {
+export interface UpdateCatDependencies {
+  findCat: typeof prisma.cats.findFirst;
+  findDuplicate: typeof findDuplicateName;
+  updateRecord: typeof prisma.cats.update;
+  uploadImage: typeof uploadImageToCloudinary;
+  deleteImage: typeof deleteImageFromCloudinary;
+}
+
+export const createUpdateCatHandler = (
+  dependencies: UpdateCatDependencies
+) => async (req: AuthRequest, res: Response) => {
+  const uploadedPublicIds: string[] = [];
+
   try {
     if (!req.profileId) {
       return res.status(401).json({
@@ -355,7 +407,7 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
     }
 
     // Make sure the cat belongs to the logged-in user
-    const existingCat = await prisma.cats.findFirst({
+    const existingCat = await dependencies.findCat({
       where: {
         cat_id: catId,
         profile_id: req.profileId,
@@ -387,11 +439,6 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
 
       /*
        * An existing "Unknown Cats" record CAN be renamed.
-       *
-       * This is important because your detection endpoint now
-       * creates a temporary Unknown Cats record for each
-       * unassigned detection.
-       *
        * However, a normal cat cannot be manually renamed TO
        * "Unknown Cats".
        */
@@ -401,7 +448,11 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      const duplicateCat = await findDuplicateName(req.profileId, name, catId);
+      const duplicateCat = await dependencies.findDuplicate(
+        req.profileId,
+        name,
+        catId
+      );
 
       if (duplicateCat) {
         return res.status(409).json({
@@ -462,29 +513,31 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
 
     // Upload profile picture only if a new one was selected
     if (profileImage) {
-      const uploadedImage = await uploadImageToCloudinary(
+      const uploadedImage = await dependencies.uploadImage(
         profileImage.buffer,
         `feeline/${req.profileId}`
       );
 
       profileImageUrl = uploadedImage.url;
+      uploadedPublicIds.push(uploadedImage.publicId);
     }
 
     // Upload cover photo only if a new one was selected
     if (coverImage) {
-      const uploadedImage = await uploadImageToCloudinary(
+      const uploadedImage = await dependencies.uploadImage(
         coverImage.buffer,
         `feeline/${req.profileId}`
       );
 
       coverImageUrl = uploadedImage.url;
+      uploadedPublicIds.push(uploadedImage.publicId);
     }
 
     // ========================================================
     // UPDATE DATABASE
     // ========================================================
 
-    const updatedCat = await prisma.cats.update({
+    const updatedCat = await dependencies.updateRecord({
       where: {
         cat_id: catId,
       },
@@ -531,6 +584,7 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
               profile_image_url: profileImageUrl,
             }
           : {}),
+
         ...(coverImageUrl !== undefined
           ? {
               cover_image_url: coverImageUrl,
@@ -545,11 +599,32 @@ export const updateCat = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Update cat error:", error);
 
+    for (const publicId of uploadedPublicIds) {
+      try {
+        await dependencies.deleteImage(publicId);
+        console.log("Rolled back updated cat image:", publicId);
+      } catch (cleanupError) {
+        console.error(
+          "Failed to roll back updated cat image:",
+          publicId,
+          cleanupError
+        );
+      }
+    }
+
     return res.status(500).json({
       error: "Failed to update cat",
     });
   }
 };
+
+export const updateCat = createUpdateCatHandler({
+  findCat: (args) => prisma.cats.findFirst(args),
+  findDuplicate: findDuplicateName,
+  updateRecord: (args) => prisma.cats.update(args),
+  uploadImage: uploadImageToCloudinary,
+  deleteImage: deleteImageFromCloudinary,
+});
 
 // ============================================================
 // DELETE CAT

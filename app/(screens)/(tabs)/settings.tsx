@@ -39,7 +39,11 @@ const Settings = () => {
       <Text style={styles.title} accessibilityRole="header">Settings</Text>
 
       <View style={styles.section}>
-        <SettingRow icon="person-circle-outline" label="Account Management" onPress={() => router.push("/settings-account")} />
+        <SettingRow
+          icon="person-circle-outline"
+          label="Account Management"
+          onPress={() => router.push("/settings-account")}
+        />
         <SettingRow icon="information-circle-outline" label="About" onPress={() => router.push("/settings-about")} />
         <SettingRow
           icon="chatbubble-ellipses-outline"
