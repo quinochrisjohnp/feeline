@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, ChevronDown, LogOut } from "lucide-react";
 import { googleLogout } from "@react-oauth/google";
 import { useNavigate } from "react-router";
 
@@ -41,13 +41,13 @@ export default function AdminHeader() {
   }
 
   return (
-    <header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-6 lg:px-8">
+    <header className="flex h-20 items-center justify-between border-b border-ink-200 bg-white px-6 lg:px-8">
       {/* Left section */}
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">
+        <h2 className="text-lg font-semibold text-ink-900">
           FeELINE Administration
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-500">
           Management Dashboard
         </p>
       </div>
@@ -57,12 +57,12 @@ export default function AdminHeader() {
         {/* Notification icon - visual placeholder */}
         <div
           aria-label="Notifications (coming soon)"
-          className="rounded-lg p-2 text-slate-500"
+          className="rounded-lg p-2 text-ink-500"
         >
           <Bell size={20} />
         </div>
 
-        <div className="h-8 w-px bg-slate-200" />
+        <div className="h-8 w-px bg-ink-200" />
 
         {/* Admin profile dropdown */}
         <div className="relative" ref={dropdownRef}>
@@ -71,24 +71,24 @@ export default function AdminHeader() {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             aria-expanded={isDropdownOpen}
             aria-haspopup="menu"
-            className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-slate-50"
+            className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-ink-50"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-700">
-              <ShieldCheck size={21} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+              <img src="/feeline-logo.png" alt="FeELINE logo" className="h-10 w-10 rounded-full object-contain" />
             </div>
 
             <div className="hidden text-left sm:block">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-ink-900">
                 Administrator
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-500">
                 Admin Account
               </p>
             </div>
 
             <ChevronDown
               size={16}
-              className={`hidden text-slate-400 transition-transform sm:block ${
+              className={`hidden text-ink-400 transition-transform sm:block ${
                 isDropdownOpen ? "rotate-180" : ""
               }`}
             />
@@ -98,7 +98,7 @@ export default function AdminHeader() {
           {isDropdownOpen && (
             <div
               role="menu"
-              className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+              className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-ink-200 bg-white p-2 shadow-lg"
             >
               <button
                 type="button"

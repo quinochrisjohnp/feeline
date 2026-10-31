@@ -48,8 +48,8 @@ export default function ProtectedRoute() {
 
   if (status === "checking") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">
+      <div className="flex min-h-screen items-center justify-center bg-ink-50">
+        <p className="text-sm text-ink-500">
           Verifying administrator access...
         </p>
       </div>

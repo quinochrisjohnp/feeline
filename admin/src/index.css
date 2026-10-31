@@ -5,6 +5,24 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    /* FeELINE mobile palette: cream, warm brown and peach. */
+    --color-ink-50: #FFF7E9;
+    --color-ink-100: #F1E4D2;
+    --color-ink-200: #EFE1CE;
+    --color-ink-300: #D4C3AD;
+    --color-ink-400: #827362;
+    --color-ink-500: #756456;
+    --color-ink-600: #685546;
+    --color-ink-700: #514033;
+    --color-ink-800: #453226;
+    --color-ink-900: #3B2A20;
+    --color-brand-50: #FFF0DF;
+    --color-brand-100: #FFE1C8;
+    --color-brand-200: #FDAC76;
+    --color-brand-500: #91613D;
+    --color-brand-600: #805132;
+    --color-brand-700: #68402A;
+
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
@@ -48,13 +66,13 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    --background: #FFF7E9;
+    --foreground: #3B2A20;
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
+    --primary: #3B2A20;
     --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
@@ -63,9 +81,9 @@
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
+    --border: #EFE1CE;
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --ring: #91613D;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);

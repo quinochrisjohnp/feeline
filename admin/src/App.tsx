@@ -5,12 +5,10 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminLayout from "@/layouts/AdminLayout";
 
 import Login from "@/pages/Login";
-import Analytics from "@/pages/Analytics";
 import Cats from "@/pages/Cats";
 import Dashboard from "@/pages/Dashboard";
 import Detections from "@/pages/Detections";
 import Feedback from "@/pages/Feedback";
-import Recommendations from "@/pages/Recommendations";
 import Settings from "@/pages/Settings";
 import Users from "@/pages/Users";
 
@@ -31,9 +29,9 @@ function App() {
             <Route path="/users" element={<Users />} />
             <Route path="/cats" element={<Cats />} />
             <Route path="/detections" element={<Detections />} />
-            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/analytics" element={<Navigate to="/dashboard" replace />} />
             <Route path="/feedback" element={<Feedback />} />
-            <Route path="/recommendations" element={<Recommendations />} />
+            <Route path="/recommendations" element={<Navigate to="/dashboard" replace />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>
