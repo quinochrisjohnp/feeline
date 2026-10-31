@@ -1,13 +1,9 @@
-
 import { useEffect, useState } from "react";
 import {
   UserRound,
   Mail,
   ShieldCheck,
   CalendarDays,
-  Users,
-  Shield,
-  ScrollText,
 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL;
