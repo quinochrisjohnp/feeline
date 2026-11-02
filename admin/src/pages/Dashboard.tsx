@@ -116,14 +116,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Page heading */}
-      <div>
+      <div className="rounded-2xl border border-ink-200 bg-white px-6 py-5 shadow-sm sm:px-8">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-brand-600">FeELINE Administration</p>
         <h1 className="text-3xl font-bold tracking-tight text-ink-900">
           Dashboard
         </h1>
 
         <p className="mt-2 text-sm text-ink-500">
-          Welcome to the FeELINE Admin Dashboard.
+          Track registered users, cat profiles, and feedback. Explore detection trends below.
         </p>
       </div>
 
@@ -132,7 +132,7 @@ export default function Dashboard() {
         <LayoutDashboard size={20} className="text-brand-600" />
 
         <h2 className="text-lg font-semibold text-ink-900">
-          Dashboard Overview
+          All-time totals
         </h2>
       </div>
 
@@ -155,14 +155,14 @@ export default function Dashboard() {
 
       {/* Statistics cards */}
       {!loading && !error && stats && (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {statCards.map((card) => {
             const Icon = card.icon;
 
             return (
               <div
                 key={card.title}
-                className="rounded-xl border border-ink-200 bg-white p-6 shadow-sm"
+                className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm"
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-ink-500">
@@ -174,7 +174,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-3xl font-bold tracking-tight text-ink-900">
+                <p className="mt-3 text-4xl tabular-nums font-bold tracking-tight text-ink-900">
                   {card.value?.toLocaleString() ?? "—"}
                 </p>
               </div>
