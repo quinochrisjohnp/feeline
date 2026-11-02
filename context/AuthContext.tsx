@@ -32,6 +32,7 @@ interface AuthContextValue {
   error: string | null;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(
@@ -123,12 +124,10 @@ export function AuthProvider({
     setIsSigningIn(true);
 
     try {
-      // Check Google Play Services.
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,
       });
 
-      // Open Google Sign-In.
       const response = await GoogleSignin.signIn();
 
       if (isCancelledResponse(response)) {
@@ -141,7 +140,6 @@ export function AuthProvider({
         );
       }
 
-      // Retrieve Google ID token.
       const idToken = response.data.idToken;
 
       if (!idToken) {
@@ -185,15 +183,7 @@ export function AuthProvider({
         );
       }
 
-      // ============================================================
-      // SAVE FEELINE JWT TOKEN
-      // ============================================================
-
       await saveToken(data.token);
-
-      // ============================================================
-      // COMPLETE GOOGLE LOGIN
-      // ============================================================
 
       setProfile(data.profile);
       setError(null);
@@ -243,6 +233,76 @@ export function AuthProvider({
   }, []);
 
   // ============================================================
+  // DELETE FEELINE ACCOUNT
+  // ============================================================
+
+  const deleteAccount = useCallback(async () => {
+    if (!profile) {
+      throw new Error(
+        "You must be signed in to delete your account."
+      );
+    }
+
+    // ==========================================================
+    // REQUEST ACCOUNT DELETION
+    // ==========================================================
+
+    // The backend identifies the account using
+    // the authenticated FeELINE session.
+
+    const deletionResponse = await apiFetch(
+      "/api/auth/account",
+      {
+        method: "DELETE",
+        body: JSON.stringify({
+          confirmation: "DELETE MY ACCOUNT",
+        }),
+      }
+    );
+
+    if (!deletionResponse.ok) {
+      const result = await deletionResponse
+        .json()
+        .catch(() => null);
+
+      throw new Error(
+        typeof result?.error === "string"
+          ? result.error
+          : "Could not delete your FeELINE account."
+      );
+    }
+
+    // ==========================================================
+    // CLEAR LOCAL AUTHENTICATION AFTER BACKEND SUCCESS
+    // ==========================================================
+
+    try {
+      await clearToken();
+    } catch (storageError) {
+      console.error(
+        "Failed to clear local FeELINE token:",
+        storageError
+      );
+    }
+
+    try {
+      await GoogleSignin.signOut();
+    } catch (googleError) {
+      console.warn(
+        "Google Sign-Out warning after deletion:",
+        googleError
+      );
+    }
+
+    setProfile(null);
+    setError(null);
+
+    console.log(
+      "FeELINE account deletion confirmed by backend."
+    );
+  }, [profile]);
+
+  // ============================================================
   // AUTH CONTEXT PROVIDER
   // ============================================================
 
@@ -255,6 +315,7 @@ export function AuthProvider({
         error,
         signIn,
         signOut,
+        deleteAccount,
       }}
     >
       {children}
