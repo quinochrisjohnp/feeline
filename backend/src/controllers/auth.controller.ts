@@ -382,21 +382,6 @@ export function createDeleteAccountHandler(
         });
       }
 
-      // Token issue time check.
-      // This does NOT prove interactive reauthentication.
-      const issuedAt = googlePayload.iat;
-      const now = Math.floor(Date.now() / 1000);
-
-      if (
-        typeof issuedAt !== "number" ||
-        issuedAt > now + 60 ||
-        now - issuedAt > 300
-      ) {
-        return res.status(401).json({
-          error: "Please verify your Google account again",
-        });
-      }
-
       // ======================================================
       // 4. COLLECT IMAGE IDS
       // ======================================================
