@@ -1,4 +1,3 @@
-
 import type { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
@@ -6,26 +5,17 @@ import jwt from "jsonwebtoken";
 import prisma from "../config/db.config.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
 
-import {
-  getAccountCloudinaryImageIds,
-} from "../services/cloudinary.service.js";
+import { getAccountCloudinaryImageIds } from "../services/cloudinary.service.js";
 
-import {
-  processAccountDeletionJob,
-} from "../services/accountDeletion.service.js";
+import { processAccountDeletionJob } from "../services/accountDeletion.service.js";
 
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID
-);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ============================================================
 // GOOGLE LOGIN
 // ============================================================
 
-export const googleLogin = async (
-  req: Request,
-  res: Response
-) => {
+export const googleLogin = async (req: Request, res: Response) => {
   try {
     const { idToken } = req.body;
 
@@ -39,9 +29,7 @@ export const googleLogin = async (
     const jwtSecret = process.env.JWT_SECRET;
 
     if (!googleClientId || !jwtSecret) {
-      console.error(
-        "GOOGLE_CLIENT_ID or JWT_SECRET is missing"
-      );
+      console.error("GOOGLE_CLIENT_ID or JWT_SECRET is missing");
 
       return res.status(500).json({
         error: "Server configuration error",
@@ -56,23 +44,13 @@ export const googleLogin = async (
 
     const payload = ticket.getPayload();
 
-    if (
-      !payload ||
-      !payload.sub ||
-      !payload.email
-    ) {
+    if (!payload || !payload.sub || !payload.email) {
       return res.status(401).json({
         error: "Invalid Google token",
       });
     }
 
-    const {
-      sub: googleId,
-      email,
-      given_name,
-      family_name,
-      picture,
-    } = payload;
+    const { sub: googleId, email, given_name, family_name, picture } = payload;
 
     // Find user by Google account ID.
     let profile = await prisma.profiles.findUnique({
@@ -102,7 +80,7 @@ export const googleLogin = async (
       jwtSecret,
       {
         expiresIn: "30d",
-      }
+      },
     );
 
     return res.status(200).json({
@@ -116,10 +94,7 @@ export const googleLogin = async (
       },
     });
   } catch (error) {
-    console.error(
-      "Google login error:",
-      error
-    );
+    console.error("Google login error:", error);
 
     return res.status(401).json({
       error: "Google authentication failed",
@@ -131,10 +106,7 @@ export const googleLogin = async (
 // GET CURRENT LOGGED-IN USER
 // ============================================================
 
-export const getMe = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const getMe = async (req: AuthRequest, res: Response) => {
   try {
     const profileId = req.profileId;
 
@@ -166,10 +138,7 @@ export const getMe = async (
       },
     });
   } catch (error) {
-    console.error(
-      "Get current user error:",
-      error
-    );
+    console.error("Get current user error:", error);
 
     return res.status(500).json({
       error: "Failed to get profile",
@@ -177,11 +146,10 @@ export const getMe = async (
   }
 };
 
-
- // ============================================================
- // DELETE FEELINE ACCOUNT
- // DELETE /api/auth/account
- // ============================================================
+// ============================================================
+// DELETE FEELINE ACCOUNT
+// DELETE /api/auth/account
+// ============================================================
 
 interface DeletionProfile {
   profile_id: string;
@@ -195,27 +163,21 @@ interface VerifiedGoogleIdentity {
 }
 
 export interface DeleteAccountDependencies {
-  findProfile: (
-    profileId: string
-  ) => Promise<DeletionProfile | null>;
+  findProfile: (profileId: string) => Promise<DeletionProfile | null>;
 
   verifyGoogleIdentity: (
     idToken: string,
-    audience: string
+    audience: string,
   ) => Promise<VerifiedGoogleIdentity | null>;
 
-  getImageIds: (
-    profileId: string
-  ) => Promise<string[]>;
+  getImageIds: (profileId: string) => Promise<string[]>;
 
   deleteAccountTransaction: (
     profileId: string,
-    imageIds: string[]
+    imageIds: string[],
   ) => Promise<string>;
 
-  cleanupJob: (
-    jobId: string
-  ) => Promise<boolean>;
+  cleanupJob: (jobId: string) => Promise<boolean>;
 }
 
 // ============================================================
@@ -256,10 +218,7 @@ const defaultDeleteAccountDependencies: DeleteAccountDependencies = {
 
   getImageIds: getAccountCloudinaryImageIds,
 
-  deleteAccountTransaction: async (
-    profileId,
-    imageIds
-  ) => {
+  deleteAccountTransaction: async (profileId, imageIds) => {
     // Both operations run in one PostgreSQL transaction.
     // A failure causes Prisma to roll back the transaction.
 
@@ -300,51 +259,34 @@ const defaultDeleteAccountDependencies: DeleteAccountDependencies = {
 // ============================================================
 
 export function createDeleteAccountHandler(
-  dependencies: DeleteAccountDependencies
+  dependencies: DeleteAccountDependencies,
 ) {
-  return async (
-    req: AuthRequest,
-    res: Response
-  ) => {
+  return async (req: AuthRequest, res: Response) => {
     try {
       // ======================================================
       // 1. VALIDATE REQUEST
       // ======================================================
 
       const profileId = req.profileId;
-      const { idToken, confirmation } = req.body ?? {};
 
-      if (!profileId) {
+      if (typeof profileId !== "string" || !profileId.trim()) {
         return res.status(401).json({
           error: "Unauthorized",
         });
       }
 
-      if (
-        confirmation !== "DELETE MY ACCOUNT" ||
-        typeof idToken !== "string" ||
-        !idToken.trim()
-      ) {
+      const { confirmation } = req.body ?? {};
+
+      if (confirmation !== "DELETE MY ACCOUNT") {
         return res.status(400).json({
           error: "Account deletion confirmation is required",
         });
       }
-
-      const googleClientId = process.env.GOOGLE_CLIENT_ID;
-
-      if (!googleClientId) {
-        return res.status(500).json({
-          error: "Google authentication is not configured",
-        });
-      }
-
       // ======================================================
       // 2. FIND ACCOUNT
       // ======================================================
 
-      const profile = await dependencies.findProfile(
-        profileId
-      );
+      const profile = await dependencies.findProfile(profileId);
 
       if (!profile) {
         return res.status(404).json({
@@ -353,52 +295,19 @@ export function createDeleteAccountHandler(
       }
 
       // ======================================================
-      // 3. VERIFY GOOGLE IDENTITY
-      // ======================================================
-
-      let googlePayload: VerifiedGoogleIdentity | null;
-
-      try {
-        googlePayload =
-          await dependencies.verifyGoogleIdentity(
-            idToken,
-            googleClientId
-          );
-      } catch {
-        return res.status(401).json({
-          error: "Google identity verification failed",
-        });
-      }
-
-      if (!googlePayload) {
-        return res.status(401).json({
-          error: "Google identity verification failed",
-        });
-      }
-
-      if (googlePayload.sub !== profile.google_id) {
-        return res.status(403).json({
-          error: "Google account does not match",
-        });
-      }
-
-      // ======================================================
       // 4. COLLECT IMAGE IDS
       // ======================================================
 
-      const imageIds = await dependencies.getImageIds(
-        profileId
-      );
+      const imageIds = await dependencies.getImageIds(profileId);
 
       // ======================================================
       // 5. DATABASE TRANSACTION
       // ======================================================
 
-      const jobId =
-        await dependencies.deleteAccountTransaction(
-          profileId,
-          imageIds
-        );
+      const jobId = await dependencies.deleteAccountTransaction(
+        profileId,
+        imageIds,
+      );
 
       // ======================================================
       // 6. PROCESS CLOUDINARY CLEANUP
@@ -407,13 +316,9 @@ export function createDeleteAccountHandler(
       let cleanupCompleted = false;
 
       try {
-        cleanupCompleted =
-          await dependencies.cleanupJob(jobId);
+        cleanupCompleted = await dependencies.cleanupJob(jobId);
       } catch (error) {
-        console.error(
-          "Account cleanup processing error:",
-          error
-        );
+        console.error("Account cleanup processing error:", error);
       }
 
       // ======================================================
@@ -436,8 +341,7 @@ export function createDeleteAccountHandler(
         accountDeleted: true,
         imageCleanupStatus: "completed",
         message:
-          "Your FeELINE account and associated images " +
-          "have been deleted.",
+          "Your FeELINE account and associated images " + "have been deleted.",
       });
     } catch (error) {
       const prismaError = error as {
@@ -451,23 +355,16 @@ export function createDeleteAccountHandler(
 
       const isDuplicateDeletionJob =
         prismaError.code === "P2002" &&
-        (
-          (Array.isArray(target) &&
-            target.includes("profile_id")) ||
-          target === "account_deletion_jobs_profile_id_unique"
-        );
+        ((Array.isArray(target) && target.includes("profile_id")) ||
+          target === "account_deletion_jobs_profile_id_unique");
 
       if (isDuplicateDeletionJob) {
         return res.status(409).json({
-          error:
-            "Account deletion is already being processed.",
+          error: "Account deletion is already being processed.",
         });
       }
 
-      console.error(
-        "Delete account failed:",
-        error
-      );
+      console.error("Delete account failed:", error);
       return res.status(500).json({
         error:
           "Account deletion could not be completed. " +
@@ -482,5 +379,5 @@ export function createDeleteAccountHandler(
 // ============================================================
 
 export const deleteAccount = createDeleteAccountHandler(
-  defaultDeleteAccountDependencies
+  defaultDeleteAccountDependencies,
 );

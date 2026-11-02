@@ -237,12 +237,6 @@ export function AuthProvider({
   // ============================================================
 
   const deleteAccount = useCallback(async () => {
-    if (!googleWebClientId) {
-      throw new Error(
-        "Google Sign-In is not configured."
-      );
-    }
-
     if (!profile) {
       throw new Error(
         "You must be signed in to delete your account."
@@ -250,48 +244,17 @@ export function AuthProvider({
     }
 
     // ==========================================================
-    // VERIFY GOOGLE IDENTITY
-    // ==========================================================
-
-    await GoogleSignin.hasPlayServices({
-      showPlayServicesUpdateDialog: true,
-    });
-
-    // Open the Google account selection flow.
-    // Do not call the normal FeELINE login endpoint here:
-    // it can create a new account.
-    const response = await GoogleSignin.signIn();
-
-    if (isCancelledResponse(response)) {
-      throw new Error(
-        "Account deletion was cancelled."
-      );
-    }
-
-    if (!isSuccessResponse(response)) {
-      throw new Error(
-        "Google account verification failed."
-      );
-    }
-
-    const idToken = response.data.idToken;
-
-    if (!idToken) {
-      throw new Error(
-        "Google did not return an ID token."
-      );
-    }
-
-    // ==========================================================
     // REQUEST ACCOUNT DELETION
     // ==========================================================
+
+    // The backend identifies the account using
+    // the authenticated FeELINE session.
 
     const deletionResponse = await apiFetch(
       "/api/auth/account",
       {
         method: "DELETE",
         body: JSON.stringify({
-          idToken,
           confirmation: "DELETE MY ACCOUNT",
         }),
       }
@@ -313,8 +276,6 @@ export function AuthProvider({
     // CLEAR LOCAL AUTHENTICATION AFTER BACKEND SUCCESS
     // ==========================================================
 
-    // The backend has confirmed account deletion.
-    // Clear the FeELINE token before ending the Google session.
     try {
       await clearToken();
     } catch (storageError) {
