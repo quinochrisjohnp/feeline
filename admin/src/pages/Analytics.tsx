@@ -160,18 +160,18 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      {/* Page heading */}
-      <div>
+      <div className="flex flex-wrap items-end justify-between gap-4 border-t border-ink-200 pt-6">
+        <div>
         <h2 className="text-xl font-semibold text-ink-900">
-          Analytics & Reports
+          Detection trends
         </h2>
 
         <p className="mt-2 text-sm text-ink-500">
-          Analyze FeELINE system activity and emotion detection trends.
+          Explore emotion distribution and daily activity for your selected dates.
         </p>
+        </div>
+        <DetectionDates onApply={setDateQuery} />
       </div>
-
-      <DetectionDates onApply={setDateQuery} />
 
       {loading ? (
         <div className="rounded-xl border border-ink-200 bg-white p-12 text-center text-sm text-ink-500">

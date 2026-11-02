@@ -29,6 +29,18 @@ const SUBJECT_OPTIONS = [
   "Others",
 ];
 
+const reviewColors: Record<string, string> = {
+  New: "bg-sky-50 text-sky-800 ring-sky-200",
+  "In review": "bg-amber-50 text-amber-900 ring-amber-200",
+  Resolved: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  return <span className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${reviewColors[status] ?? "bg-ink-50 text-ink-600 ring-ink-200"}`}>
+    {status || "Unavailable"}
+  </span>;
+}
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 function formatDate(date: string | null) {
@@ -55,6 +67,7 @@ export default function Feedback() {
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [draft, setDraft] = useState("");
   async function changeStatus(id: string, status: string) {
     if (savingId) return;
     setSavingId(id);
@@ -71,6 +84,7 @@ export default function Feedback() {
       const result = await response.json();
       if (result.data?.feedback_id !== id || result.data.review_status !== status) throw new Error();
       setFeedback(rows => rows.map(row => row.feedback_id === id ? { ...row, review_status: status } : row));
+      setSelected(null);
     } catch {
       setSaveError("Could not confirm the review status. Refresh to check it, then try again.");
     } finally {
@@ -220,7 +234,6 @@ export default function Feedback() {
           </div>
         </div>
 
-        {saveError && <p role="alert" className="px-6 py-2 text-red-700">{saveError}</p>}
         {loading ? (
           <div className="p-12 text-center text-sm text-ink-500">
             Loading feedback records...
@@ -280,18 +293,16 @@ export default function Feedback() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <select aria-label={`Review status for ${item.title || "feedback"}`}
-                          className="rounded-lg border border-ink-200 bg-white px-2 py-2"
-                          value={item.review_status ?? ""} disabled={!!savingId || !item.review_status}
-                          onChange={event => void changeStatus(item.feedback_id, event.target.value)}>
-                          {!item.review_status && <option value="">Unavailable</option>}
-                          {["New", "In review", "Resolved"].map(status => <option key={status}>{status}</option>)}
-                        </select>
+                        <StatusBadge status={item.review_status} />
                       </td>
                       <td className="px-6 py-4">
                         <button
                           type="button"
-                          onClick={() => setSelected(item)}
+                          onClick={() => {
+                            setDraft(item.review_status ?? "");
+                            setSaveError("");
+                            setSelected(item);
+                          }}
                           className="inline-flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 font-medium text-brand-700 transition hover:bg-brand-100"
                         >
                           <Eye size={16} />
@@ -320,7 +331,7 @@ export default function Feedback() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
+            if (!savingId && event.target === event.currentTarget) {
               setSelected(null);
             }
           }}
@@ -329,7 +340,7 @@ export default function Feedback() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="feedback-dialog-title"
-            className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl"
+            className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -346,7 +357,7 @@ export default function Feedback() {
 
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                disabled={!!savingId} onClick={() => setSelected(null)}
                 aria-label="Close feedback details"
                 className="rounded-lg p-2 text-ink-500 hover:bg-ink-100"
               >
@@ -384,13 +395,31 @@ export default function Feedback() {
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 rounded-xl border border-ink-200 bg-ink-50 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <label htmlFor="review-status" className="text-sm font-semibold text-ink-900">Review status</label>
+                <StatusBadge status={selected.review_status} />
+              </div>
+              <select id="review-status" value={draft} disabled={!!savingId || !selected.review_status}
+                onChange={event => setDraft(event.target.value)}
+                className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm">
+                {!selected.review_status && <option value="">Unavailable</option>}
+                {Object.keys(reviewColors).map(status => <option key={status}>{status}</option>)}
+              </select>
+              {saveError && <p role="alert" className="mt-2 text-sm text-red-700">{saveError}</p>}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setSelected(null)}
-                className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-700"
+                disabled={!!savingId} onClick={() => setSelected(null)}
+                className="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-medium text-ink-700"
               >
                 Close
+              </button>
+              <button type="button" disabled={!!savingId || !draft || draft === selected.review_status}
+                onClick={() => void changeStatus(selected.feedback_id, draft)}
+                className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+                {savingId ? "Saving…" : "Save status"}
               </button>
             </div>
           </div>
