@@ -1,3 +1,4 @@
+import DetectionDates from "@/components/DetectionDates";
 
 import { useEffect, useState } from "react";
 import {
@@ -62,6 +63,7 @@ export default function Analytics() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(
     null
   );
+  const [dateQuery, setDateQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -69,6 +71,8 @@ export default function Analytics() {
     const controller = new AbortController();
 
     async function fetchAnalytics() {
+      setLoading(true);
+      setError("");
       try {
         const token = sessionStorage.getItem(
           "feeline_admin_token"
@@ -83,7 +87,7 @@ export default function Analytics() {
         }
 
         const response = await fetch(
-          `${API_URL}/api/admin/analytics`,
+          `${API_URL}/api/admin/analytics${dateQuery}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -130,7 +134,7 @@ export default function Analytics() {
     void fetchAnalytics();
 
     return () => controller.abort();
-  }, []);
+  }, [dateQuery]);
 
   const topEmotion = analytics?.emotionDistribution[0];
 
@@ -166,6 +170,8 @@ export default function Analytics() {
           Analyze FeELINE system activity and emotion detection trends.
         </p>
       </div>
+
+      <DetectionDates onApply={setDateQuery} />
 
       {loading ? (
         <div className="rounded-xl border border-ink-200 bg-white p-12 text-center text-sm text-ink-500">

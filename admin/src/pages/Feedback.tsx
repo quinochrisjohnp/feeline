@@ -6,6 +6,7 @@ import { Eye, MessageSquare, Search, X } from "lucide-react";
 
 type FeedbackRecord = {
   feedback_id: string;
+  review_status: string;
   title: string | null;
   email: string;
   subject: string | null;
@@ -52,6 +53,30 @@ export default function Feedback() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [savingId, setSavingId] = useState("");
+  const [saveError, setSaveError] = useState("");
+  async function changeStatus(id: string, status: string) {
+    if (savingId) return;
+    setSavingId(id);
+    setSaveError("");
+    try {
+      const token = sessionStorage.getItem("feeline_admin_token");
+      if (!token || !API_URL) throw new Error();
+      const response = await fetch(`${API_URL}/api/admin/feedback/${id}/status`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ review_status: status }),
+      });
+      if (!response.ok) throw new Error();
+      const result = await response.json();
+      if (result.data?.feedback_id !== id || result.data.review_status !== status) throw new Error();
+      setFeedback(rows => rows.map(row => row.feedback_id === id ? { ...row, review_status: status } : row));
+    } catch {
+      setSaveError("Could not confirm the review status. Refresh to check it, then try again.");
+    } finally {
+      setSavingId("");
+    }
+  }
   const [selected, setSelected] = useState<FeedbackRecord | null>(null);
 
   useEffect(() => {
@@ -195,6 +220,7 @@ export default function Feedback() {
           </div>
         </div>
 
+        {saveError && <p role="alert" className="px-6 py-2 text-red-700">{saveError}</p>}
         {loading ? (
           <div className="p-12 text-center text-sm text-ink-500">
             Loading feedback records...
@@ -212,6 +238,7 @@ export default function Feedback() {
                   <th className="px-6 py-4 font-semibold">Title</th>
                   <th className="px-6 py-4 font-semibold">Subject</th>
                   <th className="px-6 py-4 font-semibold">Submitted</th>
+                  <th className="px-6 py-4 font-semibold">Review status</th>
                   <th className="px-6 py-4 font-semibold">Action</th>
                 </tr>
               </thead>
@@ -252,6 +279,15 @@ export default function Feedback() {
                         {formatDate(item.created_at)}
                       </td>
 
+                      <td className="px-6 py-4">
+                        <select aria-label={`Review status for ${item.title || "feedback"}`}
+                          className="rounded-lg border border-ink-200 bg-white px-2 py-2"
+                          value={item.review_status ?? ""} disabled={!!savingId || !item.review_status}
+                          onChange={event => void changeStatus(item.feedback_id, event.target.value)}>
+                          {!item.review_status && <option value="">Unavailable</option>}
+                          {["New", "In review", "Resolved"].map(status => <option key={status}>{status}</option>)}
+                        </select>
+                      </td>
                       <td className="px-6 py-4">
                         <button
                           type="button"

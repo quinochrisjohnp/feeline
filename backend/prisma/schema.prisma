@@ -62,6 +62,7 @@ model emotion_detections {
 }
 
 model feedback {
+  review_status String @default("New") @db.VarChar(16)
   feedback_id String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   profile_id  String?   @db.Uuid
   title       String?   @db.VarChar(150)

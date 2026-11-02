@@ -1,3 +1,4 @@
+import { detectionDateFilter } from "./detectionDateFilter.js";
 import { Router } from "express";
 
 import prisma from "../config/db.config.js";
@@ -145,9 +146,12 @@ router.get("/cats", async (_req, res) => {
 // GET /api/admin/detections
 // ============================================================
 
-router.get("/detections", async (_req, res) => {
+router.get("/detections", async (req, res) => {
+  const where = detectionDateFilter(req.query.start, req.query.end);
+  if (!where) return res.status(400).json({ status: "error", message: "Enter a valid UTC date range (YYYY-MM-DD)." });
   try {
     const detections = await prisma.emotion_detections.findMany({
+      where,
       select: {
         detection_id: true,
         confidence_score: true,
@@ -196,9 +200,12 @@ router.get("/detections", async (_req, res) => {
 // GET /api/admin/analytics
 // ============================================================
 
-router.get("/analytics", async (_req, res) => {
+router.get("/analytics", async (req, res) => {
+  const where = detectionDateFilter(req.query.start, req.query.end);
+  if (!where) return res.status(400).json({ status: "error", message: "Enter a valid UTC date range (YYYY-MM-DD)." });
   try {
     const detections = await prisma.emotion_detections.findMany({
+      where,
       select: {
         confidence_score: true,
         detected_at: true,
@@ -289,6 +296,7 @@ router.get("/feedback", async (_req, res) => {
     const feedbackRecords = await prisma.feedback.findMany({
       select: {
         feedback_id: true,
+        review_status: true,
         title: true,
         email: true,
         subject: true,
@@ -376,5 +384,25 @@ router.get("/profile", async (req: AuthRequest, res) => {
 });
 
 
+
+router.patch("/feedback/:id/status", async (req, res) => {
+  const id = req.params.id;
+  const status = req.body?.review_status;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ||
+      !["New", "In review", "Resolved"].includes(status)) {
+    return res.status(400).json({ status: "error", message: "Invalid feedback ID or review status." });
+  }
+  try {
+    const updated = await prisma.feedback.updateMany({
+      where: { feedback_id: id },
+      data: { review_status: status },
+    });
+    if (!updated.count) return res.status(404).json({ status: "error", message: "Feedback not found." });
+    return res.json({ status: "success", data: { feedback_id: id, review_status: status } });
+  } catch (error) {
+    console.error("Failed to update feedback review status:", error);
+    return res.status(500).json({ status: "error", message: "Could not update review status." });
+  }
+});
 
 export default router;

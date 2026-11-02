@@ -19,8 +19,8 @@ const navigationItems = [
 
 export default function AdminSidebar() {
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-ink-200 bg-white">
-      <div className="flex h-20 items-center gap-3 border-b border-ink-200 px-6">
+    <aside className="sticky top-0 flex h-dvh w-64 shrink-0 flex-col self-start border-r border-ink-200 bg-white">
+      <div className="flex h-20 shrink-0 items-center gap-3 border-b border-ink-200 px-6">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-background">
           <img src="/feeline-logo.png" alt="FeELINE logo" className="h-10 w-10 rounded-xl object-contain" />
         </div>
@@ -33,7 +33,7 @@ export default function AdminSidebar() {
 
       <nav
         aria-label="Admin navigation"
-        className="flex-1 space-y-1 overflow-y-auto px-3 py-6"
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-6"
       >
         {navigationItems.map((item) => {
           const Icon = item.icon;
@@ -57,7 +57,7 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      <div className="border-t border-ink-200 p-4">
+      <div className="shrink-0 border-t border-ink-200 p-4">
         <p className="text-center text-xs text-ink-400">
           FeELINE Admin © 2026
         </p>
