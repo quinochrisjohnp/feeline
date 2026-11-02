@@ -1,3 +1,4 @@
+import DetectionDates from "@/components/DetectionDates";
 import Pagination from "@/components/Pagination";
 import { paginate } from "@/lib/pagination";
 
@@ -22,12 +23,16 @@ type DetectionRecord = {
   };
 };
 
+const EMOTIONS = ["Happy", "Neutral", "Fearful", "Angry"] as const;
+
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Detections() {
   const [detections, setDetections] = useState<DetectionRecord[]>([]);
   const [search, setSearch] = useState("");
+  const [emotion, setEmotion] = useState("");
   const [page, setPage] = useState(1);
+  const [dateQuery, setDateQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -35,6 +40,8 @@ export default function Detections() {
     const controller = new AbortController();
 
     async function fetchDetections() {
+      setLoading(true);
+      setError("");
       try {
         const token = sessionStorage.getItem("feeline_admin_token");
 
@@ -47,7 +54,7 @@ export default function Detections() {
         }
 
         const response = await fetch(
-          `${API_URL}/api/admin/detections`,
+          `${API_URL}/api/admin/detections${dateQuery}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -92,14 +99,18 @@ export default function Detections() {
     void fetchDetections();
 
     return () => controller.abort();
-  }, []);
+  }, [dateQuery]);
 
   const filteredDetections = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    if (!query) return detections;
+    if (!query && !emotion) return detections;
 
     return detections.filter((detection) => {
+      const label = detection.emotion_categories?.emotion_name?.trim().toLowerCase();
+      if (emotion && label !== emotion) return false;
+      if (!query) return true;
+
       const ownerName = [
         detection.cats?.profiles?.first_name,
         detection.cats?.profiles?.last_name,
@@ -118,7 +129,7 @@ export default function Detections() {
           .includes(query)
       );
     });
-  }, [detections, search]);
+  }, [detections, search, emotion]);
 
   function formatConfidence(value: string | number | null) {
     if (value == null) return "N/A";
@@ -160,8 +171,10 @@ export default function Detections() {
         </p>
       </div>
 
+      <DetectionDates onApply={query => { setPage(1); setDateQuery(query); }} />
+
       <div className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-ink-200 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-ink-200 p-6 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="flex items-center gap-2">
               <ScanFace size={20} className="text-brand-600" />
@@ -178,20 +191,32 @@ export default function Detections() {
             </p>
           </div>
 
-          <div className="relative w-full sm:w-72">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
-            />
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="w-full text-sm font-medium text-ink-600 sm:w-48">
+              Emotion
+              <select value={emotion} onChange={(event) => {
+                setEmotion(event.target.value);
+                setPage(1);
+              }} className="mt-1 block min-h-11 w-full rounded-lg border border-ink-200 bg-white px-3 text-ink-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+                <option value="">All emotions</option>
+                {EMOTIONS.map(label => <option key={label} value={label.toLowerCase()}>{label}</option>)}
+              </select>
+            </label>
+            <div className="relative w-full sm:w-72">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
+              />
 
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-              placeholder="Search detections..."
-              aria-label="Search detections"
-              className="w-full rounded-lg border border-ink-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-            />
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+                placeholder="Search detections..."
+                aria-label="Search detections"
+                className="w-full rounded-lg border border-ink-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
           </div>
         </div>
 
