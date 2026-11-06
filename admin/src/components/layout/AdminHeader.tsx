@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { googleLogout } from "@react-oauth/google";
 import { useNavigate } from "react-router";
 
@@ -54,16 +54,6 @@ export default function AdminHeader() {
 
       {/* Right section */}
       <div className="flex items-center gap-4">
-        {/* Notification icon - visual placeholder */}
-        <div
-          aria-label="Notifications (coming soon)"
-          className="rounded-lg p-2 text-ink-500"
-        >
-          <Bell size={20} />
-        </div>
-
-        <div className="h-8 w-px bg-ink-200" />
-
         {/* Admin profile dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
