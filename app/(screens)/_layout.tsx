@@ -29,6 +29,7 @@ export default function ScreensLayout() {
         <Stack.Screen name="album-folder" />
         <Stack.Screen name="album-photo" />
         <Stack.Screen name="settings-about" />
+        <Stack.Screen name="settings-account" />
         <Stack.Screen name="settings-feedback" />
       </Stack.Protected>
       <Stack.Screen name="settings-terms" />

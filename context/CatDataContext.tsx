@@ -1,3 +1,4 @@
+import { MAX_CAT_PROFILES, CAT_PROFILE_LIMIT_MESSAGE } from "@/constants/catLimits";
 import React, {
   createContext,
   useCallback,
@@ -5,6 +6,7 @@ import React, {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 
@@ -290,24 +292,26 @@ export function CatDataProvider({
     void refreshData();
   }, [refreshData]);
 
+  const addingCatLock = useRef(false);
   const addCat =
     useCallback(
       async (
         cat: Cat
       ): Promise<Cat> => {
-        const savedCat =
-          await createCatApi(
-            cat
-          );
-
-        dispatch({
-          type: "ADD_CAT",
-          cat: savedCat,
-        });
-
-        return savedCat;
+        if (state.cats.filter(cat => cat.id !== "unknown-cats").length >= MAX_CAT_PROFILES) {
+          throw new Error(CAT_PROFILE_LIMIT_MESSAGE);
+        }
+        if (addingCatLock.current) throw new Error("A cat profile is already being added. Please wait.");
+        addingCatLock.current = true;
+        try {
+          const savedCat = await createCatApi(cat);
+          dispatch({ type: "ADD_CAT", cat: savedCat });
+          return savedCat;
+        } finally {
+          addingCatLock.current = false;
+        }
       },
-      []
+      [state.cats]
     );
 
   const updateCat = useCallback(

@@ -65,6 +65,7 @@ export default function Camera() {
   const [ready, setReady] = useState(false);
   const [mountError, setMountError] = useState(false);
   const [cameraKey, setCameraKey] = useState(0);
+  const [previewSize, setPreviewSize] = useState<{ width: number; height: number } | null>(null);
 
   const [appActive, setAppActive] = useState(
     AppState.currentState === "active"
@@ -102,6 +103,8 @@ export default function Camera() {
 
       return () => {
         active.current = false;
+        setPreviewSize(null);
+        setCameraKey(key => key + 1);
         generation.current += 1;
         lock.current = false;
 
@@ -118,6 +121,8 @@ export default function Camera() {
       setAppActive(state === "active");
 
       if (state !== "active") {
+        setPreviewSize(null);
+        setCameraKey(key => key + 1);
         setReady(false);
       } else if (active.current) {
         void refreshPermission().catch(() => {});
@@ -442,10 +447,22 @@ export default function Camera() {
   return (
     <FullBleedScreen statusBarStyle={focused ? "light" : "auto"}>
       {focused && appActive && permission?.granted && !mountError ? (
+        <View
+          key={cameraKey}
+          testID="camera-preview-surface"
+          collapsable={false}
+          style={styles.previewSurface}
+          onLayout={({ nativeEvent: { layout } }) => {
+            if (layout.width <= 0 || layout.height <= 0) return;
+            setPreviewSize(previous => previous?.width === layout.width && previous?.height === layout.height
+              ? previous : { width: layout.width, height: layout.height });
+          }}
+        >
+          {previewSize ? (
         <CameraView
           key={cameraKey}
           ref={camera}
-          style={StyleSheet.absoluteFill}
+          style={previewSize}
           facing="back"
           mode="picture"
           onCameraReady={() => {
@@ -458,6 +475,8 @@ export default function Camera() {
             setMountError(true);
           }}
         />
+          ) : null}
+        </View>
       ) : null}
 
       {!unavailable ? (
@@ -681,6 +700,7 @@ export default function Camera() {
 }
 
 const styles = StyleSheet.create({
+  previewSurface: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
   topRow: {
     position: "absolute",
     flexDirection: "row",

@@ -27,7 +27,7 @@ export default function CatFilterModal({ visible, options: destinations, selecte
           accessibilityLabel={item.name} accessibilityState={{ checked: selectedCatId === item.id }}
           onPress={() => { onSelect(item.id); onClose(); }}>
           <View style={styles.avatar}><Ionicons name="paw" size={20} color={colors.textSecondary} /></View>
-          <Text style={styles.rowLabel}>{item.name}</Text>
+          <Text style={styles.rowLabel} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
           {selectedCatId === item.id ? <Ionicons name="checkmark" size={22} color={colors.textPrimary} /> : null}
         </TouchableOpacity>
       ))}
@@ -41,5 +41,5 @@ const styles = StyleSheet.create({
   close: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "center", minHeight: 56, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.sm },
   avatar: { width: 40, height: 40, borderRadius: radii.md, backgroundColor: colors.border, alignItems: "center", justifyContent: "center" },
-  rowLabel: { ...typography.body, color: colors.textPrimary, flex: 1 },
+  rowLabel: { ...typography.body, color: colors.textPrimary, flex: 1, minWidth: 0 },
 });

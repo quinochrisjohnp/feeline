@@ -53,8 +53,11 @@ export function selectCatForDetection(state: CatDataState, record: DetectionReco
   return album?.catId ? selectCatById(state, album.catId) : null;
 }
 
-/** Calendar history only includes complete, valid ownership chains. No state is repaired here. */
-/** Calendar includes all valid detections, even those not saved to Albums. */
+
+/**
+ * Calendar includes only detections with images
+ * currently saved in Unknown or Created Albums.
+ */
 export function selectCalendarRecords(
   state: CatDataState,
   catId: string | null = null
@@ -69,26 +72,33 @@ export function selectCalendarRecords(
         return false;
       }
 
-      // Use the detection's cat association when available.
-      // Fall back to the saved Album for older records.
+      // Only include images currently saved in an album.
       const image = selectImageById(state, record.imageId);
-      const album = image
-        ? selectAlbumById(state, image.albumId)
-        : null;
 
+      if (!image) {
+        return false;
+      }
+
+      const album = selectAlbumById(state, image.albumId);
+
+      if (!album) {
+        return false;
+      }
+
+      // Determine the cat from the saved album.
       const associatedCatId =
-        record.catId !== undefined
-          ? record.catId
-          : album?.catId ?? null;
+        album.kind === "unknown"
+          ? null
+          : album.catId;
 
-      // All Cats filter: include every valid detection.
+      // All Cats: include all saved album detections.
       if (catId === null) {
         return true;
       }
 
       // Unknown Cats filter.
       if (catId === UNKNOWN_ALBUM_ID) {
-        return associatedCatId === null;
+        return album.kind === "unknown";
       }
 
       // Personal Cat filter.
@@ -100,6 +110,7 @@ export function selectCalendarRecords(
         a.id.localeCompare(b.id)
     );
 }
+
 
 /** Filter is a real Cat ID, the Unknown Cats album ID, or null for all. Dates use local time. */
 export function selectCalendarRecordsForDate(state: CatDataState, date: Date, catId: string | null = null) {

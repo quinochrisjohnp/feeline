@@ -36,7 +36,7 @@ export default function CalendarDay({
   return (
     <TouchableOpacity style={styles.wrapper} onPress={onPress} activeOpacity={0.7} disabled={disabled}
       accessibilityRole="button" accessibilityState={{ selected: isSelected, disabled }}
-      accessibilityLabel={`${dateLabel}${reminderCount ? ", " + reminderCount + " wellness reminder(s)" : ""}${isToday ? ", today" : ""}, ${recordCount} detection${recordCount === 1 ? "" : "s"}${key ? `, latest ${EMOTIONS[key].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthday${birthdayCount === 1 ? "" : "s"}` : ""}`}>
+      accessibilityLabel={`${dateLabel}${reminderCount ? ", " + reminderCount + " wellness reminder(s)" : ""}${isToday ? ", today" : ""}, ${recordCount} detection${recordCount === 1 ? "" : "s"}${key ? `, most frequent ${EMOTIONS[key].label}` : ""}${birthdayCount ? `, ${birthdayCount} birthday${birthdayCount === 1 ? "" : "s"}` : ""}`}>
       <View
         style={[
           styles.circle,
@@ -46,8 +46,10 @@ export default function CalendarDay({
         ]}
       >
         {emotion ? <EmotionIcon emotion={emotion} size={35} /> : null}
+        {birthdayCount > 0 ? <Text testID="calendar-birthday-marker" style={[styles.eventMarker, styles.birthdayMarker]} accessible={false}>🎂</Text> : null}
+        {reminderCount > 0 ? <Text testID="calendar-reminder-marker" style={[styles.eventMarker, styles.reminderMarker]} accessible={false}>🐾</Text> : null}
       </View>
-      <Text style={[styles.dayLabel, !inCurrentMonth && styles.dayLabelMuted]}>{day}{birthdayCount ? " 🎂" : ""}{reminderCount ? " · 🐾" : ""}</Text>
+      <Text style={[styles.dayLabel, !inCurrentMonth && styles.dayLabelMuted]}>{day}</Text>
       {recordCount > 1 ? <Text style={styles.count}>{recordCount}</Text> : null}
     </TouchableOpacity>
   );
@@ -57,6 +59,10 @@ const styles = StyleSheet.create({
   wrapper: { alignItems: "center", width: `${100 / 7}%`, minHeight: 60, marginBottom: spacing.xs },
   count: { ...typography.caption, position: "absolute", top: 0, right: 0, borderRadius: radii.pill, paddingHorizontal: 3, backgroundColor: colors.textPrimary, color: colors.white },
   circle: { width: 40, height: 40, borderRadius: radii.pill, alignItems: "center", justifyContent: "center" },
+  eventMarker: { position: "absolute", bottom: 0, width: 16, height: 16, lineHeight: 16, fontSize: 11,
+    textAlign: "center", backgroundColor: colors.background, borderRadius: radii.pill },
+  birthdayMarker: { left: -3 },
+  reminderMarker: { right: -3 },
   circleEmpty: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   circleSelected: { borderWidth: 2, borderColor: colors.textPrimary },
   circleToday: { borderWidth: 2, borderColor: colors.primary },

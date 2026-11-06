@@ -1,10 +1,11 @@
 import type { DetectionRecord, EmotionKey } from "@/types/models";
+import { EMOTIONS } from "../types/models";
 import { isSameDay } from "./date";
 
 /** Input is already cat-filtered. Count each valid detection once on its local date. */
 export function dailyEmotion(records: readonly DetectionRecord[], date: Date): EmotionKey | undefined {
   const valid = records.filter(record => record.id &&
-    ["angry", "fearful", "happy", "neutral"].includes(record.emotion) &&
+    Object.hasOwn(EMOTIONS, record.emotion) &&
     Number.isFinite(Date.parse(record.recordedAt)) && isSameDay(new Date(record.recordedAt), date))
     .slice().sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt) || b.id.localeCompare(a.id));
   const seen = new Set<string>();

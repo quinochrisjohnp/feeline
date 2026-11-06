@@ -53,7 +53,7 @@ function mount(file, { componentName, params = {}, context, router = {}, globals
       ScrollView: "ScrollView", FlatList: "FlatList", ActivityIndicator: "ActivityIndicator" },
     "@/components/common/DraggableDetailsLayout": { __esModule:true, default:"@/components/common/DraggableDetailsLayout", SheetHandle:"SheetHandle", usePanelProgress: () => { const [expanded,setExpanded]=mocks.react.useState(false);return { expanded, settledExpanded:expanded, snap:v=>setExpanded(v===1), progress:{interpolate:({outputRange})=>outputRange[expanded?1:0]},handlers:{} }; } },
     "react-native-gesture-handler": { GestureHandlerRootView:"GestureHandlerRootView" },
-    "@/components/calendar/CalendarDragPanel": {CalendarWeek:"CalendarWeek",CalendarDragHandle:"SheetHandle",useCalendarPanel:()=>{const [expanded,setExpanded]=mocks.react.useState(false);return {settledExpanded:expanded,snap:v=>setExpanded(v===1),progress:{value:expanded?1:0}};}},
+    "@/components/calendar/CalendarDragPanel": {CalendarSwipeArea:"CalendarSwipeArea",CalendarWeek:"CalendarWeek",CalendarDragHandle:"SheetHandle",useCalendarPanel:()=>{const [expanded,setExpanded]=mocks.react.useState(false);return {settledExpanded:expanded,snap:v=>setExpanded(v===1),progress:{value:expanded?1:0}};}},
     "@expo/vector-icons": { Ionicons: "Icon" },
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
     "@/constants/theme": { colors: {}, spacing: {}, dimensions: {}, radii: {}, shadows: {}, typography: {}, interaction: {},

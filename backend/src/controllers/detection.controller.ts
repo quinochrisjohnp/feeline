@@ -53,6 +53,12 @@ export const getDetectionHistory = async (req: AuthRequest, res: Response) => {
         confidence: detection.confidence_score
           ? Number(detection.confidence_score)
           : 0,
+        recommendations: Array.isArray(detection.selected_recommendations)
+          ? detection.selected_recommendations.filter(
+              (item): item is string =>
+                typeof item === "string" && item.trim().length > 0
+            )
+          : [],
         capturedAt: (
           detection.cat_images!.created_at ??
           detection.detected_at ??
@@ -350,6 +356,7 @@ export const detectEmotion = async (req: AuthRequest, res: Response) => {
           image_id: catImage.image_id,
           emotion_id: emotionCategory.emotion_id,
           confidence_score: detectionResult.confidence,
+          selected_recommendations: detectionResult.recommendations,
         },
       });
 
@@ -781,6 +788,108 @@ export const removeDetectionFromAlbum = async (
 
     return res.status(500).json({
       error: "Failed to remove image from Album",
+    });
+  }
+};
+
+// ============================================================
+// GET /api/detection/calendar
+//
+// Return only images saved to Unknown or Created Albums.
+// Removed album images are automatically excluded.
+// ============================================================
+
+// ============================================================
+// GET /api/detection/calendar
+//
+// Return only images saved to Unknown or Created Albums.
+// Removed album images are automatically excluded.
+// ============================================================
+
+export const getCalendarImages = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.profileId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    const detections = await prisma.emotion_detections.findMany({
+      where: {
+        cats: {
+          profile_id: req.profileId,
+        },
+        cat_images: {
+          is: {
+            is_saved_to_album: true,
+          },
+        },
+      },
+      include: {
+        cats: true,
+        cat_images: true,
+        emotion_categories: true,
+      },
+      orderBy: {
+        detected_at: "desc",
+      },
+    });
+
+    const images = detections
+      .filter((detection) => detection.cat_images !== null)
+      .map((detection) => ({
+        detectionId: detection.detection_id,
+        imageId: detection.image_id,
+        imageUrl: detection.cat_images!.image_url,
+        catId: detection.cat_id,
+        catName: detection.cats.name,
+        isUnknown:
+          detection.cats.name === UNKNOWN_ALBUM_NAME,
+
+        emotion: detection.emotion_categories.emotion_name,
+
+        confidence: detection.confidence_score
+          ? Number(detection.confidence_score)
+          : 0,
+
+        // Original recommendations selected during detection.
+        // Do not randomly generate new recommendations here.
+        recommendations: Array.isArray(
+          detection.selected_recommendations
+        )
+          ? detection.selected_recommendations.filter(
+              (item): item is string =>
+                typeof item === "string" &&
+                item.trim().length > 0
+            )
+          : [],
+
+        capturedAt: (
+          detection.cat_images!.created_at ??
+          detection.detected_at ??
+          detection.created_at ??
+          new Date()
+        ).toISOString(),
+
+        detectedAt: (
+          detection.detected_at ??
+          detection.created_at ??
+          detection.cat_images!.created_at ??
+          new Date()
+        ).toISOString(),
+      }));
+
+    return res.json({
+      images,
+    });
+  } catch (error) {
+    console.error("Get calendar images error:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch calendar images",
     });
   }
 };

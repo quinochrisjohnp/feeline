@@ -6,7 +6,9 @@ import { getBundledCatImage } from "@/data/bundledCatImages";
 import { isDeviceImageUri, isRemoteImageUri } from "@/utils/mediaUri";
 
 /** Displays bundled demo photos and selected images, or a placeholder for an invalid source. */
-export default function MockPhoto({ imageUri, size, icon = "image-outline", color = colors.textMuted, label = "Photo", resizeMode = "cover" }: {
+export default function MockPhoto({ imageUri, size, icon = "image-outline", color = colors.textMuted, label = "Photo", resizeMode = "cover", onLoad, onError }: {
+  onLoad?: () => void;
+  onError?: () => void;
   imageUri?: string | null;
   size: number;
   icon?: React.ComponentProps<typeof Ionicons>["name"];
@@ -17,7 +19,7 @@ export default function MockPhoto({ imageUri, size, icon = "image-outline", colo
   const source = getBundledCatImage(imageUri) ??
     (isDeviceImageUri(imageUri) || isRemoteImageUri(imageUri) ? { uri: imageUri } : undefined);
   if (source) {
-    return <Image source={source} style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%" }]} resizeMode={resizeMode}
+    return <Image onLoad={onLoad} onError={onError} source={source} style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%" }]} resizeMode={resizeMode}
       testID={imageUri ?? undefined} accessible accessibilityRole="image"
       accessibilityLabel={label.replace(/\s*\(?placeholder\)?/gi, "").trim() || "Cat photo"} />;
   }

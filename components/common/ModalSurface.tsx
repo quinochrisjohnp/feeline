@@ -17,7 +17,7 @@ export default function ModalSurface({ visible, onClose, children, compact = fal
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <SafeAreaView style={styles.overlay}>
           {compact ? <View style={[styles.content, styles.flex, { padding: spacing.sm }]}>
-            <View style={[styles.card, { padding: spacing.sm, flex: 1, minHeight: 0, maxHeight: dimensions.contentMaxWidth }]} accessibilityViewIsModal>{children}</View>
+            <View style={[styles.card, { padding: spacing.sm, flex: 1, minHeight: 0, maxHeight: 720 }]} accessibilityViewIsModal>{children}</View>
           </View> : <View style={[styles.content, styles.flex]}>
             <View style={[styles.card, { maxHeight: "100%", padding: 0, overflow: "hidden" }]} accessibilityViewIsModal>
               <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ padding: spacing.md }} keyboardShouldPersistTaps="handled"

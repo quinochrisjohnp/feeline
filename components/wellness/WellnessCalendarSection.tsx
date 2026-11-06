@@ -1,3 +1,4 @@
+import DialogActions from "@/components/common/DialogActions";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import WellnessReminderDetails from "./WellnessReminderDetails";
 import React, { useEffect, useRef, useState } from "react";
@@ -24,6 +25,7 @@ export default function WellnessCalendarSection({ date, catId, blocked, global =
   const [feedback, setFeedback] = useState<string | null>(null);
   const lock = useRef(false);
   const claiming = useRef(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [savedCat, setSavedCat] = useState<string | null>(null);
   const visible = global ? wellness.canPresent : focused && !blocked && AppState.currentState === "active";
   useEffect(() => {
@@ -56,7 +58,16 @@ export default function WellnessCalendarSection({ date, catId, blocked, global =
     finally { lock.current = false; setBusy(false); }
   };
   return <>
-    <ConfirmModal visible={visible && !!savedCat} title="Reminder saved" message={`We’ll remind you to check in with ${savedCat} at the time you selected.\n\nPhone delivery follows your device notification settings.`} hideCancel confirmLabel="Continue" onConfirm={() => setSavedCat(null)} onCancel={() => setSavedCat(null)} />
+    <ConfirmModal visible={visible && !!savedCat} title="Reminder saved" message={`We’ll remind you to check in with ${savedCat} at the time you selected.\n\nPlease make sure your phone’s notification settings is turned on.`} onConfirm={() => setSavedCat(null)} onCancel={() => setSavedCat(null)}
+      actions={<DialogActions
+        first={{ label: "Continue", onPress: () => setSavedCat(null) }}
+        second={{ label: "Check notification", variant: "outline", onPress: () => {
+          setSettingsError(null);
+          void Linking.openSettings().catch(() => setSettingsError("Open your phone’s Settings, choose FeELINE, then Notifications."));
+        } }}
+      />}>
+      {settingsError && <Text style={styles.caption} accessibilityRole="alert">{settingsError}</Text>}
+    </ConfirmModal>
     {global && visible && feedback ? <ModalSurface visible onClose={() => setFeedback(null)}>
       <Text style={styles.caption} accessibilityLiveRegion="polite">{feedback}</Text>
       <Button label="Continue" onPress={() => setFeedback(null)} />
@@ -84,7 +95,7 @@ export default function WellnessCalendarSection({ date, catId, blocked, global =
     })}
     {visible && alert && cat && selection ? selection.editor ? <WellnessReminderEditor
       key={alert.signature + "-editor"} cat={cat} alert={alert} reminder={reminder} onClose={close}
-      onSave={async at => { await wellness.saveReminder(alert.signature, at, cat.name); setSavedCat(cat.name); setSelection(null); }}
+      onSave={async at => { await wellness.saveReminder(alert.signature, at, cat.name); setSettingsError(null); setSavedCat(cat.name); setSelection(null); }}
 
       onDelete={async () => { await wellness.acknowledge(alert.signature, true); setSelection(null); setFeedback("Local reminder deleted."); }} />
       : reminder ? <WellnessReminderDetails due={global} busy={busy} error={error} onDone={acknowledge} cat={cat} alert={alert} reminder={reminder}

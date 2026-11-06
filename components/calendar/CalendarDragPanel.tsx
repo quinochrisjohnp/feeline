@@ -26,6 +26,14 @@ export function useCalendarPanel(distance: number) {
   useEffect(() => () => cancelAnimation(progress), [progress]);
   return { progress, gesture, snap, settledExpanded };
 }
+/** Horizontal swipes only; vertical calendar collapse keeps its own handle. */
+export function CalendarSwipeArea({ onSwipe, children }: { onSwipe: (offset: number) => void; children: React.ReactNode }) {
+  const gesture = useMemo(() => Gesture.Pan().activeOffsetX([-24, 24]).failOffsetY([-16, 16]).runOnJS(true)
+    .onEnd(event => {
+      if (Math.abs(event.translationX) >= 48) onSwipe(event.translationX < 0 ? 1 : -1);
+    }), [onSwipe]);
+  return <GestureDetector gesture={gesture}><View collapsable={false}>{children}</View></GestureDetector>;
+}
 export function CalendarDragHandle({ panel, label }: { panel: ReturnType<typeof useCalendarPanel>; label: string }) {
   return <GestureDetector gesture={panel.gesture}><View collapsable={false}>
     <Pressable style={styles.touch} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded: panel.settledExpanded }} onPress={() => panel.snap(panel.settledExpanded ? 0 : 1)}><View style={styles.handle} /></Pressable>

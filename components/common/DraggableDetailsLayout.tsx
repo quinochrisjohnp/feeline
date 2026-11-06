@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AccessibilityInfo, Animated, PanResponder, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, dimensions, radii, spacing } from "@/constants/theme";
+import LoadingPhoto from "./LoadingPhoto";
 import MockPhoto from "./MockPhoto";
 
 /** Only the handle owns the pan gesture; detail text retains native scrolling. */
@@ -40,8 +41,9 @@ export function SheetHandle({ panel, label }: { panel: ReturnType<typeof usePane
     <View style={styles.handle} />
   </Pressable></View>;
 }
-export default function DraggableDetailsLayout({ imageUri, children, footer, detailsVisible = true, onDismiss }: {
+export default function DraggableDetailsLayout({ imageUri, children, footer, detailsVisible = true, onDismiss, showImageLoading = false }: {
   imageUri: string; children: React.ReactNode; footer?: React.ReactNode;
+  showImageLoading?: boolean;
   detailsVisible?: boolean; onDismiss?: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -58,7 +60,7 @@ export default function DraggableDetailsLayout({ imageUri, children, footer, det
   }, [dismissible, detailsVisible, snap]);
   const sheetHeight = panel.progress.interpolate({ inputRange: [0, 1], outputRange: [collapsed, maximum] });
   return <View style={styles.root} onLayout={event => setHeight(event.nativeEvent.layout.height)}>
-    <View style={styles.image}><MockPhoto size={48} imageUri={imageUri} label="Cat photo" resizeMode="contain" /></View>
+    <View style={styles.image}>{showImageLoading ? <LoadingPhoto key={imageUri} imageUri={imageUri} /> : <MockPhoto size={48} imageUri={imageUri} label="Cat photo" resizeMode="contain" />}</View>
     <Animated.View style={[styles.sheet, { height: sheetHeight, paddingBottom: dismissible ? 0 : insets.bottom }]}>
       {detailsVisible && <>
       <SheetHandle panel={panel} label="Expand or collapse photo details" />

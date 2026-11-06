@@ -186,9 +186,63 @@ test("birthday rows and multiple-event markers follow the filter; album removal 
   assert.equal(selectedDay().props.birthdayCount, 0);
   assert.equal(rows(screen.render()).length, 0);
   filter(screen, cat.id);
+  const ordered = nodes(screen.render());
+  const reminderIndex = ordered.findIndex(n => n.type === "@/components/wellness/WellnessCalendarSection");
+  const birthdayIndex = ordered.findIndex(n => n.props?.accessibilityLabel === cat.name + ", Birthday, All Day");
+  const detectionIndex = ordered.findIndex(n => n.type === "@/components/calendar/DetectionListRow");
+  assert.ok(reminderIndex < birthdayIndex && birthdayIndex < detectionIndex);
   context().deleteImages([a.image.id, b.image.id]);
   assert.equal(rows(screen.render()).length, 2);
   assert.equal(selectedDay().props.recordCount, 2);
   assert.equal(selectedDay().props.birthdayCount, 1);
   assert.equal(find(screen.render(), "/EmptyState"), undefined);
+});
+
+test("birthday and reminder markers occupy separate corners without widening the date label", () => {
+ const tree = mount("components/calendar/CalendarDay.tsx", {
+  props: { day: 24, dateLabel: "October 24", birthdayCount: 1, reminderCount: 1, recordCount: 3, emotion: "happy" },
+  dependencies: { "@/constants/theme": { colors: { emotion: { happy: "#A8D8B9" } }, radii: {}, spacing: {}, typography: {} }, "@/utils/emotion": require("../utils/emotion.ts"), "@/types/models": require("../types/models.ts") },
+ }).render();
+ const all = nodes(tree);
+ const birthday = all.find(n => n.props?.testID === "calendar-birthday-marker");
+ const reminder = all.find(n => n.props?.testID === "calendar-reminder-marker");
+ assert.ok(birthday && reminder);
+ assert.equal(birthday.props.style[1].left, -3);
+ assert.equal(reminder.props.style[1].right, -3);
+ assert.ok(all.some(n => n.type === "Text" && n.props.children === 24));
+ assert.match(tree.props.accessibilityLabel, /1 wellness reminder/);
+ assert.match(tree.props.accessibilityLabel, /1 birthday/);
+});
+
+test("horizontal calendar navigation advances months or seven days without expanding week view", () => {
+ const context = emptyContext();
+ const screen = mount(calendarFile, { context });
+ select(screen, new Date(2026, 11, 31, 12));
+ const swipe = offset => find(screen.render(), "CalendarSwipeArea").props.onSwipe(offset);
+ swipe(1);
+ assert.match(find(screen.render(), "/CalendarHeader").props.label, /2027/);
+ assert.equal(days(screen.render()).find(d => d.props.isSelected).props.day, 1);
+ swipe(-1);
+ assert.match(find(screen.render(), "/CalendarHeader").props.label, /2026/);
+ select(screen, new Date(2026, 11, 31, 12));
+ find(screen.render(), "SheetHandle").props.panel.snap(1);
+ swipe(1);
+ assert.equal(days(screen.render()).length, 7);
+ assert.equal(days(screen.render()).find(d => d.props.isSelected).props.day, 7);
+ assert.match(find(screen.render(), "/CalendarHeader").props.label, /2027/);
+ swipe(-1);
+ assert.equal(days(screen.render()).length, 7);
+ assert.equal(days(screen.render()).find(d => d.props.isSelected).props.day, 31);
+ const cat = context().state.cats[0];
+ context().updateCat(cat.id, { name: "Very long cat name that should not displace calendar controls" });
+ filter(screen, cat.id);
+ const chip = nodes(screen.render()).find(n => n.props?.accessibilityLabel?.startsWith("Filter calendar:"));
+ assert.equal(chip.props.style.maxWidth, "60%");
+ assert.equal(chip.props.children[0].props.numberOfLines, 1);
+});
+test("Cat Album heading stays outside the scrolling cards", () => {
+ const tree = mount("app/(screens)/(tabs)/album.tsx", { context: emptyContext() }).render();
+ const scroll = find(tree, "ScrollView");
+ assert.ok(nodes(tree).some(n => n.props?.children === "Cat Album"));
+ assert.equal(nodes(scroll).some(n => n.props?.children === "Cat Album"), false);
 });

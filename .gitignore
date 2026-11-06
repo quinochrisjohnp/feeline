@@ -89,3 +89,6 @@ ai/.env.*
 /detection-performance-diff.txt
 /feeline-login-log.txt
 /unknown-cats-files*.txt
+# Sensitive Android signing credentials
+credentials.json
+credentials/

@@ -15,7 +15,7 @@ export default function WellnessCheckInModal({ cat, alert, onClose, onAcknowledg
   const [expanded, setExpanded] = useState(false);
   const content = wellnessGuidance(cat.name, alert.rule);
   return <ModalSurface visible onClose={() => { if (!busy) onClose(); }}>
-    <ModalHeader title="A little check-in" onClose={onClose} disabled={busy} />
+    <ModalHeader closeIconSize={24} title="A little check-in" onClose={onClose} disabled={busy} />
     <WellnessCatHeader cat={cat} />
     <Text style={styles.body}>{content.summary}</Text>
     <Text style={styles.caption}>{new Date(alert.from).toLocaleString()} – {new Date(alert.through).toLocaleString()}</Text>

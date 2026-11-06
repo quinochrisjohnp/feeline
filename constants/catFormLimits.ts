@@ -1,2 +1,2 @@
 /** Shared input limits; never slice existing server values on load. */
-export const CAT_FORM_LIMITS = { name: 50, breed: 50, description: 500 } as const;
+export const CAT_FORM_LIMITS = { name: 25, breed: 25, description: 255 } as const;

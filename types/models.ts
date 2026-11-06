@@ -69,6 +69,9 @@ export interface DetectionRecord {
 
   /** Associated cat ID, or null for Unknown Cats. */
   catId?: string | null;
+
+  /** Original recommendations selected during emotion detection. */
+  recommendations?: string[];
 }
 
 export interface CatDataState {

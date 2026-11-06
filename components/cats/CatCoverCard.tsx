@@ -61,7 +61,7 @@ export default function CatCoverCard({ name, coverUri, variant = "tile", onPress
         {faded ? <View pointerEvents="none" style={styles.dimOverlay} /> : null}
         {selected ? <View pointerEvents="none" style={styles.selectionBorder} /> : null}
 
-        <Text style={[styles.name, isBar && styles.nameBar]} numberOfLines={2}>
+        <Text style={[styles.name, isBar && styles.nameBar]} numberOfLines={2} ellipsizeMode="tail">
           {name}
         </Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}

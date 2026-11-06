@@ -1,16 +1,15 @@
 import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, { useRef, useState } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import SettingRow from "@/components/settings/SettingRow";
 import ConfirmModal from "@/components/common/ConfirmModal";
-import PlaceholderBox from "@/components/common/PlaceholderBox";
 import { useAuth } from "@/context/AuthContext";
-import { colors, radii, spacing, typography } from "@/constants/theme";
+import { colors, spacing, typography } from "@/constants/theme";
 
 const Settings = () => {
-  const { profile, signOut } = useAuth();
+  const { signOut } = useAuth();
   const router = useRouter();
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -35,26 +34,12 @@ const Settings = () => {
     }
   };
 
-  const displayName = profile
-    ? `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() || "FeELINE User"
-    : "Account unavailable";
-  const displayEmail = profile?.email ?? "No email available";
-
   return (
     <ScreenContainer module="settings" scroll tabBar>
-      <View style={styles.profileRow}>
-        {profile?.profileImageUrl ? (
-          <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} resizeMode="cover" accessibilityLabel="Account profile photo" />
-        ) : (
-          <PlaceholderBox icon="person" borderRadius={radii.pill} backgroundColor={colors.border} style={styles.avatar} />
-        )}
-        <View style={styles.profileText}>
-          <Text style={styles.name}>{displayName}</Text>
-          <Text style={styles.email}>{displayEmail}</Text>
-        </View>
-      </View>
+      <Text style={styles.title} accessibilityRole="header">Settings</Text>
 
       <View style={styles.section}>
+        <SettingRow icon="person-circle-outline" label="Account Management" onPress={() => router.push("/settings-account")} />
         <SettingRow icon="information-circle-outline" label="About" onPress={() => router.push("/settings-about")} />
         <SettingRow
           icon="chatbubble-ellipses-outline"
@@ -94,10 +79,6 @@ const Settings = () => {
 export default Settings;
 
 const styles = StyleSheet.create({
-  profileRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.lg, marginBottom: spacing.xl },
-  avatar: { width: 64, height: 64, borderRadius: 32, overflow: "hidden" },
-  profileText: { marginLeft: spacing.md, flex: 1, minWidth: 0 },
-  name: { ...typography.subheading, color: colors.textPrimary },
-  email: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xxs },
+  title: { ...typography.heading, color: colors.textPrimary, marginTop: spacing.lg, marginBottom: spacing.xl },
   section: { marginBottom: spacing.lg },
 });

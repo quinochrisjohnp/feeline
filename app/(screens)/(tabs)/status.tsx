@@ -1,3 +1,5 @@
+import CatProfileLimitModal from "@/components/cats/CatProfileLimitModal";
+import { MAX_CAT_PROFILES } from "@/constants/catLimits";
 import { useWellnessNavigationSafety } from "@/context/WellnessContext";
 import React, {
   useCallback,
@@ -77,6 +79,7 @@ export default function Status() {
   const [selectedCatId, setSelectedCatId] =
     useState<string | null>(null);
 
+  const [limitVisible, setLimitVisible] = useState(false);
   const [addingCat, setAddingCat] =
     useState(false);
 
@@ -290,7 +293,7 @@ export default function Status() {
           />
 
           <View style={styles.profileBody}>
-            <Text style={styles.catName}>
+            <Text style={styles.catName} numberOfLines={2} ellipsizeMode="tail" accessibilityLabel={selectedCat.name}>
               {selectedCat.name}
             </Text>
 
@@ -576,9 +579,7 @@ export default function Status() {
         <TouchableOpacity
           style={styles.addButton}
           accessibilityRole="button"
-          onPress={() =>
-            setAddingCat(true)
-          }
+          onPress={() => { if (state.cats.filter(cat => cat.id !== "unknown-cats").length >= MAX_CAT_PROFILES) setLimitVisible(true); else setAddingCat(true); }}
           accessibilityLabel="Add cat"
         >
           <Ionicons
@@ -598,9 +599,7 @@ export default function Status() {
           title="No cats added yet"
           message="Add a cat profile to organize your photos and emotion-cue results."
           actionLabel="Add your first cat"
-          onAction={() =>
-            setAddingCat(true)
-          }
+          onAction={() => { if (state.cats.filter(cat => cat.id !== "unknown-cats").length >= MAX_CAT_PROFILES) setLimitVisible(true); else setAddingCat(true); }}
         />
       ) : (
         <ScrollView
@@ -646,6 +645,7 @@ export default function Status() {
         confirmLabel="Delete profile" destructive busy={deleting} onConfirm={handleDelete}
         onCancel={() => { if (!deleteLock.current) setDeleteTarget(null); }} />
       {/* ADD CAT MODAL */}
+      <CatProfileLimitModal visible={limitVisible} onClose={() => setLimitVisible(false)} />
       <AddCatForm
         visible={addingCat}
         onCancel={() =>

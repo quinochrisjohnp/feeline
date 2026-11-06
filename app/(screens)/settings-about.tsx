@@ -8,10 +8,13 @@ import DetailScreenHeader from "@/components/common/DetailScreenHeader";
 import { colors, fontFamily, spacing, typography } from "@/constants/theme";
 
 const FEATURES = [
-  "Create and manage cat profiles",
-  "Explore image-based emotion interpretations",
-  "Save analyzed images to cat albums",
-  "View emotion detection history by date",
+  "Capture a cat photo or choose one from your gallery for AI-based interpretation",
+  "View Happy, Neutral, Fearful, or Angry cues with confidence and recommended actions",
+  "Create up to 20 cat profiles and organize saved images in their albums",
+  "Use Unknown Cats for images not assigned to a personal cat profile",
+  "Browse detection history, birthdays, and check-in reminders in the Calendar",
+  "Set local check-in reminders after repeated Angry or Fearful results",
+  "Share app issues and suggestions through Give us Feedback",
 ];
 
 export default function AboutFeeline() {
@@ -23,12 +26,15 @@ export default function AboutFeeline() {
       <ScrollView contentContainerStyle={styles.content}>
       <DocumentSurface>
         <Text style={styles.paragraph}>
-          FeELINE is an academic and research-oriented mobile application for an AI-powered cat emotion detection
-          application. It is designed to help users interpret observable emotional cues in cat images.
+          FeELINE is a thesis-based mobile application focused on recognizing observable
+          emotional cues in Puspin cats from images. It helps cat owners reflect on visual
+          cues and keep an organized record of their cats, photos, and detection results.
         </Text>
         <Text style={styles.paragraph}>
-          FeELINE uses AI-based image interpretation in four categories: Happy,
-          Neutral, Fearful, and Angry. Results describe observable cues and may be inaccurate.
+          A captured or selected image is sent to the connected AI service, which interprets
+          cues in four categories: Happy, Neutral, Fearful, and Angry. These labels are
+          estimates from a single image, not proof of what a cat feels. Lighting, pose,
+          image quality, and the model’s limitations can affect results.
         </Text>
 
         <Text style={styles.subheading} accessibilityRole="header">The app allows users to:</Text>
@@ -40,12 +46,17 @@ export default function AboutFeeline() {
         ))}
 
         <Text style={[styles.paragraph, styles.spaced]}>
-          FeELINE aims to promote better pet care by providing insights into a cat&apos;s emotional well-being
-          through accessible and user-friendly technology.
+          Confidence reflects the model’s prediction, not a guarantee of accuracy. Accepted
+          results below 50% include a caution while keeping their recommendations available.
+          Consider the photo together with your cat’s behavior and surroundings. Check-in
+          reminders are prompts to observe your cat, not medical alerts or continuous monitoring.
         </Text>
         <Text style={styles.paragraph}>
-          This application is developed as part of an academic project and is intended for educational and research
-          purposes. It is not veterinary diagnosis or professional veterinary advice.
+          Developed for academic, educational, and research purposes, FeELINE does not diagnose
+          illness or replace veterinary advice, diagnosis, or treatment. Google sign-in connects
+          you to your account; analysis and account data require network services. Review the
+          Privacy Policy and Terms and Conditions for information about uploads, stored data,
+          and responsible use. Send questions or suggestions through Give us Feedback.
         </Text>
       </DocumentSurface>
       </ScrollView>

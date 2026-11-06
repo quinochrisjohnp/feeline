@@ -1,4 +1,3 @@
-
 import type { Response } from "express";
 
 import prisma from "../config/db.config.js";
@@ -23,12 +22,11 @@ export const submitFeedback = async (
       });
     }
 
-    const { title, email, subject, message } = req.body ?? {};
+    // Email is no longer accepted from the feedback form.
+    const { title, subject, message } = req.body ?? {};
 
-    // Validate input types before calling string methods.
     if (
       typeof title !== "string" ||
-      typeof email !== "string" ||
       typeof subject !== "string" ||
       typeof message !== "string"
     ) {
@@ -39,14 +37,11 @@ export const submitFeedback = async (
     }
 
     const cleanTitle = title.trim();
-    const cleanEmail = email.trim();
     const cleanSubject = subject.trim();
     const cleanMessage = message.trim();
 
-    // Match the current mobile feedback form validation.
     if (
       !cleanTitle ||
-      !cleanEmail ||
       !cleanSubject ||
       !cleanMessage
     ) {
@@ -56,17 +51,25 @@ export const submitFeedback = async (
       });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    // Only allow the predefined feedback subjects.
+    const allowedSubjects = [
+      "Bug Report",
+      "Feature Suggestion",
+      "Emotion Detection Concern",
+      "App Experience",
+      "Others",
+    ];
+
+    if (!allowedSubjects.includes(cleanSubject)) {
       return res.status(400).json({
         status: "error",
-        message: "Please enter a valid email address.",
+        message: "Please select a valid feedback subject.",
       });
     }
 
-    // Respect the existing Prisma database column limits.
+    // Respect existing Prisma database column limits.
     if (
       cleanTitle.length > 150 ||
-      cleanEmail.length > 255 ||
       cleanSubject.length > 255 ||
       cleanMessage.length > 5000
     ) {
@@ -76,13 +79,14 @@ export const submitFeedback = async (
       });
     }
 
-    // Confirm that the authenticated profile still exists.
+    // Retrieve the authenticated user's email from PostgreSQL.
     const profile = await prisma.profiles.findUnique({
       where: {
         profile_id: profileId,
       },
       select: {
         profile_id: true,
+        email: true,
       },
     });
 
@@ -93,12 +97,12 @@ export const submitFeedback = async (
       });
     }
 
-    // Save feedback to PostgreSQL.
+    // Save feedback using the authenticated user's email.
     const feedback = await prisma.feedback.create({
       data: {
         profile_id: profile.profile_id,
         title: cleanTitle,
-        email: cleanEmail,
+        email: profile.email,
         subject: cleanSubject,
         message: cleanMessage,
       },

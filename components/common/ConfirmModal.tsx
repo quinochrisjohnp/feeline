@@ -10,6 +10,8 @@ interface ConfirmModalProps {
   balanced?: boolean;
   title: string;
   message?: string;
+  children?: React.ReactNode;
+  actions?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
@@ -26,6 +28,8 @@ export default function ConfirmModal({
   balanced = true,
   title,
   message,
+  children,
+  actions,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   destructive = false,
@@ -40,7 +44,8 @@ export default function ConfirmModal({
     <ModalSurface visible={visible} onClose={() => { if (!busy) onCancel(); }}>
           <Text style={styles.title} accessibilityRole="header">{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
-          {balanced && !hideCancel ? <DialogActions
+          {children}
+          {actions ?? (balanced && !hideCancel ? <DialogActions
             first={{ label: cancelLabel, variant: "outline", onPress: onCancel, disabled: busy }}
             second={{ label: confirmLabel, onPress: onConfirm, loading: busy, variant: destructive ? "danger" : "primary" }} /> : <View style={[styles.actions, stacked && styles.stacked]}>
             {(!hideCancel || destructive) && (
@@ -53,7 +58,7 @@ export default function ConfirmModal({
               loading={busy}
               style={!stacked && styles.actionButton}
             />
-          </View>}
+          </View>)}
     </ModalSurface>
   );
 }

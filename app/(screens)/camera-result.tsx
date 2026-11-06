@@ -211,7 +211,7 @@ export default function CameraResult() {
         }
       />
 
-      <DraggableDetailsLayout imageUri={imageUri}>
+      <DraggableDetailsLayout imageUri={imageUri} showImageLoading>
         <EmotionResultCard embedded
           emotionKey={emotionParam}
           confidence={confidence}

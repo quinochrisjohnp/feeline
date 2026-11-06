@@ -2,9 +2,9 @@ import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/d
 import ModalSurface from "@/components/common/ModalSurface";
 import Button from "@/components/common/Button";
 import { dailyEmotion } from "@/utils/calendarEmotion";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import ScreenContainer from "@/components/common/ScreenContainer";
 import WellnessCalendarSection from "@/components/wellness/WellnessCalendarSection";
@@ -13,7 +13,7 @@ import { remindersForDate } from "@/utils/wellnessState";
 import CalendarHeader from "@/components/calendar/CalendarHeader";
 import CalendarDay from "@/components/calendar/CalendarDay";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { CalendarDragHandle, CalendarWeek, useCalendarPanel } from "@/components/calendar/CalendarDragPanel";
+import { CalendarSwipeArea, CalendarDragHandle, CalendarWeek, useCalendarPanel } from "@/components/calendar/CalendarDragPanel";
 import DetectionListRow from "@/components/calendar/DetectionListRow";
 import CatFilterModal from "@/components/calendar/CatFilterModal";
 import EmptyState from "@/components/common/EmptyState";
@@ -27,8 +27,14 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function Calendar() {
   const router = useRouter();
-  const { state } = useCatData();
+  const { state, refreshDetections } = useCatData();
   const wellness = useWellness();
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshDetections();
+    }, [refreshDetections])
+  );
   const filterOptions = selectCalendarFilterOptions(state);
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -74,6 +80,13 @@ export default function Calendar() {
     selectDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + offset, 1));
     handleExpand();
   };
+  const swipeCalendar = (offset: number) => {
+    if (panel.settledExpanded) {
+      selectDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + offset * 7));
+    } else {
+      moveMonth(offset);
+    }
+  };
   const goToToday = () => { selectDate(new Date()); handleExpand(); };
   const dateHeading = isSameDay(selectedDate, new Date()) ? "TODAY" : formatFullDate(selectedDate.toISOString()).toUpperCase();
 
@@ -87,6 +100,7 @@ export default function Calendar() {
             <View style={styles.weekdayRow}>
               {WEEKDAYS.map((day) => <Text key={day} style={styles.weekdayLabel}>{day}</Text>)}
             </View>
+            <CalendarSwipeArea onSwipe={swipeCalendar}>
             <View style={styles.grid}>
               {Array.from({ length: cells.length / 7 }, (_, week) => {
                 if (panel.settledExpanded && week !== selectedWeek) return null;
@@ -99,6 +113,7 @@ export default function Calendar() {
                 </CalendarWeek>;
               })}
             </View>
+            </CalendarSwipeArea>
           </View>
           <View style={styles.recordsSheet}>
             <CalendarDragHandle panel={panel} label="Expand events or show full calendar month" />
@@ -107,10 +122,12 @@ export default function Calendar() {
               <Text style={styles.recordsHeading}>{dateHeading}</Text>
               <TouchableOpacity style={styles.filterChip} onPress={() => setFilterVisible(true)} accessibilityRole="button"
                 accessibilityLabel={`Filter calendar: ${selectedCatName}`} accessibilityState={{ expanded: filterVisible }}>
-                <Text style={styles.filterChipLabel}>{selectedCatName}</Text>
+                <Text style={styles.filterChipLabel} numberOfLines={1} ellipsizeMode="tail">{selectedCatName}</Text>
                 <Ionicons name="chevron-down" size={16} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
+            <WellnessCalendarSection date={selectedDate} catId={filterId} blocked={filterVisible}
+              onOpenContext={(date, catId) => { selectDate(date); setSelectedCatId(catId); }} />
             {birthdays.map((cat) => (
               <View key={cat.id} style={styles.birthday} accessible accessibilityLabel={`${cat.name}, Birthday, All Day`}>
                 <Ionicons name="gift-outline" size={22} color={colors.textPrimary} />
@@ -118,8 +135,6 @@ export default function Calendar() {
                 <Text style={styles.allDay}>All Day</Text>
               </View>
             ))}
-            <WellnessCalendarSection date={selectedDate} catId={filterId} blocked={filterVisible}
-              onOpenContext={(date, catId) => { selectDate(date); setSelectedCatId(catId); }} />
             {records.map((record) => (
               <DetectionListRow key={record.id} catName={selectCatForDetection(state, record)?.name ?? "Unknown Cats"}
                 emotion={record.emotion} time={formatTime(record.recordedAt)}
@@ -150,11 +165,11 @@ const styles = StyleSheet.create({
   grid: { marginTop: spacing.sm },
   recordsSheet: { backgroundColor: colors.white, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
     flex: 1, marginTop: spacing.md, overflow: "hidden", ...shadows.floating },
-  recordsHeader: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
-  recordsHeading: { ...typography.label, color: colors.textPrimary, letterSpacing: 1, flexShrink: 1 },
-  filterChip: { flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "100%", minHeight: 44,
+  recordsHeader: { flexDirection: "row", flexWrap: "nowrap", gap: spacing.xs, justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
+  recordsHeading: { ...typography.label, color: colors.textPrimary, letterSpacing: 1, flex: 1, minWidth: 0 },
+  filterChip: { flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "60%", minWidth: 0, flexShrink: 1, minHeight: 44,
     backgroundColor: colors.background, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  filterChipLabel: { ...typography.label, color: colors.textPrimary, flexShrink: 1 },
+  filterChipLabel: { ...typography.label, color: colors.textPrimary, flexShrink: 1, minWidth: 0 },
   birthday: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.sm },
   birthdayText: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   birthdayName: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
